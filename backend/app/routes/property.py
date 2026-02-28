@@ -1,6 +1,6 @@
 import os
 import json
-from fastapi import APIRouter, HTTPException, Depends, Response, Cookie
+from fastapi import APIRouter, HTTPException, Depends
 from dotenv import load_dotenv
 from pathlib import Path
 from sqlite3 import IntegrityError
@@ -11,6 +11,7 @@ from app.utils.postgres_utils import get_pg_db
 from app.models.property import Property
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
+from app.utils.image_utils import delete_property
 
 env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)
@@ -283,6 +284,14 @@ def _del_prop_prod(id: int, current_user = Depends(get_current_user)):
         prop = cursor.fetchone()
         if not prop:
             raise HTTPException(status_code=404, detail="Property to delete not found")
+        cursor.execute("SELECT * FROM images WHERE property_id=%s", (id,))
+        images = cursor.fetchall()
+        if images:
+            for img in images:
+                try:
+                    delete_property(img["filepath"])
+                except:
+                    pass
         cursor.execute("DELETE FROM property WHERE id=%s", (id,))
         conn.commit()
         conn.close()
@@ -302,6 +311,14 @@ def _del_prop_dev(id: int, current_user = Depends(get_current_user)):
         prop = cursor.fetchone()
         if not prop:
             raise HTTPException(status_code=404, detail="Property to delete not found")
+        cursor.execute("SELECT * FROM images WHERE property_id=?", (id,))
+        images = cursor.fetchall()
+        if images:
+            for img in images:
+                try:
+                    delete_property(img["filepath"])
+                except:
+                    pass
         cursor.execute("DELETE FROM property WHERE id=?", (id,))
         conn.commit()
         conn.close()
