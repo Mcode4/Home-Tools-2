@@ -1,6 +1,6 @@
 import os
 import json
-fastapi import APIRouter, HTTPException, Depends, Response, Cookie
+from fastapi import APIRouter, HTTPException, Depends, Response, Cookie
 from dotenv import load_dotenv
 from pathlib import Path
 
