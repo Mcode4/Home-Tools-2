@@ -3,6 +3,8 @@ import json
 from fastapi import APIRouter, HTTPException, Depends, Response, Cookie
 from dotenv import load_dotenv
 from pathlib import Path
+from sqlite3 import IntegrityError
+from psycopg2 import IntegrityError as PostgresError
 
 from app.db.db import get_db
 from app.utils.postgres_utils import get_pg_db
@@ -16,17 +18,6 @@ load_dotenv(env_path)
 PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
 
 router = APIRouter(prefix="/property", tags=["Property"])
-
-def deep_merge(original, patch):
-    for key, value in patch.items():
-        if (
-            key in original
-            and isinstance(value, dict)
-        ):
-            deep_merge(original[key], value)
-        else:
-            original[key] = value
-    return original
 
 # GET METHODS - ALL, BY ID
 @router.get("/all")
@@ -47,7 +38,7 @@ def all_properties(current_user = Depends(get_current_user)):
                 pass
         pinned_results.append(p)
     results = []
-    for row in properties["pinned"]:
+    for row in properties["others"]:
         p = dict(row)
         if p.get("details"):
             try:
@@ -55,7 +46,6 @@ def all_properties(current_user = Depends(get_current_user)):
             except:
                 pass
         results.append(p)
-    results = []
     return ResponseModel(True, "", {"pinned": pinned_results, "other": results})
 
     
@@ -63,9 +53,9 @@ def all_properties(current_user = Depends(get_current_user)):
 def _get_properties_prod(current_user = Depends(get_current_user)):
     conn = get_pg_db()
     cursor = conn.cursor()
-    cursor.execute("SELECRT * FROM property WHERE owner_id=%s AND pinned=1", (current_user["id"],))
+    cursor.execute("SELECT * FROM property WHERE owner_id=%s AND pinned=1", (current_user["id"],))
     pinned = cursor.fetchall()
-    cursor.execute("SELECRT * FROM property WHERE owner_id=%s AND pinned=0", (current_user["id"],))
+    cursor.execute("SELECT * FROM property WHERE owner_id=%s AND pinned=0", (current_user["id"],))
     properties = cursor.fetchall()
     conn.close()
     if not (pinned or properties):
@@ -74,11 +64,11 @@ def _get_properties_prod(current_user = Depends(get_current_user)):
 
 
 def _get_properties_dev(current_user = Depends(get_current_user)):
-    conn = get_pg_db()
+    conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECRT * FROM property WHERE owner_id=? AND pinned=1", (current_user["id"],))
+    cursor.execute("SELECT * FROM property WHERE owner_id=? AND pinned=1", (current_user["id"],))
     pinned = cursor.fetchall()
-    cursor.execute("SELECRT * FROM property WHERE owner_id=? AND pinned=0", (current_user["id"],))
+    cursor.execute("SELECT * FROM property WHERE owner_id=? AND pinned=0", (current_user["id"],))
     properties = cursor.fetchall()
     conn.close()
     if not (pinned or properties):
@@ -106,7 +96,7 @@ def get_property_by_id(id: int, current_user = Depends(get_current_user)):
 
 
 def _get_prop_prod(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
+    conn = get_pg_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM property WHERE id=%s", (id,))
     curr_prop = cursor.fetchone()
@@ -115,7 +105,7 @@ def _get_prop_prod(id: int, current_user = Depends(get_current_user)):
 
 
 def _get_prop_dev(id: int, current_user = Depends(get_current_user)):
-    conn = get_pg_db()
+    conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM property WHERE id=?", (id,))
     curr_prop = cursor.fetchone()
@@ -154,18 +144,16 @@ def _add_prop_prod(property: Property, current_user = Depends(get_current_user))
         prop = cursor.fetchone()
         conn.commit()
         conn.close()
-        result = {}
-        for row in prop:
-            if row == "details":
-                try:
-                    result["details"] = json.loads(prop["details"])
-                except:
-                    result["details"] = prop["details"]
-            else:
-                result[row] = prop[row]
-        return result
-    except Exception as e:
+        if prop.get("details"):
+            try:
+                prop["details"] = json.loads(prop["details"])
+            except:
+                prop["details"] = prop["details"]
+        return prop
+    except PostgresError as e:
         conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -181,33 +169,32 @@ def _add_prop_dev(property: Property, current_user = Depends(get_current_user)):
             INSERT INTO property
             (name, address, city, state, country, zip, owner_id, details)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?,)
-                RETURNING *
         """,
         (
             property.name, property.address, property.city, property.state,
             property.country, property.zip, current_user["id"], details,
         )
         )
-        prop = cursor.fetchone()
         conn.commit()
+        p_id = cursor.lastrowid
+        cursor.execute("SELECT * FROM property WHERE id=?", (p_id,))
+        prop = cursor.fetchone()
         conn.close()
-        result = {}
-        for row in prop:
-            if row == "details":
-                try:
-                    result["details"] = json.loads(prop["details"])
-                except:
-                    result["details"] = prop["details"]
-            else:
-                result[row] = prop[row]
-        return result
-    except Exception as e:
+        if prop.get("details"):
+            try:
+                prop["details"] = json.loads(prop["details"])
+            except:
+                prop["details"] = prop["details"]
+        return prop
+    except IntegrityError as e:
         conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
 
 # Edit Property
-@router.patch("{id}")
+@router.patch("/{id}")
 def edit_property(id: int, property: Property, current_user = Depends(get_current_user)):
     if PROJECT_ENV == "production":
         return _edit_prop_prod(id, property, current_user)
@@ -246,8 +233,9 @@ def _edit_prop_prod(id: int, property: Property, current_user = Depends(get_curr
     conn.close()
     return ResponseModel(True, "Property edited successfully")
 
+
 def _edit_prop_dev(id: int, property: Property, current_user = Depends(get_current_user)):
-    conn = get_pg_db()
+    conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM property WHERE id=?", (id,))
     curr_prop = cursor.fetchone()
@@ -277,6 +265,7 @@ def _edit_prop_dev(id: int, property: Property, current_user = Depends(get_curre
     conn.close()
     return ResponseModel(True, "Property edited successfully")
 
+
 # Delete Property
 @router.delete("/{id}")
 def delete_property(id: int, current_user = Depends(get_current_user)):
@@ -298,6 +287,9 @@ def _del_prop_prod(id: int, current_user = Depends(get_current_user)):
         conn.commit()
         conn.close()
         return ResponseModel(True, "Property successfully deleted")
+    except PostgresError as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -314,6 +306,9 @@ def _del_prop_dev(id: int, current_user = Depends(get_current_user)):
         conn.commit()
         conn.close()
         return ResponseModel(True, "Property successfully deleted")
+    except IntegrityError as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))

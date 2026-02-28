@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, HTTPException, Response, Cookie
 from sqlite3 import IntegrityError
-from psycopg2 import IntegrityError as PostreError
+from psycopg2 import IntegrityError as PostgresError
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 from pathlib import Path
@@ -79,7 +79,7 @@ def _register_prod(user: User):
         )
         conn.commit()
         conn.close()
-    except PostreError:
+    except PostgresError:
         conn.rollback()
         raise HTTPException(status_code=400, detail="User already exists")
     return ResponseModel(True, "User created")
