@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Response
-
+from app.routes.auth import router as auth_router
+from app.routes.property import router as property_router
+from app.routes.images import router as image_router
 
 router = APIRouter(prefix="/api", tags=["API"])
+
+router.include_router(auth_router)
+router.include_router(property_router)
+router.include_router(image_router)
 
 @router.get("/")
 def health_check():
