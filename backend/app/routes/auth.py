@@ -8,7 +8,7 @@ from pathlib import Path
 
 from app.db.db import get_db
 from app.utils.postgres_utils import get_pg_db
-from app.models.user import User
+from app.models.user import User, UserInfo
 from app.models.response_model import ResponseModel
 from app.utils.jwt import create_access_token, decode_access_token
 
@@ -74,8 +74,8 @@ def _register_prod(user: User):
     try:
         hashed_password = hash_password(user.password)
         cursor.execute(
-            "INSERT INTO users (email, password) VALUES (%s, %s)",
-            (user.email.strip(), hashed_password,)
+            "INSERT INTO users (email, password, name) VALUES (%s, %s)",
+            (user.email.strip(), hashed_password, "User",)
         )
         conn.commit()
         conn.close()
@@ -91,8 +91,8 @@ def _register_dev(user: User):
     try:
         hashed_password = hash_password(user.password)
         cursor.execute(
-            "INSERT INTO users (email, password) VALUES (?, ?)",
-            (user.email.strip(), hashed_password,)
+            "INSERT INTO users (email, password, name) VALUES (?, ?)",
+            (user.email.strip(), hashed_password, "User",)
         )
         conn.commit()
         conn.close()
