@@ -29,7 +29,7 @@ export function ModalProvider({ children }) {
     useEffect(()=> {
         const handleKeyDown = (e) => {
             if(e.key === "Escape") {
-                closeModal()
+                closeModal();
             }
         };
         
@@ -39,8 +39,19 @@ export function ModalProvider({ children }) {
 
     const openModal = (content) => {
         setModalContent(content);
-        document.body.classList.add("no-scroll")
+        document.body.classList.add("no-scroll");
     };
+
+    useEffect(()=> {
+        const handleKeyDown = (e) => {
+            if(e.key === "Escape") {
+                closeModal();
+            }
+        };
+        
+        document.addEventListener('keydown', handleKeyDown);
+        return ()=> document.removeEventListener('keydown', handleKeyDown);
+    }, [closeModal]);
 
     const contextValue = {
         modalRef,
@@ -61,7 +72,7 @@ export function ModalProvider({ children }) {
 }
 
 export function Modal() {
-    const { modalRef, modalContent, closeModal } = useContext;
+    const { modalRef, modalContent, closeModal } = useContext(ModalContext);
     if(!modalRef || !modalRef.current || !modalContent) return null;
 
     return ReactDOM.createPortal(
@@ -71,6 +82,7 @@ export function Modal() {
                 <button className="close-button">
                     ×
                 </button>
+                {modalContent}
             </div>
         </div>,
         modalRef.current

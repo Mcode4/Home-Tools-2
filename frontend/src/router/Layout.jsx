@@ -6,15 +6,13 @@ import Footer from "../components/Footer"
 
 export default function Layout() {
     return (
-        <>
             <ModalProvider>
                 <Navbar />
-                    <main>
-                        <Outlet />
-                    </main>
+                <main>
+                    <Outlet />
+                </main>
                 <Footer />
                 <Modal />
             </ModalProvider>
-        </>
     )
 }

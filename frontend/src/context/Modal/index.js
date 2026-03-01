@@ -1,2 +1,3 @@
 import { ModalProvider, Modal, useModal } from "./Modal";
-export { ModalProvider, Modal, useModal };
+import { ModalButton } from "./ModalButton";
+export { ModalProvider, Modal, useModal, ModalButton };
