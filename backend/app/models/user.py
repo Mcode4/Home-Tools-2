@@ -1,10 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 
 class User(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=25)
 
 class UserInfo(BaseModel):
-    name: Optional[str] = None
+    name: str
     phone: Optional[int] = None
+    password: str = Field(min_length=8, max_length=25)

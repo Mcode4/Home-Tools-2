@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, Dict
 
-class Floors(BaseModel):
+class Floor(BaseModel):
     owner_id: int
     property_id: int
     name: str
