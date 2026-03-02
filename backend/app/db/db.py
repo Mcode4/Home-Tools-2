@@ -17,7 +17,6 @@ def init_db():
         CREATE TABLE IF NOT EXISTS teams (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            roles TEXT NOT NULL,
             rules TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -30,6 +29,8 @@ def init_db():
             password TEXT NOT NULL,
             name TEXT,
             phone_number INTEGER,
+            bio TEXT,
+            profile_icon TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -50,6 +51,7 @@ def init_db():
             user_id INTEGER NOT NULL,
             team_id INTEGER NOT NULL,
             PRIMARY KEY (user_id, team_id),
+            roles TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
         );     
