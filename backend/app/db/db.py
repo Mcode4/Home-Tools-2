@@ -37,8 +37,11 @@ def init_db():
         # == NOTIFICATIONS =====================================
         CREATE TABLE IF NOT EXISTS notifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT UNIQUE NOT NULL,
+            sender_id INTEGER NOT NULL,
+            recipient_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
             message TEXT NOT NULL,
+            read INTEGER DEFAULT 0, # Read/Unread Status
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         );
 
