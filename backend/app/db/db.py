@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_NAME = "home=tools"
+DB_NAME = "home_tools.db"
 
 def get_db():
     conn = sqlite3.connect(DB_NAME, check_same_thread=True)
@@ -12,8 +12,7 @@ def init_db():
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.executescript("""
-        # == TEAMS ============================================           
+    cursor.executescript("""       
         CREATE TABLE IF NOT EXISTS teams (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
@@ -22,7 +21,6 @@ def init_db():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
                          
-        # == USERS TABLE ======================================
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
@@ -35,28 +33,25 @@ def init_db():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
                          
-        # == NOTIFICATIONS =====================================
         CREATE TABLE IF NOT EXISTS notifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sender_id INTEGER NOT NULL,
             recipient_id INTEGER NOT NULL,
             title TEXT NOT NULL,
             message TEXT NOT NULL,
-            read INTEGER DEFAULT 0, # Read/Unread Status
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            read INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
-        # == USERS/TEAMS =======================================
         CREATE TABLE IF NOT EXISTS user_teams (
             user_id INTEGER NOT NULL,
             team_id INTEGER NOT NULL,
-            PRIMARY KEY (user_id, team_id),
             roles TEXT NOT NULL,
+            PRIMARY KEY (user_id, team_id),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
         );     
-                    
-        # == HOME GROUPS ========================================           
+                             
         CREATE TABLE IF NOT EXISTS home_qroups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -66,7 +61,6 @@ def init_db():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
                          
-        # == PROPERTY TABLE =====================================
         CREATE TABLE IF NOT EXISTS property (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             owner_id INTEGER NOT NULL,
@@ -89,7 +83,6 @@ def init_db():
                 ON UPDATE CASCADE
         );
         
-        # == IMAGES TABLE =======================================
         CREATE TABLE IF NOT EXISTS images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             owner_id INTEGER INTEGER NOT NULL,
@@ -109,7 +102,6 @@ def init_db():
                 ON UPDATE CASCADE
         );
         
-        # == FLOORS TABLE =======================================
         CREATE TABLE IF NOT EXISTS floors (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             owner_id INTEGER NOT NULL,
@@ -125,12 +117,11 @@ def init_db():
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         );
-
-        # == SAVED TYPES ========================================           
+        
         CREATE TABLE IF NOT EXISTS saved_types (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL;
-            type TEXT NOT NULL;
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
             extra_info TEXT
         );
     """)

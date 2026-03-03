@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.db.db import get_db
 from app.utils.postgres_utils import get_pg_db
-from app.routes import logout_user
+from app.routes.auth import logout_user
 from app.routes.auth import get_current_user, verify_password, hash_password
 from app.models.user import User, UserInfo
 from app.models.response_model import ResponseModel

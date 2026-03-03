@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fast.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from app.db.db import init_db

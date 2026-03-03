@@ -1,4 +1,4 @@
-def ResponseModel(self, success: bool, message: str, data:dict=None):
+def ResponseModel(success: bool, message: str, data:dict=None):
         res = {
             "success": success,
             "message": message

@@ -42,5 +42,6 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
-  }
+  },
+  "proxy": "http://127.0.0.1:8000"
 }

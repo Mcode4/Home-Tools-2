@@ -12,7 +12,7 @@ from app.models.user import User, UserInfo
 from app.models.response_model import ResponseModel
 from app.utils.jwt import create_access_token, decode_access_token
 
-env_path = Path(__file__).resolve().parents()[3] / ".env"
+env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)
 
 PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
@@ -27,7 +27,7 @@ def validate_password(plain_password):
     ALLOWED = set(f"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{SYMBOL}")
     if not all(c in ALLOWED for c in plain_password):
         raise HTTPException(status_code=400, detail=f'Password contains characters not allowed. Only A-Z, 0-9, and !@#$%?.-')
-    if len(plain_password) > 8 or len(plain_password) < 25:
+    if len(plain_password) < 8 or len(plain_password) > 25:
         raise HTTPException(status_code=400, detail="Password be between 5 and 25 character")
     def is_valid(p: str) -> bool:
         return (
@@ -74,14 +74,16 @@ def _register_prod(user: User):
     try:
         hashed_password = hash_password(user.password)
         cursor.execute(
-            "INSERT INTO users (email, password, name) VALUES (%s, %s)",
+            "INSERT INTO users (email, password, name) VALUES (%s, %s, %s)",
             (user.email.strip(), hashed_password, "User",)
         )
         conn.commit()
         conn.close()
     except PostgresError:
         conn.rollback()
-        raise HTTPException(status_code=400, detail="User already exists")
+        raise HTTPException(status_code=500, detail="User already exists")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return ResponseModel(True, "User created")
 
 
@@ -91,14 +93,16 @@ def _register_dev(user: User):
     try:
         hashed_password = hash_password(user.password)
         cursor.execute(
-            "INSERT INTO users (email, password, name) VALUES (?, ?)",
+            "INSERT INTO users (email, password, name) VALUES (?, ?, ?)",
             (user.email.strip(), hashed_password, "User",)
         )
         conn.commit()
         conn.close()
     except IntegrityError:
         conn.rollback()
-        raise HTTPException(status_code=400, detail="User already exists")
+        raise HTTPException(status_code=500, detail="User already exists")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return ResponseModel(True, "User created")
 
 
@@ -134,7 +138,11 @@ def _login_prod(user: User, response: Response):
         secure=True,
         path="/"
     )
-    return ResponseModel(True, "User logged in successfully")
+    user_obj = {}
+    for key in dict(db_user):
+        if key != "password":
+            user_obj[f"{key}"] = db_user[f"{key}"]
+    return ResponseModel(True, "User logged in successfully", {"db_user": user_obj})
 
 
 def _login_dev(user: User, response: Response):
@@ -156,11 +164,15 @@ def _login_dev(user: User, response: Response):
         value=access_token,
         httponly=True,
         max_age=60*60,
-        samesite="none",
-        secure=True,
+        samesite="lax",
+        secure=False,
         path="/"
     )
-    return ResponseModel(True, "User logged in successfully")
+    user_obj = {}
+    for key in dict(db_user):
+        if key != "password":
+            user_obj[f"{key}"] = db_user[f"{key}"]
+    return ResponseModel(True, "User logged in successfully",  {"db_user": user_obj})
 
 
 # Verify User
@@ -169,8 +181,9 @@ def get_current_user(
     response: Response, 
     access_token: str | None = Cookie(None, alias="access_token")
 ):
+    print("HITTTT")
     if not access_token:
-        raise HTTPException(status_code=401, detail="Not authenticated-ses")
+        raise HTTPException(status_code=401, detail="Not authenticated session")
     payload = decode_access_token(access_token)
     if not payload:
         response.delete_cookie("access_token", path="/")
@@ -192,5 +205,29 @@ def get_current_user(
     if not user:
         response.delete_cookie("access_token", path="/")
         raise HTTPException(status_code=401, detail="User not found")
-    return ResponseModel(True, "", data={"id": user["id"], "email": user["email"]})
+    return {"id": user["id"], "email": user["email"]}
 
+@router.delete("/session")
+def logout_user(response: Response):
+    if PROJECT_ENV == "production":
+        response.set_cookie(
+            key="access_token",
+            value="",
+            httponly=True,
+            max_age=0,
+            samesite="none",
+            secure=True,
+            path="/"
+        )
+    if PROJECT_ENV == "development":
+        response.set_cookie(
+            key="access_token",
+            value="",
+            httponly=True,
+            max_age=0,
+            samesite="lax",
+            secure=False,
+            path="/"
+        )
+    response.delete_cookie("access_token", path="/")
+    return {"message": "Logged out successfully"}

@@ -6,16 +6,20 @@ import propertiesReducer from "./properties"
 import floorsReducer from "./floors"
 import imagesReducer from "./images"
 
-const rootReducer = combineReducers({
-    session: sessionReducer,
-    users: usersReducer,
-    properties: propertiesReducer,
-    floors: floorsReducer,
-    images: imagesReducer
-})
+// const rootReducer = combineReducers({
+//     session: sessionReducer,
+//     users: usersReducer,
+//     properties: propertiesReducer,
+//     floors: floorsReducer,
+//     images: imagesReducer
+// })
 
 export const reduxStore = configureStore({
     reducer: {
-        root: rootReducer
+        session: sessionReducer,
+        users: usersReducer,
+        properties: propertiesReducer,
+        floors: floorsReducer,
+        images: imagesReducer
     }
 })

@@ -17,9 +17,35 @@ code {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding: 10px;
+  /* padding: 10px; */
 }
 
 main {
   flex: 1
+}
+
+/* Login/Sign Forms */
+.session-background {
+  display: flex;
+  height: max-content; /*Height not filling main*/
+  background-color: lightgray;
+  justify-content: center;
+  align-items: center;
+}
+
+
+.session-form {
+  display: flex;
+  flex-direction: column;
+  width: 60vw;
+  background-color: gray;
+  padding: 10px;
+  border-radius: 10px;
+  gap: 5px;
+}
+
+.session-form > button {
+  margin-top: 20px;
+  width: 50%;
+  align-self: center;
 }

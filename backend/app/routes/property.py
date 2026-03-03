@@ -11,7 +11,7 @@ from app.utils.postgres_utils import get_pg_db
 from app.models.property import Property
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
-from app.utils.image_utils import delete_property
+from app.utils.image_utils import delete_image
 
 env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)

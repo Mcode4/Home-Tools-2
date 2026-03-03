@@ -1,0 +1,1 @@
+export const DEMO_BACKEND_API = 'http://127.0.0.1:8000';
