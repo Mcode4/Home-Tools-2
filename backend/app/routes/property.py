@@ -47,7 +47,7 @@ def all_properties(current_user = Depends(get_current_user)):
             except:
                 pass
         results.append(p)
-    return ResponseModel(True, "", {"pinned": pinned_results, "other": results})
+    return ResponseModel(True, "", {properties: {"pinned": pinned_results, "other": results}})
 
     
     
@@ -150,7 +150,7 @@ def _add_prop_prod(property: Property, current_user = Depends(get_current_user))
                 prop["details"] = json.loads(prop["details"])
             except:
                 prop["details"] = prop["details"]
-        return prop
+        return ResponseModel(True, "", {"property": prop})
     except PostgresError as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -186,7 +186,7 @@ def _add_prop_dev(property: Property, current_user = Depends(get_current_user)):
                 prop["details"] = json.loads(prop["details"])
             except:
                 prop["details"] = prop["details"]
-        return prop
+        return ResponseModel(True, "", {"property": prop})
     except IntegrityError as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -231,8 +231,10 @@ def _edit_prop_prod(id: int, property: Property, current_user = Depends(get_curr
     )
     )
     conn.commit()
+    cursor.execute("SELECT * FROM property WHERE id=%s", (id,))
+    curr_prop = cursor.fetchone()
     conn.close()
-    return ResponseModel(True, "Property edited successfully")
+    return ResponseModel(True, "Property edited successfully", {"property": curr_prop})
 
 
 def _edit_prop_dev(id: int, property: Property, current_user = Depends(get_current_user)):
@@ -263,8 +265,10 @@ def _edit_prop_dev(id: int, property: Property, current_user = Depends(get_curre
     )
     )
     conn.commit()
+    cursor.execute("SELECT * FROM property WHERE id=?", (id,))
+    curr_prop = cursor.fetchone()
     conn.close()
-    return ResponseModel(True, "Property edited successfully")
+    return ResponseModel(True, "Property edited successfully", {"property": curr_prop})
 
 
 # Delete Property

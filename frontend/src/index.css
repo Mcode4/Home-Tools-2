@@ -49,3 +49,7 @@ main {
   width: 50%;
   align-self: center;
 }
+
+li {
+  list-style: none;
+}

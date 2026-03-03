@@ -79,7 +79,7 @@ export function Modal() {
         <div id="modal">
             <div id="modal-background" onClick={closeModal} />
             <div id="modal-content">
-                <button className="close-button">
+                <button className="close-button" onClick={closeModal}>
                     ×
                 </button>
                 {modalContent}

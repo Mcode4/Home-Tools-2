@@ -34,7 +34,7 @@ export default function Navbar() {
         e.preventDefault();
         const logout = await dispatch(thunkLogout())
         if(logout.success) {
-            console.log("SUCCESS LOGOUT", logout.success)
+            console.log("SUCCESS LOGOUT", logout)
         } else {
             console.log("FAILED LOGOUT", logout)
         }

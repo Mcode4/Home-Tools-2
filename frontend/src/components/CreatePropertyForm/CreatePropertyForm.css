@@ -1,0 +1,14 @@
+#create-prop-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+#create-prop-form > input {
+    width: 100%;
+}
+
+.address-choice:hover {
+    cursor: pointer;
+    background-color: gray;
+}

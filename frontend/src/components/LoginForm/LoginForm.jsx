@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useModal } from "../../context/Modal";
-
 import './LoginForm.css';
 
 export default function LoginForm() {
