@@ -8,9 +8,8 @@ const setUser = (user) => ({
     payload: user
 })
 
-const removeUser = (user) => ({
-    type: REMOVE_USER,
-    payload: user
+const removeUser = () => ({
+    type: REMOVE_USER
 })
 
 
@@ -61,15 +60,17 @@ export const thunkLogin = (credentials) => async (dispatch) => {
 }
 
 export const thunkLogout = () => async (dispatch) => {
-    const res = await fetch(`/auth/session`, {
+    const res = await fetch(`/api/auth/session`, {
         method: "DELETE"
     });
+    const data = await res.json();
     if(res.ok) {
-        const data = res.json();
-        console.log("LOGOUT DATA", data);
-
-        await dispatch(removeUser());
-    };
+        console.log("SIGNUP DATA", data);
+        await dispatch(removeUser())
+    } else {
+        console.log("RESS ERROR", data);
+    }
+    return data
 }
 
 const initialState = {user: null}

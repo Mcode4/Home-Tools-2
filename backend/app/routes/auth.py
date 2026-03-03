@@ -230,4 +230,4 @@ def logout_user(response: Response):
             path="/"
         )
     response.delete_cookie("access_token", path="/")
-    return {"message": "Logged out successfully"}
+    return ResponseModel(True, "Logged out successfully")

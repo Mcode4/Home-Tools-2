@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom"; 
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { useEffect, useRef } from "react";
+import { thunkLogout } from "../../redux/session";
 import { ModalButton } from "../../context/Modal";
 import LoginForm from "../LoginForm/LoginForm";
 import SignupForm from "../SignupForm/SignupForm";
@@ -11,6 +12,7 @@ export default function Navbar() {
     const navigate = useNavigate();
     const location = useLocation();
     const startLocations = useRef(new Set(["/", "", "/login", "/signup"]));
+    const dispatch = useDispatch();
     
 
     useEffect(()=> {
@@ -27,6 +29,16 @@ export default function Navbar() {
             };
         }
     }, [user, location]);
+
+    const logout = async (e) => {
+        e.preventDefault();
+        const logout = await dispatch(thunkLogout())
+        if(logout.success) {
+            console.log("SUCCESS LOGOUT", logout.success)
+        } else {
+            console.log("FAILED LOGOUT", logout)
+        }
+    }
 
     return (
         <div id="navbar">
@@ -49,7 +61,7 @@ export default function Navbar() {
             ) : (
                 <div className="nav-actions">
                     <button>Profile</button>
-                    <button>Logout</button>
+                    <button onClick={logout}>Logout</button>
                 </div>
             )}
         </div>
