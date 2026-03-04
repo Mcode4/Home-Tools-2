@@ -209,70 +209,90 @@ def edit_property(id: int, property: Property, current_user = Depends(get_curren
 def _edit_prop_prod(id: int, property: Property, current_user = Depends(get_current_user)):
     conn = get_pg_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM property WHERE id=%s", (id,))
-    curr_prop = cursor.fetchone()
-    if not curr_prop:
+    try:
+        cursor.execute("SELECT * FROM property WHERE id=%s", (id,))
+        curr_prop = cursor.fetchone()
+        if not curr_prop:
+            conn.close()
+            raise HTTPException(status_code=404, detail=f"Property with ID {id} not found")
+        if curr_prop["owner_id"] != current_user["id"]:
+            conn.close()
+            raise HTTPException(status_code=403, detail="You do not have permission to access this property")
+        cursor.execute(
+        """
+        UPDATE property
+        SET name=%s, address=%s, city=%s, county=%s, state=%s, zip=%s, lat=%s, lng=%s, pinned=%s, details=%s
+        WHERE id=%a
+        """,
+        (
+            property.name,
+            property.address,
+            property.city,
+            property.county,
+            property.state,
+            property.zip,
+            property.lat,
+            property.lng,
+            property.pinned,
+            property.details,
+            id,
+        )
+        )
+        conn.commit()
+        cursor.execute("SELECT * FROM property WHERE id=%s", (id,))
+        curr_prop = cursor.fetchone()
         conn.close()
-        raise HTTPException(status_code=404, detail=f"Property with ID {id} not found")
-    if curr_prop["owner_id"] != current_user["id"]:
-        conn.close()
-        raise HTTPException(status_code=403, detail="You do not have permission to access this property")
-    cursor.execute(
-    """
-    UPDATE property
-    SET name=%s, address=%s, city=%s, state=%s, zip=%s, details=%s::jsonb
-    WHERE id=%s
-    """,
-    (
-        property.name,
-        property.address,
-        property.city,
-        property.state,
-        property.zip,
-        property.details,
-        id,
-    )
-    )
-    conn.commit()
-    cursor.execute("SELECT * FROM property WHERE id=%s", (id,))
-    curr_prop = cursor.fetchone()
-    conn.close()
-    return ResponseModel(True, "Property edited successfully", {"property": curr_prop})
+        return ResponseModel(True, "Property edited successfully", {"property": curr_prop})
+    except PostgresError as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 def _edit_prop_dev(id: int, property: Property, current_user = Depends(get_current_user)):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM property WHERE id=?", (id,))
-    curr_prop = cursor.fetchone()
-    if not curr_prop:
+    try:
+        cursor.execute("SELECT * FROM property WHERE id=?", (id,))
+        curr_prop = cursor.fetchone()
+        if not curr_prop:
+            conn.close()
+            raise HTTPException(status_code=404, detail=f"Property with ID {id} not found")
+        if curr_prop["owner_id"] != current_user["id"]:
+            conn.close()
+            raise HTTPException(status_code=403, detail="You do not have permission to access this property")
+        cursor.execute(
+        """
+        UPDATE property
+        SET name=?, address=?, city=?, county=?, state=?, zip=?, lat=?, lng=?, pinned=?, details=?
+        WHERE id=?
+        """,
+        (
+            property.name,
+            property.address,
+            property.city,
+            property.county,
+            property.state,
+            property.zip,
+            property.lat,
+            property.lng,
+            property.pinned,
+            property.details,
+            id,
+        )
+        )
+        conn.commit()
+        cursor.execute("SELECT * FROM property WHERE id=?", (id,))
+        curr_prop = cursor.fetchone()
         conn.close()
-        raise HTTPException(status_code=404, detail=f"Property with ID {id} not found")
-    if curr_prop["owner_id"] != current_user["id"]:
-        conn.close()
-        raise HTTPException(status_code=403, detail="You do not have permission to access this property")
-    cursor.execute(
-    """
-    UPDATE property
-    SET name=?, address=?, city=?, state=?, zip=?, details=?::jsonb
-    WHERE id=?
-    """,
-    (
-        property.name,
-        property.address,
-        property.city,
-        property.state,
-        property.zip,
-        property.details,
-        id,
-    )
-    )
-    conn.commit()
-    cursor.execute("SELECT * FROM property WHERE id=?", (id,))
-    curr_prop = cursor.fetchone()
-    conn.close()
-    return ResponseModel(True, "Property edited successfully", {"property": curr_prop})
-
+        return ResponseModel(True, "Property edited successfully", {"property": curr_prop})
+    except IntegrityError as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
 
 # Delete Property
 @router.delete("/{id}")

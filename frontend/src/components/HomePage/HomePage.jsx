@@ -9,7 +9,6 @@ import "./HomePage.css"
 export default function HomePage() {
     const data = useSelector(store => store.properties);
     const [images, setImages] = useState(null);
-    const [loaded, setLoaded] = useState(false);
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
@@ -27,8 +26,7 @@ export default function HomePage() {
         };
     }
 
-    return (<>
-    {loaded && (
+    return (
         <div id="home-page">
             <ModalButton
                 modalComponent={<CreatePropertyForm />}
@@ -71,7 +69,10 @@ export default function HomePage() {
 
                         <div className="property-actions">
                             <button>Map</button>
-                            <button>Edit</button>
+                            <ModalButton
+                                modalComponent={<CreatePropertyForm id={prop.id} />}
+                                itemText={"Edit"} 
+                            />
                             <button onClick={(e)=> handleDelete(e, prop.id)}>Delete</button>
                         </div>
                     </div>
@@ -89,6 +90,5 @@ export default function HomePage() {
                 </p>
             )}
         </div>
-    )}
-    </>)
+    )
 }

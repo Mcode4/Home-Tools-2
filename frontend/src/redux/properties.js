@@ -83,7 +83,7 @@ export const thunkEditProperty = (id, propObj) => async(dispatch) => {
     const res = await fetch(`/api/property/${id}`, {
         method: "PATCH",
         headers: {"Content-Type": "application/json"},
-        body: propObj,
+        body: JSON.stringify(propObj),
         credentials: "include"
     })
     const check = await checkAndReturnRes(res);

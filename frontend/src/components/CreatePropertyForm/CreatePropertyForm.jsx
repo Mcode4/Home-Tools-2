@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { useModal } from "../../context/Modal";
-import { thunkCreateProperty } from "../../redux/properties";
+import { thunkCreateProperty, thunkEditProperty } from "../../redux/properties";
 import "./CreatePropertyForm.css";
 
-export default function CreatePropertyForm() {
-    const navigate = useNavigate();
+export default function CreatePropertyForm({id}) {
+    const properties = useSelector(store => store.properties);
     const dispatch = useDispatch();
     const { closeModal } = useModal();
     const [name, setName] = useState('');
@@ -18,7 +17,6 @@ export default function CreatePropertyForm() {
     const [country, setCountry] = useState(null);
     const [lat, setLat] = useState(null);
     const [lng, setLng] = useState(null);
-    const [active, setActive] = useState(false);
     const [groupActive, setGroupActive] = useState(null);
     const [group, setGroup] = useState(null);
     const [pinned, setPinned] = useState(false);
@@ -27,10 +25,53 @@ export default function CreatePropertyForm() {
     const [suggestions, setSuggestions] = useState([]);
     const [suggestionsActive, setSuggestionsActive] = useState(false);
     const [displayAddress, setDisplayAddress] = useState(null);
+    const active = useRef(false);
 
     useEffect(()=> {
-        console.log("ACTIVE", active);
-    }, [active]);
+        if(!id) return;
+        if(!properties.other || !properties.pinned) return;
+
+        const property =
+            properties.pinned.find(p => p.id === id) ||
+            properties.other.find(p => p.id === id);
+
+        if(!property) {
+            console.log("No properties found with id:", id)
+            return;
+        };
+
+        setName(property.name || null);
+        setAddress(property.address || null);
+        setCity(property.city || null);
+        setCounty(property.county || null);
+        setState(property.state || null);
+        setCountry(property.country || null);
+        setZip(property.zip || null);
+        setLat(property.lat);
+        setLng(property.lng);
+        
+        const savedAddress = [
+            property.address, property.city, property.state,
+            property.county, property.country, property.zip,
+        ].filter(Boolean).join(", ");
+
+        setDisplayAddress(savedAddress);
+        setSearchAddress(savedAddress);
+
+        if(property.pinned || property.group) {
+            active.current = true;
+            setPinned(property.pinned);
+            if(property.group) {
+                setGroupActive(true);
+                setGroup(property.group);
+            };
+        };
+
+    }, [])
+
+    useEffect(()=> {
+        console.log("ACTIVE", active.current);
+    }, [active.current]);
 
     useEffect(()=> {
         console.log("SUGGESTIONS", suggestions);
@@ -180,11 +221,17 @@ export default function CreatePropertyForm() {
                 zip
             };
 
-            if(active) {
+            if(active.current) {
                 prop["pinned"] = pinned;
                 // Group logic later
             }
-            const res = await dispatch(thunkCreateProperty(prop));
+            let res
+            console.log("BEFORE RETURN", prop)
+            if (id) {
+                res = await dispatch(thunkEditProperty(id, prop))
+            } else {
+                res = await dispatch(thunkCreateProperty(prop));
+            }
             console.log("RESSS CREATE FORM", res);
             if(res.success) {
                 closeModal();
@@ -200,7 +247,7 @@ export default function CreatePropertyForm() {
 
     return (
         <>
-        <h2>Create Property</h2>
+        {id ? (<h2>Edit Property</h2>): (<h2>Create Property</h2>)}
 
         <form id="create-prop-form" onSubmit={handleSubmit}>
 
@@ -251,15 +298,14 @@ export default function CreatePropertyForm() {
                     name="address" 
                     id="create-prop-address" 
                     value={displayAddress} 
-                    required
                     disabled
                 />
             </div>
             
             {err.address && (<p>{err.address}</p>)}
             
-            <details>
-                <summary>Advanced</summary>
+            <details open={active.current}>
+                <summary onClick={()=> active.current = !active.current}>Advanced</summary>
                 <ul id="extra-create-selection">
                     <li>
                         <input 
