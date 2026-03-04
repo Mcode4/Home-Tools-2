@@ -18,7 +18,7 @@ load_dotenv(env_path)
 
 PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
 
-router = APIRouter(prefix="/property", tags=["Property"])
+router = APIRouter(prefix="/property", tags=["Property"], redirect_slashes=False)
 
 # GET METHODS - ALL, BY ID
 @router.get("/all")
@@ -47,7 +47,8 @@ def all_properties(current_user = Depends(get_current_user)):
             except:
                 pass
         results.append(p)
-    return ResponseModel(True, "", {properties: {"pinned": pinned_results, "other": results}})
+        # print("RESULTS", {"pinned": pinned_results, "other": results})
+    return ResponseModel(True, "", {"properties": {"pinned": pinned_results, "other": results}})
 
     
     
@@ -117,6 +118,8 @@ def _get_prop_dev(id: int, current_user = Depends(get_current_user)):
 # CREATE PROPERTY
 @router.post("/")
 def create_property(property: Property, current_user = Depends(get_current_user)):
+    print("PROJECT ENV:", PROJECT_ENV)
+    print("CURRENT USER:", current_user)
     if PROJECT_ENV == "production":
         return _add_prop_prod(property, current_user)
     if PROJECT_ENV == "development":
@@ -124,6 +127,7 @@ def create_property(property: Property, current_user = Depends(get_current_user)
     
 
 def _add_prop_prod(property: Property, current_user = Depends(get_current_user)):
+   
     conn = get_pg_db()
     cursor = conn.cursor()
     try:
@@ -133,13 +137,12 @@ def _add_prop_prod(property: Property, current_user = Depends(get_current_user))
         cursor.execute(
         """
             INSERT INTO property
-            (name, address, city, state, country, zip, owner_id, details)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s,)
-                RETURNING *
+            (name, address, city, county, state, country, zip, owner_id, lat, lng, details)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
-            property.name, property.address, property.city, property.state,
-            property.country, property.zip, current_user["id"], details,
+            property.name, property.address, property.city, property.county, property.state,
+            property.country, property.zip, current_user["id"], property.lat, property.lng, details,
         )
         )
         prop = cursor.fetchone()
@@ -168,12 +171,12 @@ def _add_prop_dev(property: Property, current_user = Depends(get_current_user)):
         cursor.execute(
         """
             INSERT INTO property
-            (name, address, city, state, country, zip, owner_id, details)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?,)
+            (name, address, city, county, state, country, zip, owner_id, lat, lng, details)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            property.name, property.address, property.city, property.state,
-            property.country, property.zip, current_user["id"], details,
+            property.name, property.address, property.city, property.county, property.state,
+            property.country, property.zip, current_user["id"], property.lat, property.lng, details,
         )
         )
         conn.commit()
@@ -181,7 +184,7 @@ def _add_prop_dev(property: Property, current_user = Depends(get_current_user)):
         cursor.execute("SELECT * FROM property WHERE id=?", (p_id,))
         prop = cursor.fetchone()
         conn.close()
-        if prop.get("details"):
+        if prop["details"]:
             try:
                 prop["details"] = json.loads(prop["details"])
             except:

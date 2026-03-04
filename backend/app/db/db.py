@@ -52,7 +52,7 @@ def init_db():
             FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
         );     
                              
-        CREATE TABLE IF NOT EXISTS home_qroups (
+        CREATE TABLE IF NOT EXISTS home_groups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             type TEXT NOT NULL,
@@ -65,11 +65,14 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             owner_id INTEGER NOT NULL,
             name TEXT NOT NULL,
-            address TEXT NOT NULL,
-            city TEXT NOT NULL,
-            state TEXT NOT NULL,
-            country TEXT NOT NULL,
-            zip INTEGER NOT NULL,
+            address TEXT,
+            city TEXT,
+            county TEXT,
+            state TEXT,
+            country TEXT,
+            zip INTEGER,
+            lat INTEGER NOT NULL,
+            lng INTEGER NOT NULL,
             group_id INTEGER,
             details TEXT,
             pinned INTEGER DEFAULT 0,

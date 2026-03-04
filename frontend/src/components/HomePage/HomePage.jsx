@@ -26,6 +26,7 @@ export default function HomePage() {
                 const propData = await dispatch(thunkGetAllProperties());
                 if(propData.success) {
                     console.log("SUCCESS HOME DATA", propData);
+                    setData(propData.data.properties)
                 } else {
                     console.log("FAILED HOME DATA", propData);
                 };
@@ -92,7 +93,7 @@ export default function HomePage() {
                         <div className="property-actions">
                             <button>Map</button>
                             <button>Edit</button>
-                            <button>Delete</button>
+                            <button onClick={(e)=> handleDelete(e, prop.id)}>Delete</button>
                         </div>
                     </div>
                 ))}

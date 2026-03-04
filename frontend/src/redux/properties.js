@@ -5,9 +5,9 @@ const LOAD_PROPERTIES = 'properties/loadProperties';
 const EDIT_PROPERTY = 'properties/editProperty';
 const REMOVE_PROPERTY = 'properties/removeProperty';
 
-const createProperty = (property) => ({
+const createProperty = (pinned, property) => ({
     type: CREATE_PROPERTY,
-    payload: property
+    payload: {pinned, property}
 })
 
 const loadProperties = (properties) => ({
@@ -31,7 +31,8 @@ export const thunkGetAllProperties = () => async(dispatch) => {
         method: "GET",
         credentials: "include"
     });
-    const check = checkAndReturnRes(res);
+    const check = await checkAndReturnRes(res);
+    console.log("CHECK", check)
     if(check.ok) {
         await dispatch(loadProperties(check.data.data.properties))
     }
@@ -64,9 +65,13 @@ export const thunkCreateProperty = (propObj) => async(dispatch) => {
         body: JSON.stringify(propObj),
         credentials: "include"
     });
-    const check = checkAndReturnRes(res);
+    const check = await checkAndReturnRes(res);
     if(check.ok) {
-        await dispatch(createProperty(check.data.data.property))
+        let pin = false
+        if(propObj.pinned) {
+            pin = true
+        }
+        await dispatch(createProperty(pin, check.data.data.property))
     }
 
     return check.data;
@@ -81,7 +86,7 @@ export const thunkEditProperty = (id, propObj) => async(dispatch) => {
         body: propObj,
         credentials: "include"
     })
-    const check = checkAndReturnRes(res);
+    const check = await checkAndReturnRes(res);
     if(check.ok) {
         await dispatch(editProperty(id, check.data.data.property))
     }
@@ -96,7 +101,7 @@ export const thunkDeleteProperty = (id) => async(dispatch) => {
         method: "DELETE",
         credentials: "include"
     })
-    const check = checkAndReturnRes(res);
+    const check = await checkAndReturnRes(res);
     if(check.ok) {
         await dispatch(removeProperty(id))
     }
@@ -110,12 +115,15 @@ const initialState = {pinned: [], other: []} // {properties: {properties: [], sh
 export default function propertiesReducer(state=initialState, action) {
     switch(action.type) {
         case CREATE_PROPERTY:
-            return
+            if(action.payload.pinned) {
+                return {...state, pinned: [...state.pinned, action.payload.property]}
+            }
+            return {...state, other: [...state.other, action.payload.property]}
         case LOAD_PROPERTIES:
             return {
                 ...state,
-                pinned: action.pinned,
-                other: action.other
+                pinned: action.payload.pinned,
+                other: action.payload.other
             }
         case EDIT_PROPERTY:
             return
