@@ -126,9 +126,15 @@ export default function propertiesReducer(state=initialState, action) {
                 other: action.payload.other
             }
         case EDIT_PROPERTY:
-            return
+            return {...state,
+                pinned: state.pinned.map(p => p.id === action.payload.id ? action.payload.property : p),
+                other: state.other.map(p => p.id === action.payload.id ? action.payload.property : p)
+            }
         case REMOVE_PROPERTY:
-            return
+            return {...state,
+                pinned: state.pinned.filter(p => p.id !== action.payload),
+                other: state.other.filter(p => p.id !== action.payload)
+            }
         default:
             return state
     }

@@ -7,36 +7,15 @@ import CreatePropertyForm from "../CreatePropertyForm/CreatePropertyForm";
 import "./HomePage.css"
 
 export default function HomePage() {
-    const [data, setData] = useState(
-        useSelector(store => store.properties)
-    );
+    const data = useSelector(store => store.properties);
     const [images, setImages] = useState(null);
     const [loaded, setLoaded] = useState(false);
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
     useEffect(()=> {
-        console.log("HOME PAGE DATA", data)
-        if(!data.pinned.length && !data.other.length) {
-            loadData();
-        };
-        async function loadData() {
-            console.log("LOADING HOME DATA");
-            try {
-                const propData = await dispatch(thunkGetAllProperties());
-                if(propData.success) {
-                    console.log("SUCCESS HOME DATA", propData);
-                    setData(propData.data.properties)
-                } else {
-                    console.log("FAILED HOME DATA", propData);
-                };
-            } catch(e) {
-                console.log("ERROR OCCURED WHILE LOADING HOME DATA", e);
-            } finally {
-                setLoaded(true);
-            };
-        };
-    }, [data])
+        dispatch(thunkGetAllProperties());
+    }, [dispatch]);
 
     const handleDelete = async(e, id) => {
         e.preventDefault();

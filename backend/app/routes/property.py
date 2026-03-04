@@ -312,10 +312,11 @@ def _del_prop_prod(id: int, current_user = Depends(get_current_user)):
 
 def _del_prop_dev(id: int, current_user = Depends(get_current_user)):
     try:
-        conn = get_pg_db()
+        conn = get_db()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM property WHERE id=? AND owner_id=?", (id, current_user["id"],))
         prop = cursor.fetchone()
+        print("DELETE PROP", prop)
         if not prop:
             raise HTTPException(status_code=404, detail="Property to delete not found")
         cursor.execute("SELECT * FROM images WHERE property_id=?", (id,))
@@ -334,5 +335,4 @@ def _del_prop_dev(id: int, current_user = Depends(get_current_user)):
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
