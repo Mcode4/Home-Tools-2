@@ -33,16 +33,56 @@
 
 /* Editor Main */
 .app-slider {
-    position: relative;
+    display: flex;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
     z-index: 2;
+
+    height: 100%;
+    width: 200px;
+
+    background: rgba(255, 255, 255, 0.9);
 }
 
 .popup-span {
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
     z-index: 2;
-    width: 300px;
+    height: 100%;
 }
 
+/* Menu */
+.menu {
+    display: flex;
+    flex-direction: column;
+    width: 80px;
+    padding: 0;
+    margin: 0;
+    border: 1px solid #ccc;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.menu li {
+    padding: 10px;
+    cursor: pointer;
+}
+
+.menu-tools {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+    justify-content: flex-start;
+    align-items: center;
+}
 
 /* Popups */
 .popup {

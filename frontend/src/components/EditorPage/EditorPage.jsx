@@ -17,6 +17,7 @@ export default function EditorPage() {
     });
     const [lngLat, setLngLat] = useState([-83.5, 32.9]);
     const [markers, setMarkers] = useState([]); // [{id: propertyId: int(1), lngLat: [lng, lat]}, {...}]
+    const [menu, setMenu] = useState("map") // "map", "draw", "screen", "teams"
     const dispatch = useDispatch();
 
     // TESTING
@@ -28,6 +29,10 @@ export default function EditorPage() {
         console.log("LNG LAT CHANGED", lngLat);
     }, [lngLat]);
 
+    useEffect(()=> {
+        console.log("MENU CHANGED", menu);
+    }, [menu]);
+
     // On Load/Properties Changed
     useEffect(()=> {
         if(properties.pinned.length || properties.other.length) return;
@@ -36,7 +41,7 @@ export default function EditorPage() {
 
     useEffect(()=> {
         console.log("Properties", properties);
-        if(!properties.pinned.length && !properties.other.length) return;
+        if (!properties.pinned.length && !properties.other.length) return;
         
         let property;
         const allMarkers = [];
@@ -69,8 +74,26 @@ export default function EditorPage() {
         </div>
         <div id="editor-main">
             <div className="app-slider">
-                <ul className="menu"></ul>
-                <ul className="menu-tools"></ul>
+                <ul className="menu">
+                    <li onClick={()=> setMenu("map")}>
+                        Map
+                    </li>
+                    <li onClick={()=> setMenu("draw")}>
+                        Draw
+                    </li>
+                    <li onClick={()=> setMenu("view")}>
+                        View
+                    </li>
+                    <li onClick={()=> setMenu("teams")}>
+                        Teams
+                    </li>
+                </ul>
+                <ul className="menu-tools">
+                    <li id="menu-item-map">1</li>
+                    <li id="menu-item-draw">2</li>
+                    <li id="menu-item-view">3</li>
+                    <li id="menu-item-teams">4</li>
+                </ul>
             </div>
 
             <span className="popup-span">
