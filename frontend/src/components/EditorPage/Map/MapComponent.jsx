@@ -1,40 +1,24 @@
-import { useEffect, useRef } from "react";
-import { useSelector } from "react-redux";
-import { useLocation } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import 'maplibre-gl/dist/maplibre-gl.css';
+import "./MapComponent.css"
 
-export default function MapComponent() {
-    const properties = useSelector(store => store.properties);
+export default function MapComponent({ layer, lngLat, markers }) {
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
-    const { pathname } = useLocation();
-    const id = Number(pathname.split("/").pop());
+    const markerRefs = useRef([]);
+    const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(()=> {
-        const property =
-            properties.pinned?.find(p => p.id === id) ||
-            properties.other?.find(p => p.id === id);
+        if(mapInstance.current || !mapRef.current || isLoaded) return;
 
-        if(!property) {
-            console.log("Property not found at ID:", id);
-            return;
-        };
-
-        const { lat, lng } = property;
-
-        // const map = new maplibregl.Map({
-        //     container: mapRef.current,
-        //     style: "https://demotiles.maplibre.org/style.json",
-        //     center: [-83.3, 32.5],
-        //     zoom: 7
-        // })
-
-
+        const initialCenter = lngLat ?? [-83.5, 32.9];
         
         const map = new maplibregl.Map({
             container: mapRef.current,
-            minZoom: 5,
+            center: initialCenter,
+            zoom: 6,
+            // minZoom: 1,
             maxZoom: 18,
             maxBounds: [
                 [-130, 20],
@@ -79,58 +63,84 @@ export default function MapComponent() {
 
         map.on("load", ()=> {
             mapInstance.current = map;
-
-            new maplibregl.Marker({color: "red"})
-                .setLngLat([lng, lat])
-                .addTo(map);
-
-            mapInstance.current.flyTo({
-                center: [lng, lat],
-                zoom: 16
-            });
+            setIsLoaded(true);
         });
 
         return () => map.remove();
-    }, [id, properties]);
+    }, []);
 
-    const flyToProperty = (mapLng, mapLat) => {
-        if(!mapInstance.current) return;
+    useEffect(()=> {
+        if(!mapInstance.current || !isLoaded) return;
 
-        mapInstance.current.flyTo({
-            center: [mapLng, mapLat],
-            zoom: 14
-        });
-    }
-
-    const toggleLayer = (layerToShow) => {
-        if(!mapInstance.current) return;
-
-        ["osm-layer", "satellite-layer"].forEach(layer => {
+        ["osm-layer", "satellite-layer"].forEach(choiceLayer => {
             mapInstance.current.setLayoutProperty(
-                layer,
+                choiceLayer,
                 "visibility",
-                layer === layerToShow ? "visible" : "none"
+                choiceLayer === layer ? "visible" : "none"
             );
         });
-    };
-    
+    }, [layer, isLoaded]);
+
+    useEffect(()=> {
+        if(!mapInstance.current || !isLoaded) return;
+
+        mapInstance.current.flyTo({
+            center: lngLat, // [mapLng, mapLat]
+            zoom: 14
+        });
+    }, [lngLat, isLoaded])
+
+    useEffect(()=> {
+        console.log("HITTT MARKERS, MAPINSTANCE:", mapInstance)
+        if (!mapInstance.current || !isLoaded) return;
+
+        const map = mapInstance.current;
+
+        const geojson = {
+            type: "FeatureCollection",
+            features: markers.map(m => ({
+                type: "Fetaure",
+                properties: {
+                    id: m.propertyId
+                },
+                geometry: {
+                    type: "Point",
+                    coordinates: m.lngLat
+                }
+            }))
+        };
+
+        if(map.getSource("properties")) {
+            map.getSource("properties").setData(geojson);
+            return;
+        };
+
+        map.addSource("properties", {
+            type: "geojson",
+            data: geojson,
+            cluster: true,
+            clusterMaxZoom: 14,
+            clusterRadius: 50
+        });
+
+        map.addLayer({
+            id: "property-points",
+            type: "circle",
+            source: "properties",
+            paint: {
+                "circle-radius": 9,
+                "circle-color": "#ff0000",
+                "circle-stroke-width": 1,
+                "circle-stroke-color": "#ffffff"
+            }
+        });
+
+    }, [markers, isLoaded]);
 
     return (
-        <div id="app-map">
-            <div style={{marginBottom: "10px"}}>
-                <button onClick={() => toggleLayer("osm-layer")}>
-                    Toggle OSM
-                </button>
-                <button onClick={() => toggleLayer("satellite-layer")}>
-                    Toggle Satellite
-                </button>
-            </div>
-
-            <div
-                className="map-container"
-                ref={mapRef}
-                style={{ width: "100%", height: "600px" }}
-            />
-        </div>
+        <div
+            className="map-container"
+            ref={mapRef}
+        />
     )
 }
