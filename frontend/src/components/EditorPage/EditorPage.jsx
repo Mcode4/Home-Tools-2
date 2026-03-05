@@ -44,24 +44,6 @@ export default function EditorPage() {
         console.log("SEARCH REF CHANGED", searchRef);
     }, [searchRef]);
 
-    // On Load/Properties Changed
-    useEffect(()=> {
-        const handleClickOutside = (e) => {
-            if(searchRef.current) {
-                if(!searchRef.current.contains(e.target)) {
-                    setSearchActive(false);
-                } else {
-                    setSearchActive(true);
-                };
-            };
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        }
-    }, [])
     useEffect(()=> {
         if(properties.pinned.length || properties.other.length) return;
         dispatch(thunkGetAllProperties());
@@ -143,9 +125,11 @@ export default function EditorPage() {
                     className="app-searchbar"
                     placeholder="🔍 Search Location..."
                     value={search}
+                    onFocus={()=> setSearchActive(true)}
+                    onBlur={()=> setSearchActive(false)}
                     onChange={(e)=> setSearch(e.target.value)}
                 />
-                {search.length > 0 && searchActive && (
+                {searchActive && search.length > 0 && (
                     <div className="search-results">
                         {search.length > 2 ? (
                             <>
