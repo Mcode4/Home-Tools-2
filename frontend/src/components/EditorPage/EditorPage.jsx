@@ -60,6 +60,23 @@ export default function EditorPage() {
         
         setLoaded(true);
     }, [properties]);
+
+    const selectMenu = (e, val) => {
+        e.preventDefault();
+        
+        ["map", "draw", "view", "teams"].forEach(m => {
+            const currMenu = document.getElementById(`menu-${m}`);
+            const menuItem = document.getElementById(`menu-item-${m}`);
+
+            if(m === val) {
+                currMenu.classList.toggle("menu-active", true);
+                menuItem.classList.toggle("hidden", false);
+            } else {
+                currMenu.classList.toggle("menu-active", false);
+                menuItem.classList.toggle("hidden", true);
+            };
+        })
+    }
     
     return (<>
     {loaded && (
@@ -75,24 +92,52 @@ export default function EditorPage() {
         <div id="editor-main">
             <div className="app-slider">
                 <ul className="menu">
-                    <li onClick={()=> setMenu("map")}>
-                        Map
+                    <li 
+                        id="menu-map"
+                        className="menu-active"
+                        onClick={(e)=> selectMenu(e, "map")}
+                    >
+                        <img src="/icons/map.svg" alt="Map" />
                     </li>
-                    <li onClick={()=> setMenu("draw")}>
-                        Draw
+                    <li 
+                        id="menu-draw"
+                        className=""
+                        onClick={(e)=> selectMenu(e, "draw")}
+                    >
+                        <img src="/icons/paint.svg" alt="Draw" />
                     </li>
-                    <li onClick={()=> setMenu("view")}>
-                        View
+                    <li 
+                        id="menu-view"
+                        className=""
+                        onClick={(e)=> selectMenu(e, "view")}
+                    >
+                        <img src="/icons/screen.svg" alt="View" />
                     </li>
-                    <li onClick={()=> setMenu("teams")}>
-                        Teams
+                    <li 
+                        id="menu-teams"
+                        className=""
+                        onClick={(e)=> selectMenu(e, "teams")}
+                    >
+                        <img src="/icons/team.svg" alt="Teams" />
                     </li>
                 </ul>
                 <ul className="menu-tools">
-                    <li id="menu-item-map">1</li>
-                    <li id="menu-item-draw">2</li>
-                    <li id="menu-item-view">3</li>
-                    <li id="menu-item-teams">4</li>
+                    <li 
+                        className=""
+                        id="menu-item-map"
+                    >1</li>
+                    <li
+                        className="hidden"
+                        id="menu-item-draw"
+                    >2</li>
+                    <li 
+                        className="hidden"
+                        id="menu-item-view"
+                    >3</li>
+                    <li 
+                        className="hidden"
+                        id="menu-item-teams"
+                    >4</li>
                 </ul>
             </div>
 

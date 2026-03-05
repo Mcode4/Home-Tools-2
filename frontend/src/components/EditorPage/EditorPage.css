@@ -74,6 +74,10 @@
     cursor: pointer;
 }
 
+.menu-active {
+    background: gray;
+}
+
 .menu-tools {
     display: flex;
     flex: 1;
