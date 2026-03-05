@@ -16,7 +16,7 @@ export default function Layout() {
 
     return (
             <ModalProvider>
-                <Navbar />
+                <Navbar isLoaded={isLoaded} />
                 <main>
                     {isLoaded && <Outlet />}
                 </main>

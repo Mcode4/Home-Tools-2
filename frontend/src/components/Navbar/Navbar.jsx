@@ -7,21 +7,33 @@ import LoginForm from "../LoginForm/LoginForm";
 import SignupForm from "../SignupForm/SignupForm";
 import "./Navbar.css";
 
-export default function Navbar() {
+export default function Navbar({ isLoaded }) {
     useSelector(store => console.log("STORE DATA", store))
     const user = useSelector((store)=> store.session.user);
     const navigate = useNavigate();
     const location = useLocation();
     const startLocations = useRef(new Set(["/", "", "/login", "/signup"]));
+    const disabledLocations = useRef(new Set(["map"]))
     const dispatch = useDispatch();
     
 
     useEffect(()=> {
+        if (!isLoaded) return;
+
         console.log("START", startLocations.current)
         console.log("USER", user)
         if(user) {
             if(startLocations.current.has(location.pathname)) {
                 navigate("/home");
+                console.log("NAVIGATING..", location.pathname, "TARGET LOCCATIONS:", startLocations.current)
+            };
+
+            if(disabledLocations.current.has(location.pathname.split("/")[1])) {
+                const nav = document.getElementById("navbar");
+                nav.classList.toggle("hidden", true);
+            } else {
+                const nav = document.getElementById("navbar");
+                nav.classList.toggle("hidden", false);
             };
         } else {
             console.log("running:", location.pathname, " in ", startLocations.current)
@@ -29,7 +41,7 @@ export default function Navbar() {
                 navigate("/");
             };
         }
-    }, [user, location]);
+    }, [isLoaded, user, location]);
 
     const logout = async (e) => {
         e.preventDefault();

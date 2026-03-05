@@ -21,6 +21,7 @@ code {
 }
 
 main {
+  display: flex;
   flex: 1
 }
 
@@ -52,4 +53,10 @@ main {
 
 li {
   list-style: none;
+}
+
+.hidden {
+  display: none;
+  visibility: hidden;
+  height: 0;
 }

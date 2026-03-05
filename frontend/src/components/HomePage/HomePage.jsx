@@ -68,7 +68,7 @@ export default function HomePage() {
                         <p>{prop.name}</p>
 
                         <div className="property-actions">
-                            <button>Map</button>
+                            <button onClick={()=> navigate(`/map/${prop.id}`)}>Map</button>
                             <ModalButton
                                 modalComponent={<CreatePropertyForm id={prop.id} />}
                                 itemText={"Edit"} 

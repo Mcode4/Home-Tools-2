@@ -1,0 +1,39 @@
+/* Main Elements */
+#editor {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+#editor-top {
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+    border-bottom: 1px solid black;
+}
+
+#editor-main {
+    flex: 1;
+    position: relative;
+}
+
+    
+/* Editor Top */
+#app-searchbar {
+    width: 300px;
+    height: 20px;
+    padding: 5px;
+    border-radius: 10px;
+}
+
+
+/* Editor Main */
+.app-slider {
+    position: relative;
+    z-index: 2;
+}
+
+.popup-span {
+    position: relative;
+    z-index: 2;
+}
