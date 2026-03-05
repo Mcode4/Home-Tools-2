@@ -137,7 +137,7 @@ export default function EditorPage() {
                                 <div 
                                     key={`search-${i}`}
                                     className="search-result"
-                                    onClick={()=> {
+                                    onMouseDown={()=> {
                                         setLngLat([result.lng, result.lat]);
                                         setSearchActive(false);
                                     }}
@@ -221,7 +221,10 @@ export default function EditorPage() {
                                     {properties?.other.map((p, i) => (
                                         <div className="menu-item-1" key={`props-${i}`}>
                                             <p>{p.name}</p>
-                                            <button>Config</button>
+                                            <div className="menu-item-1-actions">
+                                                <button>Location</button>
+                                                <button>Config</button>
+                                            </div>
                                         </div>
                                     ))}
                                     </>

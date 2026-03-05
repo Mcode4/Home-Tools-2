@@ -99,7 +99,7 @@ export default function MapComponent({ layer, lngLat, markers }) {
         const geojson = {
             type: "FeatureCollection",
             features: markers.map(m => ({
-                type: "Fetaure",
+                type: "Feature",
                 properties: {
                     id: m.propertyId
                 },
