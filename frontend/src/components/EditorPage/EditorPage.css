@@ -1,3 +1,16 @@
+/* Local Controls */
+.menu-active {
+    background: #ccc;
+}
+
+#menu-tools.closed {
+    display: none;
+    visibility: hidden;
+    height: 0;
+    width: 0;
+}
+
+
 /* Main Elements */
 #editor {
     display: flex;
@@ -8,10 +21,16 @@
 }
 
 #editor-top {
-    display: flex;
-    justify-content: center;
-    padding: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+
+    padding: 10px 20px;
     border-bottom: 1px solid black;
+    gap: 10px;
+
+    position: relative;
+    z-index: 50;
 }
 
 #editor-main {
@@ -23,11 +42,65 @@
 
     
 /* Editor Top */
-#app-searchbar {
+.editor-search {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 2;
+
+    justify-content: center;
+    align-items: center;
+}
+
+
+.editor-controls {
+    grid-column: 3;
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+}
+
+
+/* Searching */
+.app-searchbar {
     width: 300px;
-    height: 20px;
-    padding: 5px;
+    height: 25px;
+    padding: 2px;
     border-radius: 10px;
+}
+
+.search-results {
+    position: absolute;
+    top: 36px;
+    left: 0;
+
+    width: 300px;
+    max-height: 300px;
+    overflow-y: auto;
+
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 10px;
+    padding: 5px;
+
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+}
+
+.search-result {
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.search-result:hover {
+    cursor: pointer;
+    background: #eee
+}
+
+.search-results p {
+    font-size: 13px;
+    padding: 8px
 }
 
 
@@ -41,7 +114,7 @@
     z-index: 2;
 
     height: 100%;
-    width: 200px;
+    width: fit-content;
 
     background: rgba(255, 255, 255, 0.9);
 }
@@ -67,25 +140,50 @@
     border: 1px solid #ccc;
     justify-content: flex-start;
     align-items: center;
+    padding-top: 10px;
+    gap: 10px;
 }
 
 .menu li {
     padding: 10px;
     cursor: pointer;
+    height: 50px;
+    width: 50px;
+    margin: 10px;
 }
 
-.menu-active {
-    background: gray;
+.menu li img {
+    height: 100%;
+    width: 100%;
 }
 
-.menu-tools {
+/* Menu Tools(Slider) */
+#menu-tools {
     display: flex;
-    flex: 1;
     flex-direction: column;
     padding: 0;
     margin: 0;
     justify-content: flex-start;
     align-items: center;
+    width: 200px;
+}
+
+.menu-item-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.menu-item-title {
+    display: flex;
+}
+
+.menu-item-subtitle {
+    display: flex;
+}
+
+.menu-item-1 {
+    display: flex;
 }
 
 /* Popups */

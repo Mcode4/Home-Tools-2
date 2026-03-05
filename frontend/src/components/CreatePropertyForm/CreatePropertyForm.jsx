@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useModal } from "../../context/Modal";
 import { thunkCreateProperty, thunkEditProperty } from "../../redux/properties";
+import { handleSearchAddress } from "../../functions/search/search";
 import "./CreatePropertyForm.css";
 
 export default function CreatePropertyForm({id}) {
@@ -82,105 +83,23 @@ export default function CreatePropertyForm({id}) {
         if(!searchAddress) {
             setSuggestionsActive(false);
             setSuggestions([]);
-            return
+            return;
         } else {
             setSuggestionsActive(true);
-        }
-        const searchDelay = setTimeout(()=> {
-            handleSearchAddress(searchAddress);
-        }, 500);
+        };
 
-        return () => {
-            clearTimeout(searchDelay);
+        if(searchAddress.length > 2) {
+            const searchDelay = setTimeout(()=> {
+                handleSearchAddress(searchAddress)
+                    .then(data => setSuggestions(data))
+                    .catch(err => setErr({search: err}));
+            }, 500);
+
+            return () => {
+                clearTimeout(searchDelay);
+            };
         };
     }, [searchAddress]);
-
-    const handleSearchAddress = async (addr) => {
-        if(addr.trim().length < 3) return;
-        setErr({});
-        
-        const controller = new AbortController();
-
-        try {
-            const nominatimSearch = await fetch(
-                `https://nominatim.openstreetmap.org/search?q=${addr}&format=json&addressdetails=1&limit=5&extratags=1&featuretype=settlement&countrycodes=us`,
-                { signal: controller.signal }
-            );
-
-            const results = await nominatimSearch.json();
-            console.log("SEARCH RESULTS", results);
-
-            const filtered = results.filter(place =>
-                ["highway", "building", "place"].includes(place.class)
-            );
-            console.log("FILTERED RESULTS", filtered);
-            
-            const formatted = filtered
-                .map(p => formatPlace(p))
-                .filter(Boolean);
-            console.log("FORMATTED RESULTS", formatted); 
-            
-            setSuggestions(formatted);
-        } catch(err) {
-            if (err.name !== "AbortError") {
-                setErr({client: String(err)});
-                console.error(err);
-            };
-        }
-        return () => controller.abort();
-    };
-
-    const formatPlace = (place) => {
-        if(!place) return null;
-        const a = place.address || {};
-
-        const fStreet = [
-            a.house_number || a.highway,
-            a.road || a.pedestrian || a.cycleway || a.footway
-        ].filter(Boolean).join(" ");
-
-        const fCity = 
-            a.city ||
-            a.town ||
-            a.village ||
-            a.hamlet ||
-            a.suburb ||
-            a.city_district ||
-            "";
-
-        const fState = a.state || "";
-        const fCounty = a.county || "";
-        const fCountry = a.country || "";
-        const fZip = a.postcode || "";
-
-        const locationObj = {
-            name: place.name,
-            address: fStreet, 
-            city: fCity, 
-            state: fState,
-            county: fCounty, 
-            country: fCountry, 
-            zip: fZip,
-            lat: place.lat,
-            lng: place.lon,
-        };
-
-        const textParts = Object.entries(locationObj)
-            .filter(([key, val])=> 
-                val &&
-                key !== "lat" &&
-                key !== "lng" &&
-                key !== "name"
-            )
-            .map(([_, val]) => val);
-        
-        if(!textParts.length) return null;
-        // console.log("LOCATION OBJECT MADE:", locationObj);
-        return {
-            ...locationObj,
-            text: textParts.join(", ")
-        };
-    }
 
     const handleSetAddress = (e, addrObj) => {
         e.preventDefault();
