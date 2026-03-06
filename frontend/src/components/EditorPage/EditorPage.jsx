@@ -14,6 +14,7 @@ export default function EditorPage() {
     const [loaded, setLoaded] = useState(false);
     const [layer, setLayer] = useState("osm-layer");
     const [popups, setPopups] = useState({});
+    const [menuSelects, setMenuSelects] = useState({});
     const [lngLat, setLngLat] = useState([-83.5, 32.9]);
     const [markers, setMarkers] = useState([]); // [{id: propertyId: int(1), lngLat: [lng, lat]}, {...}]
     const [menu, setMenu] = useState("map") // "map", "draw", "screen", "teams"
@@ -115,10 +116,10 @@ export default function EditorPage() {
             };
         })
     }
-    
+
     return (<>
     {loaded && (
-    <div id="editor">
+    <div id="editor" className="user-select-none">
         <div id="editor-top">
             <div className="editor-search" ref={searchRef}>
                 <input 
@@ -204,28 +205,43 @@ export default function EditorPage() {
 
                 <ul id="menu-tools">
                     <li 
-                        className=""
+                        className="menu-item-container"
                         id="menu-item-map"
                     >
                         <div className="menu-item-section user-select-none">
                             <div className="menu-item-title user-select-none">Maps</div>
                             {properties?.pinned.length > 0 || properties?.other.length > 0 ? (
                                 <>
+                                <div className="menu-item-1-subtitle user-select-none">
+                                    Pinned
+                                    <button
+                                        onClick={()=> setMenuSelects(m => ({...m, 0: !m[0]}) )}
+                                    >
+                                        {menuSelects[0] ? "V" : "𐌡"}
+                                    </button>
+                                </div>
+
                                 {properties?.pinned.length > 0 && (
-                                    <>
-                                    <div className="menu-item-subtitle user-select-none">Pinned</div>
+                                    <div className={`${menuSelects[0] ? "" : "hidden"}`}>
                                     {properties?.pinned.map((p, i) => (
                                         <div className="menu-item-1 user-select-none" key={`pinned-${i}`}>
                                             <p>{p.name}</p>
                                             <button>Config</button>
                                         </div>
                                     ))}
-                                    </>
+                                    </div>
                                 )}
 
+                                <div className="menu-item-1-subtitle user-select-none">
+                                    Properties
+                                    <button
+                                        onClick={()=> setMenuSelects(m => ({...m, 1: !m[1]}) )}
+                                    >
+                                        {menuSelects[1] ? "V" : "𐌡"}
+                                    </button>
+                                </div>
                                 {properties?.other.length > 0 && (
-                                    <>
-                                    <div className="menu-item-subtitle user-select-none">Properties</div>
+                                    <div className={`${menuSelects[1] ? "" : "hidden"}`}>
                                     {properties?.other.map((p, i) => (
                                         <div className="menu-item-1 user-select-none" key={`props-${i}`}>
                                             <p>{p.name}</p>
@@ -239,7 +255,7 @@ export default function EditorPage() {
                                             </div>
                                         </div>
                                     ))}
-                                    </>
+                                    </div>
                                 )}
                                 </>
                             ) : (
