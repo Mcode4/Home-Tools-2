@@ -70,7 +70,8 @@ export default function MapComponent({ layer, lngLat, markers }) {
     }, []);
 
     useEffect(()=> {
-        if(!mapInstance.current || !isLoaded) return;
+        console.log("HITTT LAYER, LAYER:", layer)
+        if(!mapInstance.current || !lngLat || !isLoaded) return;
 
         ["osm-layer", "satellite-layer"].forEach(choiceLayer => {
             mapInstance.current.setLayoutProperty(
@@ -82,6 +83,7 @@ export default function MapComponent({ layer, lngLat, markers }) {
     }, [layer, isLoaded]);
 
     useEffect(()=> {
+        console.log("HITTT FLYTO, LNGLAT:", lngLat)
         if(!mapInstance.current || !isLoaded) return;
 
         mapInstance.current.flyTo({
@@ -91,8 +93,8 @@ export default function MapComponent({ layer, lngLat, markers }) {
     }, [lngLat, isLoaded])
 
     useEffect(()=> {
-        console.log("HITTT MARKERS, MAPINSTANCE:", mapInstance)
-        if (!mapInstance.current || !isLoaded) return;
+        console.log("HITTT MARKERS, MAPINSTANCE:", mapInstance, "MARKERS:", markers)
+        if (!mapInstance.current || !isLoaded || !markers) return;
 
         const map = mapInstance.current;
 
@@ -110,30 +112,38 @@ export default function MapComponent({ layer, lngLat, markers }) {
             }))
         };
 
-        if(map.getSource("properties")) {
-            map.getSource("properties").setData(geojson);
-            return;
-        };
+        if(!map.getSource("properties") && geojson.features.length > 0){
+            try {
+                map.addSource("properties", {
+                    type: "geojson",
+                    data: geojson,
+                    cluster: true,
+                    clusterMaxZoom: 14,
+                    clusterRadius: 50
+                });
 
-        map.addSource("properties", {
-            type: "geojson",
-            data: geojson,
-            cluster: true,
-            clusterMaxZoom: 14,
-            clusterRadius: 50
-        });
-
-        map.addLayer({
-            id: "property-points",
-            type: "circle",
-            source: "properties",
-            paint: {
-                "circle-radius": 9,
-                "circle-color": "#ff0000",
-                "circle-stroke-width": 1,
-                "circle-stroke-color": "#ffffff"
+                map.addLayer({
+                    id: "property-points",
+                    type: "circle",
+                    source: "properties",
+                    filter: ["!", ["has", "point_count"]],
+                    paint: {
+                        "circle-radius": 9,
+                        "circle-color": "#ff0000",
+                        "circle-stroke-width": 1,
+                        "circle-stroke-color": "#ffffff"
+                    }
+                });
+            } catch(e) {
+                console.warn("Map failed to add markers", e)
             }
-        });
+        } else {
+            try {
+                map.getSource("properties").setData(geojson);
+            } catch(e) {
+                console.warn("Map source not ready yet:", e);
+            };
+        };
 
     }, [markers, isLoaded]);
 

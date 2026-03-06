@@ -56,8 +56,15 @@ li {
 }
 
 .hidden {
-  display: none;
+  /* display: none; */
   visibility: hidden;
   height: 0;
   width: 0;
+}
+
+.user-select-none {
+    user-select: none;        /* standard */
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none;    /* Firefox */
+    -ms-user-select: none;     /* IE/Edge */
 }

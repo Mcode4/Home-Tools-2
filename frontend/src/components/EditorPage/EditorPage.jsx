@@ -12,10 +12,8 @@ export default function EditorPage() {
     const { pathname } = useLocation();
     const id = Number(pathname.split("/").pop());
     const [loaded, setLoaded] = useState(false);
-    const [mapPopup, setMapPopup] = useState({
-        display: true,
-        layer: "osm-layer"
-    });
+    const [layer, setLayer] = useState("osm-layer");
+    const [popups, setPopups] = useState({});
     const [lngLat, setLngLat] = useState([-83.5, 32.9]);
     const [markers, setMarkers] = useState([]); // [{id: propertyId: int(1), lngLat: [lng, lat]}, {...}]
     const [menu, setMenu] = useState("map") // "map", "draw", "screen", "teams"
@@ -28,9 +26,6 @@ export default function EditorPage() {
     const navigate = useNavigate();
 
     // TESTING
-    useEffect(()=> {
-        console.log("MAP POPUP CHANGED", mapPopup);
-    }, [mapPopup]);
 
     useEffect(()=> {
         console.log("LNG LAT CHANGED", lngLat);
@@ -43,6 +38,14 @@ export default function EditorPage() {
     useEffect(()=> {
         console.log("SEARCH REF CHANGED", searchRef);
     }, [searchRef]);
+
+    // useEffect(()=> {
+    //     window.addEventListener("selectionchange" ()=> {
+    //         try {
+    //             seletionPlayer.playSeletionSomehow()
+    //         }
+    //     })
+    // }, [])
 
     useEffect(()=> {
         if(properties.pinned.length || properties.other.length) return;
@@ -87,6 +90,7 @@ export default function EditorPage() {
             };
         }
     }, [search]);
+    
 
     const selectMenu = (e, val) => {
         e.preventDefault();
@@ -111,8 +115,6 @@ export default function EditorPage() {
             };
         })
     }
-
-
     
     return (<>
     {loaded && (
@@ -122,7 +124,7 @@ export default function EditorPage() {
                 <input 
                     type="text" 
                     name="search" 
-                    className="app-searchbar"
+                    className="app-searchbar user-select-none"
                     placeholder="🔍 Search Location..."
                     value={search}
                     onFocus={()=> setSearchActive(true)}
@@ -131,9 +133,9 @@ export default function EditorPage() {
                 />
                 {searchActive && search.length > 0 && (
                     <div className="search-results">
-                        {search.length > 2 ? (
+                        {search?.length > 2 ? (
                             <>
-                            {searchResults?.length > 0 ? searchResults.map((result, i) => (
+                            {searchResults?.length > 0 ? searchResults?.map((result, i) => (
                                 <div 
                                     key={`search-${i}`}
                                     className="search-result"
@@ -145,19 +147,25 @@ export default function EditorPage() {
                                     {result.text}
                                 </div>
                             )) : (
-                                <p>Searching...</p>
+                                <p className="user-select-none">Searching...</p>
                             )}
                             </>
                         ) : (
-                            <p>Searching after 3 characters...</p>
+                            <p className="user-select-none">Searching after 3 characters...</p>
                         )}
                     </div>
                 )}
             </div>
 
             <div className="editor-controls">
-                <button>Save All</button>
-                <button onClick={()=> navigate("/home")}>Exit to Dashboard</button>
+                <button
+                    className="user-select-none"
+                >Save All</button>
+
+                <button 
+                    className="user-select-none" 
+                    onClick={()=> navigate("/home")}
+                >Exit to Dashboard</button>
             </div>
         </div>
 
@@ -166,28 +174,28 @@ export default function EditorPage() {
                 <ul className="menu">
                     <li 
                         id="menu-map"
-                        className="menu-active"
+                        className="menu-active user-select-none"
                         onClick={(e)=> selectMenu(e, "map")}
                     >
-                        <img src="/icons/map.svg" alt="Map" />
+                        <img src="/icons/houses.svg" alt="Map" />
                     </li>
                     <li 
                         id="menu-draw"
-                        className=""
+                        className="user-select-none"
                         onClick={(e)=> selectMenu(e, "draw")}
                     >
                         <img src="/icons/paint.svg" alt="Draw" />
                     </li>
                     <li 
                         id="menu-view"
-                        className=""
+                        className="user-select-none"
                         onClick={(e)=> selectMenu(e, "view")}
                     >
                         <img src="/icons/screen.svg" alt="View" />
                     </li>
                     <li 
                         id="menu-teams"
-                        className=""
+                        className="user-select-none"
                         onClick={(e)=> selectMenu(e, "teams")}
                     >
                         <img src="/icons/team.svg" alt="Teams" />
@@ -199,15 +207,15 @@ export default function EditorPage() {
                         className=""
                         id="menu-item-map"
                     >
-                        <div className="menu-item-section">
-                            <div className="menu-item-title">Maps</div>
+                        <div className="menu-item-section user-select-none">
+                            <div className="menu-item-title user-select-none">Maps</div>
                             {properties?.pinned.length > 0 || properties?.other.length > 0 ? (
                                 <>
                                 {properties?.pinned.length > 0 && (
                                     <>
-                                    <div className="menu-item-subtitle">Pinned</div>
+                                    <div className="menu-item-subtitle user-select-none">Pinned</div>
                                     {properties?.pinned.map((p, i) => (
-                                        <div className="menu-item-1" key={`pinned-${i}`}>
+                                        <div className="menu-item-1 user-select-none" key={`pinned-${i}`}>
                                             <p>{p.name}</p>
                                             <button>Config</button>
                                         </div>
@@ -217,13 +225,17 @@ export default function EditorPage() {
 
                                 {properties?.other.length > 0 && (
                                     <>
-                                    <div className="menu-item-subtitle">Properties</div>
+                                    <div className="menu-item-subtitle user-select-none">Properties</div>
                                     {properties?.other.map((p, i) => (
-                                        <div className="menu-item-1" key={`props-${i}`}>
+                                        <div className="menu-item-1 user-select-none" key={`props-${i}`}>
                                             <p>{p.name}</p>
-                                            <div className="menu-item-1-actions">
-                                                <button>Location</button>
-                                                <button>Config</button>
+                                            <div className="menu-item-1-actions user-select-none">
+                                                <button onClick={()=> setLngLat([p.lng, p.lat])}>
+                                                    <img src="/icons/location.svg" alt="View" />
+                                                </button>
+                                                <button>
+                                                    <img src="/icons/setting.svg" alt="View" />
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
@@ -231,7 +243,7 @@ export default function EditorPage() {
                                 )}
                                 </>
                             ) : (
-                                <p>No Properties Made Yet.</p>
+                                <p className="user-select-none">No Properties Made Yet.</p>
                             )}
                         </div>
                     </li>
@@ -252,51 +264,51 @@ export default function EditorPage() {
 
             <span className="popup-span">
                 <div className="popup">
+
                     <div className="popup-controls">
+                        <p className="popup-title user-select-none">Map Layers</p>
                         <button 
-                            onClick={()=> setMapPopup(m => ({
-                                ...m,
-                                display: !m.display
-                            }))}
-                        >-</button>
+                            className="popup-minimize user-select-none"
+                            onClick={()=> setPopups(p => ({...p, 0: !p[0] }) )}
+                        >{popups[0] ? "V" : "𐌡"}</button>
                     </div>
 
-                    <div className="popup-radio">
-                        <div className="map-layer-option">
-                            <label htmlFor="base-map-radio">Toggle OSM</label>
-                            <input 
-                                type="radio" 
-                                name="base-map-radio" 
-                                id="base-map-radio"
-                                value={"osm-layer"}
-                                checked={mapPopup.layer === "osm-layer" ? true : false}
-                                onChange={(e)=> setMapPopup(m=> ({
-                                    ...m,
-                                    layer: e.target.value
-                                }))} 
-                            />
-                        </div>
+                    <div className={`popup-screen ${popups[0] ? "" : "hidden"}`}>
+                        <div className="popup-radio">
+                            <div className="map-layer-option">
+                                <label 
+                                    htmlFor="base-map-radio"
+                                    className="user-select-none"
+                                >Toggle OSM</label>
+                                <input 
+                                    type="radio" 
+                                    name="base-map-radio" 
+                                    id="base-map-radio"
+                                    checked={layer === "osm-layer"}
+                                    onChange={()=> setLayer("osm-layer")} 
+                                />
+                            </div>
 
-                        <div className="map-layer-option">
-                            <label htmlFor="base-map-radio">Toggle Satellite</label>
-                            <input 
-                                type="radio" 
-                                name="satellite-map-radio" 
-                                id="satellite-map-radio"
-                                value={"satellite-layer"}
-                                checked={mapPopup.layer === "satellite-layer" ? true : false}
-                                onChange={(e)=> setMapPopup(m=> ({
-                                    ...m,
-                                    layer: e.target.value
-                                }))} 
-                            />
+                            <div className="map-layer-option">
+                                <label 
+                                    htmlFor="base-map-radio"
+                                    className="user-select-none"
+                                >Toggle Satellite</label>
+                                <input 
+                                    type="radio" 
+                                    name="satellite-map-radio" 
+                                    id="satellite-map-radio"
+                                    checked={layer === "satellite-layer"}
+                                    onChange={()=> setLayer("satellite-layer")} 
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
             </span>
 
             <MapComponent 
-                layer={mapPopup.layer} 
+                layer={layer} 
                 lngLat={lngLat} 
                 markers={markers} 
             />             
