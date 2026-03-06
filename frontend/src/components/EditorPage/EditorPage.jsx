@@ -51,6 +51,16 @@ export default function EditorPage() {
         console.log("SEARCH REF CHANGED", searchRef);
     }, [searchRef]);
 
+    useEffect(()=> {
+        console.log("MENU SELECT CHANGED", menuSelects);
+        // console.log("OBJECT ENTRIES MENU",  )
+    }, [menuSelects]);
+
+    // useEffect(()=> {
+    //     Object.keys(menuSelects).length > 0 &&
+    //     .filter(([_, val])=> val === true)
+    // })
+
     // useEffect(()=> {
     //     window.addEventListener("selectionchange" ()=> {
     //         try {
@@ -116,7 +126,7 @@ export default function EditorPage() {
                 currMenu.classList.toggle("menu-active");
                 menuItem.classList.toggle("hidden");
 
-                if(menuItem.className === "hidden") {
+                if(menuItem.className.includes("hidden")) {
                     slider.classList.toggle("closed", true);
                 } else {
                     slider.classList.toggle("closed", false);
@@ -214,7 +224,7 @@ export default function EditorPage() {
                     </li>
                 </ul>
 
-                <ul id="menu-tools">
+                <ul id={`menu-tools`}>
                     <li 
                         className="menu-item-container"
                         id="menu-item-map"
