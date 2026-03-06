@@ -21,6 +21,17 @@ export default function EditorPage() {
     const [search, setSearch] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [searchActive, setSearchActive] = useState(true);
+    const [amenities, setAmenities] = useState([
+        {emoji: "🏠", name: "Leasing"}, {emoji: "🗑️", name: "Trash bin"}, {emoji: "🔥", name: "Grill"}, 
+        {emoji: "✉️", name: "Mailboxes"}, {emoji: "🐕", name: "Pet Station"}, {emoji: "🏛️", name: "Clubhouse"}, 
+        {emoji: "🌲", name: "Park"}, {emoji: "💪", name: "Gym"}, {emoji: "🏢", name: "Senior Bldg"}, 
+        {emoji: "🏊", name: "Pool"}, {emoji: "🎠", name: "Playground"}, 
+    ]);
+    const [emergencies, setEmergencies] = useState([
+        {emoji: "🤢", name: "Contamination"}, {emoji: "🛠️", name: "Maintenance"}, {emoji: "💩", name: "Hazard"}, 
+        {emoji: "🌊", name: "Flood"}, {emoji: "⚠️", name: "Incident"},
+    ]);
+    const [buildings, setBuildings] = useState(["A", "B", "C", "D", "E", "F", "G"]);
     const [err, setErr] = useState({});
     const searchRef = useRef();
     const dispatch = useDispatch();
@@ -208,71 +219,124 @@ export default function EditorPage() {
                         className="menu-item-container"
                         id="menu-item-map"
                     >
-                        <div className="menu-item-section user-select-none">
-                            <div className="menu-item-title user-select-none">Maps</div>
-                            {properties?.pinned.length > 0 || properties?.other.length > 0 ? (
-                                <>
-                                <div className="menu-item-1-subtitle user-select-none">
-                                    Pinned
-                                    <button
-                                        onClick={()=> setMenuSelects(m => ({...m, 0: !m[0]}) )}
-                                    >
-                                        {menuSelects[0] ? "V" : "𐌡"}
-                                    </button>
-                                </div>
+                        <div className="menu-item-title user-select-none">Maps</div>
+                        {properties?.pinned.length > 0 || properties?.other.length > 0 ? (
+                            <>
+                            <div className="menu-item-1-subtitle user-select-none">
+                                Pinned
+                                <button
+                                    onClick={()=> setMenuSelects(m => ({...m, 0: !m[0]}) )}
+                                >
+                                    {menuSelects[0] ? "V" : "𐌡"}
+                                </button>
+                            </div>
 
-                                {properties?.pinned.length > 0 && (
-                                    <div className={`${menuSelects[0] ? "" : "hidden"}`}>
-                                    {properties?.pinned.map((p, i) => (
-                                        <div className="menu-item-1 user-select-none" key={`pinned-${i}`}>
-                                            <p>{p.name}</p>
-                                            <button>Config</button>
-                                        </div>
-                                    ))}
+                            {properties?.pinned.length > 0 && (
+                                <div className={`${menuSelects[0] ? "" : "hidden"}`}>
+                                {properties?.pinned.map((p, i) => (
+                                    <div className="menu-item-1 user-select-none" key={`pinned-${i}`}>
+                                        <p>{p.name}</p>
+                                        <button>Config</button>
                                     </div>
-                                )}
-
-                                <div className="menu-item-1-subtitle user-select-none">
-                                    Properties
-                                    <button
-                                        onClick={()=> setMenuSelects(m => ({...m, 1: !m[1]}) )}
-                                    >
-                                        {menuSelects[1] ? "V" : "𐌡"}
-                                    </button>
+                                ))}
                                 </div>
-                                {properties?.other.length > 0 && (
-                                    <div className={`${menuSelects[1] ? "" : "hidden"}`}>
-                                    {properties?.other.map((p, i) => (
-                                        <div className="menu-item-1 user-select-none" key={`props-${i}`}>
-                                            <p>{p.name}</p>
-                                            <div className="menu-item-1-actions user-select-none">
-                                                <button onClick={()=> setLngLat([p.lng, p.lat])}>
-                                                    <img src="/icons/location.svg" alt="View" />
-                                                </button>
-                                                <button>
-                                                    <img src="/icons/setting.svg" alt="View" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    </div>
-                                )}
-                                </>
-                            ) : (
-                                <p className="user-select-none">No Properties Made Yet.</p>
                             )}
-                        </div>
+
+                            <div className="menu-item-1-subtitle user-select-none">
+                                Properties
+                                <button
+                                    onClick={()=> setMenuSelects(m => ({...m, 1: !m[1]}) )}
+                                >
+                                    {menuSelects[1] ? "V" : "𐌡"}
+                                </button>
+                            </div>
+                            {properties?.other.length > 0 && (
+                                <div className={`${menuSelects[1] ? "" : "hidden"}`}>
+                                {properties?.other.map((p, i) => (
+                                    <div className="menu-item-1 user-select-none" key={`props-${i}`}>
+                                        <p>{p.name}</p>
+                                        <div className="menu-item-1-actions user-select-none">
+                                            <button onClick={()=> setLngLat([p.lng, p.lat])}>
+                                                <img src="/icons/location.svg" alt="View" />
+                                            </button>
+                                            <button>
+                                                <img src="/icons/setting.svg" alt="View" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                </div>
+                            )}
+                            </>
+                        ) : (
+                            <p className="user-select-none">No Properties Made Yet.</p>
+                        )}
                     </li>
                     <li
-                        className="hidden"
+                        className="hidden menu-item-container"
                         id="menu-item-draw"
-                    >2</li>
+                    >
+                        <div className="menu-item-title user-select-none">Draw</div>
+
+                        <div className="menu-item-1-subtitle user-select-none">
+                            Amenities
+                            <button
+                                onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}) )}
+                            >
+                                {menuSelects[2] ? "V" : "𐌡"}
+                            </button>
+                        </div>
+
+                        <div className={`menu-item-2-container ${menuSelects[2] ? "" : "hidden"}`}>
+                            {amenities?.map(a => (
+                                <div className="menu-item-2">
+                                    <p>{a.emoji}</p>
+                                    <p>{a.name}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="menu-item-1-subtitle user-select-none">
+                            Emergencies
+                            <button
+                                onClick={()=> setMenuSelects(m => ({...m, 3: !m[3]}) )}
+                            >
+                                {menuSelects[3] ? "V" : "𐌡"}
+                            </button>
+                        </div>
+
+                        <div className={`menu-item-2-container ${menuSelects[3] ? "" : "hidden"}`}>
+                            {emergencies?.map(e => (
+                                <div className="menu-item-2">
+                                    <p>{e.emoji}</p>
+                                    <p>{e.name}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="menu-item-1-subtitle user-select-none">
+                            Buildings
+                            <button
+                                onClick={()=> setMenuSelects(m => ({...m, 4: !m[4]}) )}
+                            >
+                                {menuSelects[4] ? "V" : "𐌡"}
+                            </button>
+                        </div>
+
+                        <div className={`menu-item-2-container ${menuSelects[4] ? "" : "hidden"}`}>
+                            {buildings?.map(b => (
+                                <div className="menu-item-2">
+                                    {b}
+                                </div>
+                            ))}
+                        </div>
+                    </li>
                     <li 
-                        className="hidden"
+                        className="hidden menu-item-container"
                         id="menu-item-view"
                     >3</li>
                     <li 
-                        className="hidden"
+                        className="hidden menu-item-container"
                         id="menu-item-teams"
                     >4</li>
                 </ul>
