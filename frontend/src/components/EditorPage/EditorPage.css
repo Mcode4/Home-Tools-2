@@ -222,6 +222,10 @@
 
 .menu-item-1 p {
     margin: 0;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .menu-item-1-actions {

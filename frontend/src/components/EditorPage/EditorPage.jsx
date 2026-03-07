@@ -8,7 +8,10 @@ import MapComponent from "./Map";
 import "./EditorPage.css";
 
 export default function EditorPage() {
-    const properties = useSelector(store => store.properties);
+    const propertyStore = useSelector(store => store.properties);
+    const [properties, setProperties] = useState({pinned: {}, other: {}})
+    const [otherProperties, setOtherProperties] = useState({});
+    const [pinnedProperties, setPinnedProperties] = useState({});
     const { pathname } = useLocation();
     const id = Number(pathname.split("/").pop());
     const [loaded, setLoaded] = useState(false);
@@ -50,12 +53,18 @@ export default function EditorPage() {
     }, [menu]);
 
     useEffect(()=> {
+        console.log("PROPERTIES CHANGED", 
+            "PINNED:", pinnedProperties,
+            "OTHER:", otherProperties
+        );
+    }, [pinnedProperties, otherProperties]);
+
+    useEffect(()=> {
         console.log("SEARCH REF CHANGED", searchRef);
     }, [searchRef]);
 
     useEffect(()=> {
         console.log("CANVAS OBJECTS CHANGED", canvasObjects);
-        // console.log("OBJECT ENTRIES MENU",  )
     }, [canvasObjects]);
 
 
@@ -73,21 +82,29 @@ export default function EditorPage() {
     // }, [])
 
     useEffect(()=> {
-        if(properties.pinned.length || properties.other.length) return;
+        if(propertyStore.pinned.length || propertyStore.other.length) return;
         dispatch(thunkGetAllProperties());
     }, [dispatch]);
 
     useEffect(()=> {
-        console.log("Properties", properties);
-        if (!properties.pinned.length && !properties.other.length) return;
+        console.log("Properties", propertyStore);
+        if (!propertyStore.pinned.length && !propertyStore.other.length) return;
         
         let property;
         const allMarkers = [];
 
-        [...properties.pinned, ...properties.other].forEach(p => {
+        propertyStore.pinned.forEach(p => {
             if(p.id === id) property = p;
             const {lng, lat} = p;
             allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
+            pinnedProperties[p.id] = p;
+        });
+
+        propertyStore.other.forEach(p => {
+            if(p.id === id) property = p;
+            const {lng, lat} = p;
+            allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
+            otherProperties[p.id] = p;
         });
 
         setMarkers(allMarkers);
@@ -97,7 +114,7 @@ export default function EditorPage() {
         };
         
         setLoaded(true);
-    }, [properties]);
+    }, [propertyStore]);
 
     useEffect(()=> {
         setSearchResults([]);
@@ -152,6 +169,33 @@ export default function EditorPage() {
     };
 
     const addCanvasObjects = (obj) => {
+        if(obj.propertyId) {
+            console.log("PROPERTIES CHANGE HITT")
+            if(pinnedProperties[obj.propertyId]) {
+                setPinnedProperties(p => {
+                    const copy = {...p};
+                    const update = copy[obj.propertyId]
+                    if(!update.name.includes("(Unsaved)")) {
+                        update.name = "(Unsaved) " + update.name;
+                    }
+                    update.lat = obj.lat;
+                    update.lng = obj.lng;
+                    return copy
+                })
+            } else if(otherProperties[obj.propertyId]) {
+                setOtherProperties(p => {
+                    const copy = {...p};
+                    const update = copy[obj.propertyId]
+                    if(!update.name.includes("(Unsaved)")) {
+                        update.name = "(Unsaved) " + update.name;
+                    }
+                    update.lat = obj.lat;
+                    update.lng = obj.lng;
+                    return copy
+                })
+            }
+            return;
+        };
         setCanvasObjects(prev => ({
             ...prev,
             [obj.id]: obj
@@ -300,22 +344,47 @@ export default function EditorPage() {
                         id="menu-item-map"
                     >
                         <div className="menu-item-title user-select-none">Maps</div>
-                        {properties?.pinned.length > 0 || properties?.other.length > 0 ? (
-                            <>
-                            <div className="menu-item-1-subtitle user-select-none">
-                                Pinned
-                                <button
-                                    onClick={()=> setMenuSelects(m => ({...m, 0: !m[0]}) )}
-                                >
-                                    {menuSelects[0] ? "V" : "𐌡"}
-                                </button>
-                            </div>
+                        <div className="menu-item-1-subtitle user-select-none">
+                            Pinned
+                            <button
+                                onClick={()=> setMenuSelects(m => ({...m, 0: !m[0]}) )}
+                            >
+                                {menuSelects[0] ? "V" : "𐌡"}
+                            </button>
+                        </div>
 
-                            {properties?.pinned.length > 0 && (
-                                <div className={`${menuSelects[0] ? "" : "hidden"}`}>
-                                {properties?.pinned.map((p, i) => (
+                        {Object.keys(pinnedProperties).length > 0 && (
+                            <div className={`${menuSelects[0] ? "" : "hidden"}`}>
+                            {Object.values(pinnedProperties).map((p, i) => (
+                            <div className="menu-item-1 user-select-none" key={`props-${i}`}>
+                                <p>{p.name}</p>
+                                <div className="menu-item-1-actions user-select-none">
+                                    <button onClick={()=> setLngLat([p.lng, p.lat])}>
+                                        <img src="/icons/location.svg" alt="View" />
+                                    </button>
+                                    <button>
+                                        <img src="/icons/setting.svg" alt="View" />
+                                    </button>
+                                </div>
+                            </div>
+                            ))}
+                            </div>
+                        )}
+
+                        <div className="menu-item-1-subtitle user-select-none">
+                            Properties
+                            <button
+                                onClick={()=> setMenuSelects(m => ({...m, 1: !m[1]}) )}
+                            >
+                                {menuSelects[1] ? "V" : "𐌡"}
+                            </button>
+                        </div>
+                        {Object.keys(otherProperties).length > 0 && (
+                            <div className={`${menuSelects[1] ? "" : "hidden"}`}>
+                            {Object.values(otherProperties).map((p, i) => (
+                                <div className="menu-item-1 user-select-none" key={`props-${i}`}>
+                                    <p>{p.name}</p>
                                     <div className="menu-item-1-actions user-select-none">
-                                        <p>{p.name}</p>
                                         <button onClick={()=> setLngLat([p.lng, p.lat])}>
                                             <img src="/icons/location.svg" alt="View" />
                                         </button>
@@ -323,63 +392,34 @@ export default function EditorPage() {
                                             <img src="/icons/setting.svg" alt="View" />
                                         </button>
                                     </div>
-                                ))}
                                 </div>
-                            )}
-
-                            <div className="menu-item-1-subtitle user-select-none">
-                                Properties
-                                <button
-                                    onClick={()=> setMenuSelects(m => ({...m, 1: !m[1]}) )}
-                                >
-                                    {menuSelects[1] ? "V" : "𐌡"}
-                                </button>
+                            ))}
                             </div>
-                            {properties?.other.length > 0 && (
-                                <div className={`${menuSelects[1] ? "" : "hidden"}`}>
-                                {properties?.other.map((p, i) => (
-                                    <div className="menu-item-1 user-select-none" key={`props-${i}`}>
-                                        <p>{p.name}</p>
-                                        <div className="menu-item-1-actions user-select-none">
-                                            <button onClick={()=> setLngLat([p.lng, p.lat])}>
-                                                <img src="/icons/location.svg" alt="View" />
-                                            </button>
-                                            <button>
-                                                <img src="/icons/setting.svg" alt="View" />
-                                            </button>
-                                        </div>
+                        )}
+                        <div className="menu-item-1-subtitle user-select-none">
+                            Unsaved Points
+                            <button
+                                onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}))}
+                            >
+                                {menuSelects[2] ? "V" : "𐌡"}
+                            </button>
+                        </div>
+                        {Object.keys(canvasObjects)?.length > 0 && (
+                            <div className={`${menuSelects[2] ? "" : "hidden"}`}>
+                                {formatUnsavedPoints.map((p, i) => (
+                                <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
+                                    <p>{p.name}</p>
+                                    <div className="menu-item-1-actions user-select-none">
+                                        <button onClick={()=> setLngLat(p.lngLat)}>
+                                            <img src="/icons/location.svg" alt="View" />
+                                        </button>
+                                        <button>
+                                            <img src="/icons/setting.svg" alt="View" />
+                                        </button>
                                     </div>
+                                </div>
                                 ))}
-                                </div>
-                            )}
-                            <div className="menu-item-1-subtitle user-select-none">
-                                Unsaved Points
-                                <button
-                                    onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}))}
-                                >
-                                    {menuSelects[2] ? "V" : "𐌡"}
-                                </button>
                             </div>
-                            {Object.keys(canvasObjects)?.length > 0 && (
-                                <div className={`${menuSelects[2] ? "" : "hidden"}`}>
-                                    {formatUnsavedPoints.map((p, i) => (
-                                    <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
-                                        <p>{p.name}</p>
-                                        <div className="menu-item-1-actions user-select-none">
-                                            <button onClick={()=> setLngLat(p.lngLat)}>
-                                                <img src="/icons/location.svg" alt="View" />
-                                            </button>
-                                            <button>
-                                                <img src="/icons/setting.svg" alt="View" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    ))}
-                                </div>
-                            )}
-                            </>
-                        ) : (
-                            <p className="user-select-none">No Properties Made Yet.</p>
                         )}
                     </li>
                     <li
