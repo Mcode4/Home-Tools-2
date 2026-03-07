@@ -136,6 +136,13 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 });
             });
 
+            createdCanvasObject({
+                id: markerId,
+                propertyId: m.propertyId,
+                lng: m.lngLat[0],
+                lat: m.lngLat[1]
+            });
+
             canvasObjectsRef.current[markerId] = {
                 marker
             };
@@ -198,10 +205,9 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
         const map = mapInstance.current;
 
         if(canvasTool?.type) {
-            if(cursorState !== "crosshair") setCursor("crosshair");
+            setCursor("crosshair");
         } else {
-            if(cursorState !== "grab") setCursor("grab");
-            return;
+            setCursor("grab");
         };
 
         const handleClick = (e) => {
@@ -405,7 +411,10 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 });
 
                 const centerEl = centerMarker.getElement();
+                const handleEl = handleMarker.getElement();
+
                 centerEl.style.cursor = "cell";
+                handleEl.style.cursor = "grab";
 
                 centerEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
@@ -447,17 +456,24 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
             }
         };
 
+        const dragStart = () => setCursor("grabbing");
+        const dragEnd = ()=> setCursor(getBaseCursor())
+
         map.on("click", handleClick);
+        map.on("dragstart", dragStart);
+        map.on("dragend", dragEnd);
 
         return () => {
             map.off("click", handleClick);
+            map.off("dragstart", dragStart);
+            map.off("dragend", dragEnd);
         };
     }, [canvasTool, isLoaded]);
 
-    const setCursor = (type) => {
-        const canvas = mapInstance.current.getCanvas();
-        canvas.style.cursor = type;
-        setCursorState(type);
+    const setCursor = (cursor) => {
+        const map = mapInstance.current;
+        if(!map) return;
+        map.getCanvas().style.cursor = cursor;
     };
 
     const getBaseCursor = () => canvasTool?.type ? "crosshair" : "grab";

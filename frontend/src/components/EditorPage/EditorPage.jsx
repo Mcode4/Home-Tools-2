@@ -194,7 +194,6 @@ export default function EditorPage() {
                     return copy
                 })
             }
-            return;
         };
         setCanvasObjects(prev => ({
             ...prev,
@@ -242,7 +241,7 @@ export default function EditorPage() {
                 });
             }
         });
-        return points
+        return points;
     }, [canvasObjects]);
 
     return (<>
