@@ -2,15 +2,3 @@
     position: absolute;
     inset: 0;
 }
-
-#map-container.maplibregl-canvas {
-    cursor: inherit;
-}
-
-#map-container.maplibregl-canvas.cell {
-    cursor: cell !important;
-}
-
-/* .maplibregl-canvas.crosshair {
-    cursor: crosshair !important;
-} */

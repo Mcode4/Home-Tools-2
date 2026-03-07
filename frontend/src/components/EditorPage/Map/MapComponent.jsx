@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
+import { circle } from "@turf/turf";
 import maplibregl from "maplibre-gl";
 import 'maplibre-gl/dist/maplibre-gl.css';
 import "./MapComponent.css"
@@ -203,24 +204,12 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     lat: lat
                 });
 
-                iconDiv.addEventListener("pointerenter", ()=> {
-                    setCursor("cell");
-                    console.log("MOUSE OVER SETTING CURSOR TO CELL:", map.getCanvas().style.cursor)
-                });
+                const el = marker.getElement();
 
-                iconDiv.addEventListener("pointerleave", ()=> {
-                    setCursor(getBaseCursor());
-                    console.log("ICON LEAVE CURSOR STATE:", cursorState);
-                });
+                el.style.cursor = "cell";
 
-                marker.on("dragstart", ()=> {
-                    setCursor("grabbing");
-                });
-
-                marker.on("dragend", ()=> {
-                    setCursor(getBaseCursor());
-                    console.log("DRAG END CURSOR STATE:", cursorState);
-                })
+                marker.on("dragstart", ()=> setCursor("grabbing"));
+                marker.on("dragend", ()=> setCursor(getBaseCursor()));
 
             } else if(canvasTool.type === "marker") {
                 const marker = new maplibregl.Marker({
@@ -239,47 +228,93 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 })
 
                 const el = marker.getElement();
+                el.style.cursor = "cell";
 
-                el.addEventListener("pointerenter", ()=> {
-                    setCursor("cell");
-                    console.log("MOUSE OVER SETTING CURSOR TO CELL:", map.getCanvas().style.cursor)
-                });
-
-                el.addEventListener("pointerleave", ()=> {
-                    setCursor(getBaseCursor());
-                    console.log("ICON LEAVE CURSOR STATE:", cursorState);
-                });
-
-                marker.on("dragstart", ()=> {
-                    setCursor("grabbing");
-                });
-
-                marker.on("dragend", ()=> {
-                    setCursor(getBaseCursor());
-                    console.log("DRAG END CURSOR STATE:", cursorState);
-                })
+                marker.on("dragstart", ()=> setCursor("grabbing"));
+                marker.on("dragend", ()=> setCursor(getBaseCursor()));
 
             } else if(canvasTool.type === "radius") {
-                const radius = "";
-                return;
-                radius.on("mouseenter", ()=> {
-                    map.getCanvas().style.cursor = "cell";
+                const radiusId = `radius-${Date.now()}`;
+
+                map.addSource(radiusId, {
+                    type: "geojson",
+                    data: createCircle(lng, lat, 500)
                 });
 
-                radius.on("mouseleave", ()=> {
-                    map.getCanvas().style.cursor = "grab";
+                map.addLayer({
+                    id: `${radiusId}-fill`,
+                    type: "fill",
+                    source: radiusId,
+                    paint: {
+                        "fill-color": "#4A90E2",
+                        "fill-opacity": 0.25
+                    }
                 });
 
-                radius.on("dragstart", ()=> {
-                    map.getCanvas().style.cursor = "grabbing";
+                map.addLayer({
+                    id: `${radiusId}-outline`,
+                    type: "line",
+                    source: radiusId,
+                    paint: {
+                        "line-color": "#4A90E2",
+                        "line-width": 2 
+                    }
                 });
 
-                map.on("mouseenter", "radius-layer", ()=> {
-                    map.getCanvas().style.cursor = "cell";
+                const centerMarker = new maplibregl.Marker({
+                    draggable: true
+                })
+                    .setLngLat([lng, lat])
+                    .addTo(map);
+
+                const radius = 500; // meters
+                const handleLng = lng + (radius / 111320); // rough meters to lng conversation
+
+                const handleMarker = new maplibregl.Marker({
+                    draggable: true,
+                    color: "blue"
+                })
+                    .setLngLat([handleLng, lat])
+                    .addTo(map);
+
+                handleMarker.on("drag", ()=> {
+                    const center = centerMarker.getLngLat();
+                    const handle = handleMarker.getLngLat();
+
+                    const dx = handle.lng - center.lng;
+                    const dy = handle.lat - center.lat;
+                    
+                    const distance = Math.sqrt(dx*dx + dy*dy) * 111320;
+
+                    const newCircle = createCircle(center.lng, center.lat, distance);
+                    map.getSource(radiusId).setData(newCircle);
                 });
 
-                map.on("mouseleave", "radius-layer", ()=> {
-                    map.getCanvas().style.cursor = cursorState;
+                centerMarker.on("drag", ()=> {
+                    const center = centerMarker.getLngLat();
+                    const handle = handleMarker.getLngLat();
+
+                    const dx = handle.lng - center.lng;
+                    const dy = handle.lat - center.lat;
+                    
+                    const distance = Math.sqrt(dx*dx + dy*dy) * 111320;
+
+                    const newCircle = createCircle(center.lng, center.lat, distance);
+                    map.getSource(radiusId).setData(newCircle);
+                });
+
+                const el = centerMarker.getElement();
+                el.style.cursor = "cell";
+
+                centerMarker.on("dragstart", ()=> setCursor("grabbing"));
+                centerMarker.on("dragend", ()=> setCursor(getBaseCursor()));
+
+                createdCanvasObject({
+                    id: radiusId,
+                    type: "radius",
+                    lng: lng,
+                    lat: lat,
+                    radius: 500
                 });
             }
         };
@@ -294,19 +329,20 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
 
     const setCursor = (type) => {
         const canvas = mapInstance.current.getCanvas();
-        
-        canvas.classList.remove("cell");
-        if(type === "cell") {
-            canvas.classList.add(type);
-        } else {
-            canvas.style.cursor = type;
-        }
-
+        canvas.style.cursor = type;
         setCursorState(type);
     };
 
 
     const getBaseCursor = () => canvasTool?.type ? "crosshair" : "grab";
+
+
+    function createCircle(lng, lat, radiusMeters) {
+        return circle([lng, lat], radiusMeters / 1000, {
+            steps: 64,
+            unit: "kilometers"
+        })
+    }
 
 
     return (
