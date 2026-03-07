@@ -136,13 +136,6 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 });
             });
 
-            createdCanvasObject({
-                id: markerId,
-                propertyId: m.propertyId,
-                lng: m.lngLat[0],
-                lat: m.lngLat[1]
-            });
-
             canvasObjectsRef.current[markerId] = {
                 marker
             };

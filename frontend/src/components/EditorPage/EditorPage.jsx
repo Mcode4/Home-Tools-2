@@ -10,8 +10,14 @@ import "./EditorPage.css";
 export default function EditorPage() {
     const propertyStore = useSelector(store => store.properties);
     const [properties, setProperties] = useState({pinned: {}, other: {}})
-    const [otherProperties, setOtherProperties] = useState({});
-    const [pinnedProperties, setPinnedProperties] = useState({});
+    const [otherProperties, setOtherProperties] = useState(()=> {
+        const storedOtherProps = localStorage.getItem("otherProperties");
+        return storedOtherProps ? JSON.parse(storedOtherProps) : {}
+    });
+    const [pinnedProperties, setPinnedProperties] = useState(()=> {
+        const storedPinnedProps = localStorage.getItem("pinnedProperties");
+        return storedPinnedProps ? JSON.parse(storedPinnedProps) : {}
+    });
     const { pathname } = useLocation();
     const id = Number(pathname.split("/").pop());
     const [loaded, setLoaded] = useState(false);
@@ -36,7 +42,10 @@ export default function EditorPage() {
     ]);
     const [buildings, setBuildings] = useState(["A", "B", "C", "D", "E", "F", "G"]);
     const [canvasSelect, setCanvasSelect] = useState({icon: null, name: null, type: null});
-    const [canvasObjects, setCanvasObjects] = useState({});
+    const [canvasObjects, setCanvasObjects] = useState(()=> {
+        const storedCanvasObject = localStorage.getItem("canvasObjects");
+        return storedCanvasObject ? JSON.parse(storedCanvasObject) : {};
+    });
     const [err, setErr] = useState({});
     const searchRef = useRef();
     const dispatch = useDispatch();
@@ -67,20 +76,6 @@ export default function EditorPage() {
         console.log("CANVAS OBJECTS CHANGED", canvasObjects);
     }, [canvasObjects]);
 
-
-    // useEffect(()=> {
-    //     Object.keys(menuSelects).length > 0 &&
-    //     .filter(([_, val])=> val === true)
-    // })
-
-    // useEffect(()=> {
-    //     window.addEventListener("selectionchange" ()=> {
-    //         try {
-    //             seletionPlayer.playSeletionSomehow()
-    //         }
-    //     })
-    // }, [])
-
     useEffect(()=> {
         if(propertyStore.pinned.length || propertyStore.other.length) return;
         dispatch(thunkGetAllProperties());
@@ -97,14 +92,14 @@ export default function EditorPage() {
             if(p.id === id) property = p;
             const {lng, lat} = p;
             allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
-            pinnedProperties[p.id] = p;
+            if(!pinnedProperties[p.id]) pinnedProperties[p.id] = {...p};
         });
 
         propertyStore.other.forEach(p => {
             if(p.id === id) property = p;
             const {lng, lat} = p;
             allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
-            otherProperties[p.id] = p;
+            if(!otherProperties[p.id]) otherProperties[p.id] = {...p};
         });
 
         setMarkers(allMarkers);
@@ -132,6 +127,22 @@ export default function EditorPage() {
             };
         }
     }, [search]);
+
+
+    useEffect(()=> {
+        if(!loaded) return;
+        localStorage.setItem("canvasObjects", JSON.stringify(canvasObjects));
+    }, [canvasObjects]);
+
+    useEffect(()=> {
+        if(!loaded) return;
+        localStorage.setItem("pinnedProperties", JSON.stringify(pinnedProperties));
+    }, [pinnedProperties]);
+
+    useEffect(()=> {
+        if(!loaded) return;
+        localStorage.setItem("otherProperties", JSON.stringify(otherProperties));
+    }, [otherProperties]);
     
 
     const selectMenu = (e, val) => {
@@ -180,8 +191,7 @@ export default function EditorPage() {
                     }
                     update.lat = obj.lat;
                     update.lng = obj.lng;
-                    return copy
-                })
+                });
             } else if(otherProperties[obj.propertyId]) {
                 setOtherProperties(p => {
                     const copy = {...p};
@@ -192,9 +202,11 @@ export default function EditorPage() {
                     update.lat = obj.lat;
                     update.lng = obj.lng;
                     return copy
-                })
-            }
+                });
+            };
+            return
         };
+
         setCanvasObjects(prev => ({
             ...prev,
             [obj.id]: obj

@@ -71,8 +71,8 @@ def init_db():
             state TEXT,
             country TEXT,
             zip INTEGER,
-            lat INTEGER NOT NULL,
-            lng INTEGER NOT NULL,
+            lat REAL NOT NULL,
+            lng REAL NOT NULL,
             group_id INTEGER,
             details TEXT,
             pinned INTEGER DEFAULT 0,
@@ -127,6 +127,17 @@ def init_db():
             type TEXT NOT NULL,
             extra_info TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS points (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_id INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            icon TEXT,
+            lng REAL NOT NULL,
+            lat REAL NOT NULL,
+            radius REAL
+        )
     """)
 
     conn.commit()
