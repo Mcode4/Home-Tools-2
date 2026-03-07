@@ -83,23 +83,39 @@ export default function EditorPage() {
 
     useEffect(()=> {
         console.log("Properties", propertyStore);
+        console.log("SAVED PROP FROM LOCAL", otherProperties);
         if (!propertyStore.pinned.length && !propertyStore.other.length) return;
         
         let property;
         const allMarkers = [];
 
         propertyStore.pinned.forEach(p => {
-            if(p.id === id) property = p;
+            if(p.id === id) {
+                if(!pinnedProperties[p.id]) property = p;
+                else property = pinnedProperties[p.id]
+            }
             const {lng, lat} = p;
-            allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
-            if(!pinnedProperties[p.id]) pinnedProperties[p.id] = {...p};
+            if(!pinnedProperties[p.id]) {
+                allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
+                pinnedProperties[p.id] = {...p};
+            } else {
+                allMarkers.push({ propertyId: p.id, lngLat: [pinnedProperties[p.id].lng, pinnedProperties[p.id].lat] });
+            }
         });
 
         propertyStore.other.forEach(p => {
-            if(p.id === id) property = p;
+            if(p.id === id) {
+                if(!otherProperties[p.id]) property = p;
+                else property = otherProperties[p.id]
+            }
             const {lng, lat} = p;
-            allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
-            if(!otherProperties[p.id]) otherProperties[p.id] = {...p};
+            if(!otherProperties[p.id]) {
+                allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
+                otherProperties[p.id] = {...p};
+            } else {
+                allMarkers.push({ propertyId: p.id, lngLat: [otherProperties[p.id].lng, otherProperties[p.id].lat] });
+                console.log("PROP HAS ID:", p.id, " PROP:", otherProperties)
+            }
         });
 
         setMarkers(allMarkers);
