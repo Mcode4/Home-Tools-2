@@ -33,7 +33,7 @@ export default function EditorPage() {
     ]);
     const [buildings, setBuildings] = useState(["A", "B", "C", "D", "E", "F", "G"]);
     const [canvasSelect, setCanvasSelect] = useState({icon: null, name: null, type: null});
-    const [canvasObjects, setCanvasObjects] = useState([]);
+    const [canvasObjects, setCanvasObjects] = useState({});
     const [err, setErr] = useState({});
     const searchRef = useRef();
     const dispatch = useDispatch();
@@ -151,8 +151,28 @@ export default function EditorPage() {
     };
 
     const addCanvasObjects = (obj) => {
-        setCanvasObjects(prev => [...prev, obj]);
+        setCanvasObjects(prev => ({
+            ...prev,
+            [obj.id]: obj
+        }));
     };
+
+    const deleteCanvasObjects = (id) => {
+        setCanvasObjects(prev => {
+            // console.log("ATTEMPTING TO DELETE:", id, " FROM:", canvasObjects)
+
+            if(!prev[id]) {
+                console.log("ID NOT FOUND");
+                return;
+            };
+
+            const copy = {...prev};
+            delete copy[id];
+
+            // console.log("SUCCESS NEW CANVAS OBJECTS", copy)
+            return copy;
+        })
+    }
 
     return (<>
     {loaded && (
@@ -473,6 +493,7 @@ export default function EditorPage() {
                 markers={markers} 
                 canvasTool={canvasSelect}
                 createdCanvasObject={addCanvasObjects}
+                deletedCanvasObject={deleteCanvasObjects}
             />             
         </div>
     </div>

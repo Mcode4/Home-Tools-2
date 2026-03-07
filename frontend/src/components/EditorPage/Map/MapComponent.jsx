@@ -6,12 +6,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import "./MapComponent.css"
 
 
-export default function MapComponent({ layer, lngLat, markers, canvasTool, createdCanvasObject }) {
+export default function MapComponent({ layer, lngLat, markers, canvasTool, createdCanvasObject, deletedCanvasObject }) {
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
-    const markerRefs = useRef([]);
     const [isLoaded, setIsLoaded] = useState(false);
     const [cursorState, setCursorState] = useState("grab");
+    const canvasObjectsRef = useRef({});
 
     useEffect(()=> {
         if(mapInstance.current || !mapRef.current || isLoaded) return;
@@ -189,14 +189,28 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     </div>
                 );
 
+                const markerId = `marker-${Date.now()}`;
+
                 const marker = new maplibregl.Marker({
                     element: iconDiv,
                     draggable: true 
                 })
                     .setLngLat([lng, lat])
                     .addTo(map);
-                
+                const el = marker.getElement();
+
+                el.style.cursor = "cell";
+
+                el.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(markerId);
+                })
+
+                marker.on("dragstart", ()=> setCursor("grabbing"));
+                marker.on("dragend", ()=> setCursor(getBaseCursor()));
+
                 createdCanvasObject({
+                    id: markerId,
                     type: canvasTool.type,
                     name: canvasTool.name,
                     icon: canvasTool.icon,
@@ -204,14 +218,13 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     lat: lat
                 });
 
-                const el = marker.getElement();
-
-                el.style.cursor = "cell";
-
-                marker.on("dragstart", ()=> setCursor("grabbing"));
-                marker.on("dragend", ()=> setCursor(getBaseCursor()));
+                canvasObjectsRef.current[markerId] = {
+                    marker
+                };
 
             } else if(canvasTool.type === "marker") {
+                const markerId = `marker-${Date.now()}`;
+
                 const marker = new maplibregl.Marker({
                     draggable: true,
                     color: "red"
@@ -219,19 +232,29 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     .setLngLat([lng, lat])
                     .addTo(map);
 
+                const el = marker.getElement();
+                el.style.cursor = "cell";
+
+                el.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(markerId);
+                })
+
+                marker.on("dragstart", ()=> setCursor("grabbing"));
+                marker.on("dragend", ()=> setCursor(getBaseCursor()));
+
                 createdCanvasObject({
+                    id: markerId,
                     type: canvasTool.type,
                     name: canvasTool.name,
                     icon: canvasTool.icon,
                     lng: lng,
                     lat: lat
-                })
+                });
 
-                const el = marker.getElement();
-                el.style.cursor = "cell";
-
-                marker.on("dragstart", ()=> setCursor("grabbing"));
-                marker.on("dragend", ()=> setCursor(getBaseCursor()));
+                canvasObjectsRef.current[markerId] = {
+                    marker
+                };
 
             } else if(canvasTool.type === "radius") {
                 const radiusId = `radius-${Date.now()}`;
@@ -267,7 +290,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     .setLngLat([lng, lat])
                     .addTo(map);
 
-                const radius = 500; // meters
+                let radius = 500; // meters
                 const handleLng = lng + (radius / 111320); // rough meters to lng conversation
 
                 const handleMarker = new maplibregl.Marker({
@@ -292,20 +315,6 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     .setLngLat([handleMarker.getLngLat().lng, handleMarker.getLngLat().lat])
                     .addTo(map)
 
-                const centerEl = centerMarker.getElement();
-                const handleEl = handleMarker.getElement();
-
-                centerEl.style.cursor = "cell";
-
-                // centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
-                // centerMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
-
-                centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
-                centerMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
-
-                handleMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
-                handleMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
-
                 handleMarker.on("drag", ()=> {
                     const center = centerMarker.getLngLat();
                     const handle = handleMarker.getLngLat();
@@ -313,12 +322,12 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const dx = handle.lng - center.lng;
                     const dy = handle.lat - center.lat;
                     
-                    const distance = Math.sqrt(dx*dx + dy*dy) * 111320;
+                    radius = Math.sqrt(dx*dx + dy*dy) * 111320;
 
-                    const newCircle = createCircle(center.lng, center.lat, distance);
-                    labelDiv.innerText = distance > 1000 ? 
-                        `${(distance/1000).toFixed(2)}km` :
-                        `${Math.round(distance)}m`;
+                    const newCircle = createCircle(center.lng, center.lat, radius);
+                    labelDiv.innerText = radius > 1000 ? 
+                        `${(radius/1000).toFixed(2)}km` :
+                        `${Math.round(radius)}m`;
                     labelMarker.setLngLat([handle.lng, handle.lat]);
                     map.getSource(radiusId).setData(newCircle);
                 });
@@ -330,23 +339,46 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const dx = handle.lng - center.lng;
                     const dy = handle.lat - center.lat;
                     
-                    const distance = Math.sqrt(dx*dx + dy*dy) * 111320;
+                    radius = Math.sqrt(dx*dx + dy*dy) * 111320;
 
-                    const newCircle = createCircle(center.lng, center.lat, distance);
-                    labelDiv.innerText = distance > 1000 ? 
-                        `${(distance/1000).toFixed(2)}km` :
-                        `${Math.round(distance)}m`;
+                    const newCircle = createCircle(center.lng, center.lat, radius);
+                    labelDiv.innerText = radius > 1000 ? 
+                        `${(radius/1000).toFixed(2)}km` :
+                        `${Math.round(radius)}m`;
                     labelMarker.setLngLat([handle.lng, handle.lat]);
                     map.getSource(radiusId).setData(newCircle);
                 });
+
+                const centerEl = centerMarker.getElement();
+                centerEl.style.cursor = "cell";
+
+                centerEl.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(radiusId);
+                })
+
+                centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
+                centerMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
+
+                handleMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
+                handleMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
 
                 createdCanvasObject({
                     id: radiusId,
                     type: "radius",
                     lng: lng,
                     lat: lat,
-                    radius: 500
+                    radius: radius
                 });
+
+                canvasObjectsRef.current[radiusId] = {
+                    centerMarker,
+                    handleMarker,
+                    labelMarker,
+                    sourceId: radiusId,
+                    fillLayer: `${radiusId}-fill`,
+                    outlineLayer: `${radiusId}-outline`
+                };
             }
         };
 
@@ -357,16 +389,13 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
         };
     }, [canvasTool, isLoaded]);
 
-
     const setCursor = (type) => {
         const canvas = mapInstance.current.getCanvas();
         canvas.style.cursor = type;
         setCursorState(type);
     };
 
-
     const getBaseCursor = () => canvasTool?.type ? "crosshair" : "grab";
-
 
     function createCircle(lng, lat, radiusMeters) {
         return circle([lng, lat], radiusMeters / 1000, {
@@ -375,6 +404,35 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
         })
     }
 
+    const deleteCanvasObject = (id) => {
+        const map = mapInstance.current;
+        const obj = canvasObjectsRef.current[id];
+
+        if(!obj) return;
+
+        if(obj.marker) {
+            obj.marker.remove();
+        };
+        
+        if(obj.centerMarker) obj.centerMarker.remove();
+        if (obj.handleMarker) obj.handleMarker.remove();
+        if (obj.labelMarker) obj.labelMarker.remove();
+
+        if(obj.fillLayer && map.getLayer(obj.fillLayer)) {
+            map.removeLayer(obj.fillLayer);
+        };
+
+        if(obj.outlineLayer && map.getLayer(obj.outlineLayer)) {
+            map.removeLayer(obj.outlineLayer);
+        };
+
+        if(obj.sourceId && map.getSource(obj.sourceId)) {
+            map.removeSource(obj.sourceId);
+        };
+
+        delete canvasObjectsRef.current[id];
+        deletedCanvasObject(id);
+    }
 
     return (
         <div
