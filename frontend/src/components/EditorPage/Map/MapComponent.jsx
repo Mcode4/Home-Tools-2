@@ -277,6 +277,35 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     .setLngLat([handleLng, lat])
                     .addTo(map);
 
+                const labelDiv = document.createElement("div");
+                labelDiv.style.background = "white";
+                labelDiv.style.padding = "2px 6px";
+                labelDiv.style.borderRadius = "4px";
+                labelDiv.style.fontSize = "12px";
+                labelDiv.style.textAlign = "center";
+                labelDiv.style.innerText = "500m";
+
+                const labelMarker = new maplibregl.Marker({
+                    element: labelDiv,
+                    anchor: "bottom"
+                })
+                    .setLngLat([handleMarker.getLngLat().lng, handleMarker.getLngLat().lat])
+                    .addTo(map)
+
+                const centerEl = centerMarker.getElement();
+                const handleEl = handleMarker.getElement();
+
+                centerEl.style.cursor = "cell";
+
+                // centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
+                // centerMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
+
+                centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
+                centerMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
+
+                handleMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
+                handleMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
+
                 handleMarker.on("drag", ()=> {
                     const center = centerMarker.getLngLat();
                     const handle = handleMarker.getLngLat();
@@ -287,6 +316,10 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const distance = Math.sqrt(dx*dx + dy*dy) * 111320;
 
                     const newCircle = createCircle(center.lng, center.lat, distance);
+                    labelDiv.innerText = distance > 1000 ? 
+                        `${(distance/1000).toFixed(2)}km` :
+                        `${Math.round(distance)}m`;
+                    labelMarker.setLngLat([handle.lng, handle.lat]);
                     map.getSource(radiusId).setData(newCircle);
                 });
 
@@ -300,14 +333,12 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const distance = Math.sqrt(dx*dx + dy*dy) * 111320;
 
                     const newCircle = createCircle(center.lng, center.lat, distance);
+                    labelDiv.innerText = distance > 1000 ? 
+                        `${(distance/1000).toFixed(2)}km` :
+                        `${Math.round(distance)}m`;
+                    labelMarker.setLngLat([handle.lng, handle.lat]);
                     map.getSource(radiusId).setData(newCircle);
                 });
-
-                const el = centerMarker.getElement();
-                el.style.cursor = "cell";
-
-                centerMarker.on("dragstart", ()=> setCursor("grabbing"));
-                centerMarker.on("dragend", ()=> setCursor(getBaseCursor()));
 
                 createdCanvasObject({
                     id: radiusId,
