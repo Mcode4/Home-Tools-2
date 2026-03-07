@@ -105,52 +105,92 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
 
         const map = mapInstance.current;
 
-        const geojson = {
-            type: "FeatureCollection",
-            features: markers.map(m => ({
-                type: "Feature",
-                properties: {
-                    id: m.propertyId
-                },
-                geometry: {
-                    type: "Point",
-                    coordinates: m.lngLat
-                }
-            }))
-        };
+        markers.forEach(m => {
+            const markerId = `marker-${Date.now()}-${m.propertyId}`;
 
-        if(!map.getSource("properties") && geojson.features.length > 0){
-            try {
-                map.addSource("properties", {
-                    type: "geojson",
-                    data: geojson,
-                    cluster: true,
-                    clusterMaxZoom: 14,
-                    clusterRadius: 50
-                });
+            const marker = new maplibregl.Marker({
+                color: "red",
+                draggable: true
+            })
+                .setLngLat(m.lngLat)
+                .addTo(map);
 
-                map.addLayer({
-                    id: "property-points",
-                    type: "circle",
-                    source: "properties",
-                    filter: ["!", ["has", "point_count"]],
-                    paint: {
-                        "circle-radius": 9,
-                        "circle-color": "#ff0000",
-                        "circle-stroke-width": 1,
-                        "circle-stroke-color": "#ffffff"
-                    }
+            const el = marker.getElement();
+
+            el.style.cursor = "cell";
+
+            el.addEventListener("contextmenu", (e)=> {
+                e.preventDefault();
+                deleteCanvasObject(markerId);
+            });
+
+            marker.on("dragstart", ()=> setCursor("grabbing"));
+            marker.on("dragend", ()=> {
+                setCursor(getBaseCursor());
+                const newLngLat = marker.getLngLat();
+                createdCanvasObject({
+                    id: markerId,
+                    lng: newLngLat.lng,
+                    lat: newLngLat.lat
                 });
-            } catch(e) {
-                console.warn("Map failed to add markers", e)
-            }
-        } else {
-            try {
-                map.getSource("properties").setData(geojson);
-            } catch(e) {
-                console.warn("Map source not ready yet:", e);
+            });
+
+            createdCanvasObject({
+                id: markerId,
+                lng: m.lngLat[0],
+                lat: m.lngLat[1]
+            });
+
+            canvasObjectsRef.current[markerId] = {
+                marker
             };
-        };
+        })
+        // const geojson = {
+        //     type: "FeatureCollection",
+        //     features: markers.map(m => ({
+        //         type: "Feature",
+        //         properties: {
+        //             id: m.propertyId
+        //         },
+        //         geometry: {
+        //             type: "Point",
+        //             coordinates: m.lngLat
+        //         }
+        //     }))
+        // };
+
+        // if(!map.getSource("properties") && geojson.features.length > 0){
+        //     try {
+        //         map.addSource("properties", {
+        //             type: "geojson",
+        //             data: geojson,
+        //             cluster: true,
+        //             clusterMaxZoom: 14,
+        //             clusterRadius: 50
+        //         });
+
+        //         map.addLayer({
+        //             id: "property-points",
+        //             type: "circle",
+        //             source: "properties",
+        //             filter: ["!", ["has", "point_count"]],
+        //             paint: {
+        //                 "circle-radius": 9,
+        //                 "circle-color": "#ff0000",
+        //                 "circle-stroke-width": 1,
+        //                 "circle-stroke-color": "#ffffff"
+        //             }
+        //         });
+        //     } catch(e) {
+        //         console.warn("Map failed to add markers", e)
+        //     }
+        // } else {
+        //     try {
+        //         map.getSource("properties").setData(geojson);
+        //     } catch(e) {
+        //         console.warn("Map source not ready yet:", e);
+        //     };
+        // };
 
     }, [markers, isLoaded]);
 
@@ -204,10 +244,21 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
                     deleteCanvasObject(markerId);
-                })
+                });
 
                 marker.on("dragstart", ()=> setCursor("grabbing"));
-                marker.on("dragend", ()=> setCursor(getBaseCursor()));
+                marker.on("dragend", ()=> {
+                    setCursor(getBaseCursor());
+                    const newLngLat = marker.getLngLat();
+                    createdCanvasObject({
+                        id: markerId,
+                        type: canvasTool.type,
+                        name: canvasTool.name,
+                        icon: canvasTool.icon,
+                        lng: newLngLat.lng,
+                        lat: newLngLat.lat
+                    });
+                });
 
                 createdCanvasObject({
                     id: markerId,
@@ -238,16 +289,25 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
                     deleteCanvasObject(markerId);
-                })
+                });
 
                 marker.on("dragstart", ()=> setCursor("grabbing"));
-                marker.on("dragend", ()=> setCursor(getBaseCursor()));
+                marker.on("dragend", ()=> {
+                    setCursor(getBaseCursor());
+                    const newLngLat = marker.getLngLat();
+                    createdCanvasObject({
+                        id: markerId,
+                        type: canvasTool.type,
+                        name: canvasTool.name,
+                        lng: newLngLat.lng,
+                        lat: newLngLat.lat
+                    });
+                });
 
                 createdCanvasObject({
                     id: markerId,
                     type: canvasTool.type,
                     name: canvasTool.name,
-                    icon: canvasTool.icon,
                     lng: lng,
                     lat: lat
                 });
@@ -358,7 +418,17 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 })
 
                 centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
-                centerMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
+                centerMarker.on("dragend", ()=> {
+                    map.getCanvas().style.cursor = getBaseCursor();
+                    const newLngLat = centerMarker.getLngLat()
+                    createdCanvasObject({
+                        id: radiusId,
+                        type: "radius",
+                        lng: newLngLat.lng,
+                        lat: newLngLat.lat,
+                        radius: radius
+                    });
+                });
 
                 handleMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
                 handleMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());

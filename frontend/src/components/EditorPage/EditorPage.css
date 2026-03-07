@@ -227,6 +227,7 @@
 .menu-item-1-actions {
     display: flex;
     gap: 5px;
+    margin-left: auto;
 }
 
 .menu-item-1-actions button {

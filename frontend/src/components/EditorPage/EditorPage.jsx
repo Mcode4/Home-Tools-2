@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 import { thunkGetAllProperties } from "../../redux/properties";
@@ -17,7 +17,7 @@ export default function EditorPage() {
     const [menuSelects, setMenuSelects] = useState({});
     const [lngLat, setLngLat] = useState([-83.5, 32.9]);
     const [markers, setMarkers] = useState([]); // [{id: propertyId: int(1), lngLat: [lng, lat]}, {...}]
-    const [menu, setMenu] = useState("map") // "map", "draw", "screen", "teams"
+    const [menu, setMenu] = useState("map") // "map", "draw", "teams", "render-page", "exports"
     const [search, setSearch] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [searchActive, setSearchActive] = useState(true);
@@ -120,7 +120,8 @@ export default function EditorPage() {
     const selectMenu = (e, val) => {
         e.preventDefault();
         
-        ["map", "draw", "view", "teams"].forEach(m => {
+        // No teams now
+        ["map", "draw", "render-page", "exports"].forEach(m => {
             const currMenu = document.getElementById(`menu-${m}`);
             const menuItem = document.getElementById(`menu-item-${m}`);
             const slider = document.getElementById("menu-tools");
@@ -159,8 +160,6 @@ export default function EditorPage() {
 
     const deleteCanvasObjects = (id) => {
         setCanvasObjects(prev => {
-            // console.log("ATTEMPTING TO DELETE:", id, " FROM:", canvasObjects)
-
             if(!prev[id]) {
                 console.log("ID NOT FOUND");
                 return;
@@ -168,11 +167,39 @@ export default function EditorPage() {
 
             const copy = {...prev};
             delete copy[id];
-
-            // console.log("SUCCESS NEW CANVAS OBJECTS", copy)
             return copy;
         })
     }
+
+    const formatUnsavedPoints = useMemo(() => {
+        const points = [];
+        let markerCount = 0;
+        let iconCount = 0;
+        let radiusCount = 0;
+
+        Object.values(canvasObjects).forEach(obj => {
+            if(obj.type === "icon") {
+                iconCount++;
+                points.push({
+                    name: `(${obj.name}) Icon ${iconCount}`,
+                    lngLat: [obj.lng, obj.lat]
+                });
+            } else if (obj.type === "marker") {
+                markerCount++;
+                points.push({
+                    name: `Marker ${markerCount}`,
+                    lngLat: [obj.lng, obj.lat]
+                });
+            } else if (obj.type === "radius") {
+                radiusCount++;
+                points.push({
+                    name: `Radius ${radiusCount}`,
+                    lngLat: [obj.lng, obj.lat]
+                });
+            }
+        });
+        return points
+    }, [canvasObjects]);
 
     return (<>
     {loaded && (
@@ -235,29 +262,36 @@ export default function EditorPage() {
                         className="menu-active user-select-none"
                         onClick={(e)=> selectMenu(e, "map")}
                     >
-                        <img src="/icons/houses.svg" alt="Map" />
+                        <img src="/icons/map.svg" alt="Map" />
                     </li>
                     <li 
                         id="menu-draw"
                         className="user-select-none"
                         onClick={(e)=> selectMenu(e, "draw")}
                     >
-                        <img src="/icons/paint.svg" alt="Draw" />
+                        <img src="/icons/design.svg" alt="Draw" />
                     </li>
-                    <li 
-                        id="menu-view"
+                    <li
+                        id="menu-render-page"
                         className="user-select-none"
-                        onClick={(e)=> selectMenu(e, "view")}
+                        onClick={(e)=> selectMenu(e, "render-page")}
                     >
-                        <img src="/icons/screen.svg" alt="View" />
+                        <img src="/icons/home.svg" alt="Render Page" />
                     </li>
                     <li 
+                        id="menu-exports"
+                        className="user-select-none"
+                        onClick={(e)=> selectMenu(e, "exports")}
+                    >
+                        <img src="/icons/export.svg" alt="Exports" />
+                    </li>
+                    {/* <li 
                         id="menu-teams"
                         className="user-select-none"
                         onClick={(e)=> selectMenu(e, "teams")}
                     >
                         <img src="/icons/team.svg" alt="Teams" />
-                    </li>
+                    </li> */}
                 </ul>
 
                 <ul id={`menu-tools`}>
@@ -280,9 +314,14 @@ export default function EditorPage() {
                             {properties?.pinned.length > 0 && (
                                 <div className={`${menuSelects[0] ? "" : "hidden"}`}>
                                 {properties?.pinned.map((p, i) => (
-                                    <div className="menu-item-1 user-select-none" key={`pinned-${i}`}>
+                                    <div className="menu-item-1-actions user-select-none">
                                         <p>{p.name}</p>
-                                        <button>Config</button>
+                                        <button onClick={()=> setLngLat([p.lng, p.lat])}>
+                                            <img src="/icons/location.svg" alt="View" />
+                                        </button>
+                                        <button>
+                                            <img src="/icons/setting.svg" alt="View" />
+                                        </button>
                                     </div>
                                 ))}
                                 </div>
@@ -313,6 +352,31 @@ export default function EditorPage() {
                                 ))}
                                 </div>
                             )}
+                            <div className="menu-item-1-subtitle user-select-none">
+                                Unsaved Points
+                                <button
+                                    onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}))}
+                                >
+                                    {menuSelects[2] ? "V" : "𐌡"}
+                                </button>
+                            </div>
+                            {Object.keys(canvasObjects)?.length > 0 && (
+                                <div className={`${menuSelects[2] ? "" : "hidden"}`}>
+                                    {formatUnsavedPoints.map((p, i) => (
+                                    <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
+                                        <p>{p.name}</p>
+                                        <div className="menu-item-1-actions user-select-none">
+                                            <button onClick={()=> setLngLat(p.lngLat)}>
+                                                <img src="/icons/location.svg" alt="View" />
+                                            </button>
+                                            <button>
+                                                <img src="/icons/setting.svg" alt="View" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    ))}
+                                </div>
+                            )}
                             </>
                         ) : (
                             <p className="user-select-none">No Properties Made Yet.</p>
@@ -341,7 +405,7 @@ export default function EditorPage() {
                                 }`}
                                 onClick={()=> selectCanvasAddon(null, "marker", "marker")}
                             >
-                                <img src="/icons/location.svg" alt="Marker" />
+                                <img src="/icons/point.svg" alt="Marker" />
                                 <p>Marker</p>
                             </div>
 
@@ -352,7 +416,7 @@ export default function EditorPage() {
                                 }`}
                                 onClick={()=> selectCanvasAddon(null, "radius", "radius", {size: "6"})}
                             >
-                                <img src="/icons/circle.svg" alt="Radius" />
+                                <img src="/icons/radius.svg" alt="Radius" />
                                 <p>Radius</p>
                             </div>
                         </div>
@@ -433,12 +497,16 @@ export default function EditorPage() {
                     </li>
                     <li 
                         className="hidden menu-item-container"
-                        id="menu-item-view"
+                        id="menu-item-render-page"
                     >3</li>
                     <li 
                         className="hidden menu-item-container"
-                        id="menu-item-teams"
+                        id="menu-item-exports"
                     >4</li>
+                    {/* <li 
+                        className="hidden menu-item-container"
+                        id="menu-item-teams"
+                    >5</li> */}
                 </ul>
             </div>
 
