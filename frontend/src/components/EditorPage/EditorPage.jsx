@@ -32,6 +32,8 @@ export default function EditorPage() {
         {emoji: "🌊", name: "Flood"}, {emoji: "⚠️", name: "Incident"},
     ]);
     const [buildings, setBuildings] = useState(["A", "B", "C", "D", "E", "F", "G"]);
+    const [canvasSelect, setCanvasSelect] = useState({icon: null, name: null, type: null});
+    const [canvasObjects, setCanvasObjects] = useState([]);
     const [err, setErr] = useState({});
     const searchRef = useRef();
     const dispatch = useDispatch();
@@ -52,9 +54,10 @@ export default function EditorPage() {
     }, [searchRef]);
 
     useEffect(()=> {
-        console.log("MENU SELECT CHANGED", menuSelects);
+        console.log("CANVAS OBJECTS CHANGED", canvasObjects);
         // console.log("OBJECT ENTRIES MENU",  )
-    }, [menuSelects]);
+    }, [canvasObjects]);
+
 
     // useEffect(()=> {
     //     Object.keys(menuSelects).length > 0 &&
@@ -135,8 +138,21 @@ export default function EditorPage() {
                 currMenu.classList.toggle("menu-active", false);
                 menuItem.classList.toggle("hidden", true);
             };
-        })
-    }
+        });
+    };
+
+    const selectCanvasAddon = (icon, name, type="icon") => {
+        if(canvasSelect.icon === icon && canvasSelect.name === name) {
+            setCanvasSelect({icon: null, name: null, type: null});
+            return;
+        };
+
+        setCanvasSelect({icon, name, type});
+    };
+
+    const addCanvasObjects = (obj) => {
+        setCanvasObjects(prev => [...prev, obj]);
+    };
 
     return (<>
     {loaded && (
@@ -289,17 +305,57 @@ export default function EditorPage() {
                         <div className="menu-item-title user-select-none">Draw</div>
 
                         <div className="menu-item-1-subtitle user-select-none">
-                            Amenities
+                            Basic Tools
                             <button
-                                onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}) )}
+                                onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}))}
                             >
                                 {menuSelects[2] ? "V" : "𐌡"}
                             </button>
                         </div>
 
                         <div className={`menu-item-2-container ${menuSelects[2] ? "" : "hidden"}`}>
-                            {amenities?.map(a => (
-                                <div className="menu-item-2">
+                            <div 
+                                className={`menu-item-2 ${
+                                    canvasSelect.name === "marker" &&
+                                    canvasSelect.type === "marker" ? "selected" : ""
+                                }`}
+                                onClick={()=> selectCanvasAddon(null, "marker", "marker")}
+                            >
+                                <img src="/icons/location.svg" alt="Marker" />
+                                <p>Marker</p>
+                            </div>
+
+                            <div 
+                                className={`menu-item-2 ${
+                                    canvasSelect.name === "radius" &&
+                                    canvasSelect.type === "radius" ? "selected" : ""
+                                }`}
+                                onClick={()=> selectCanvasAddon(null, "radius", "radius", {size: "6"})}
+                            >
+                                <img src="/icons/circle.svg" alt="Radius" />
+                                <p>Radius</p>
+                            </div>
+                        </div>
+
+                        <div className="menu-item-1-subtitle user-select-none">
+                            Amenities
+                            <button
+                                onClick={()=> setMenuSelects(m => ({...m, 3: !m[3]}) )}
+                            >
+                                {menuSelects[3] ? "V" : "𐌡"}
+                            </button>
+                        </div>
+
+                        <div className={`menu-item-2-container ${menuSelects[3] ? "" : "hidden"}`}>
+                            {amenities?.map((a, i) => (
+                                <div 
+                                    className={`menu-item-2 ${
+                                        canvasSelect.icon === a.emoji && 
+                                        canvasSelect.name === a.name ? "selected" : ""
+                                    }`}
+                                    key={`amentity-${i}`}
+                                    onClick={()=> selectCanvasAddon(a.emoji, a.name)}
+                                >
                                     <p>{a.emoji}</p>
                                     <p>{a.name}</p>
                                 </div>
@@ -309,15 +365,22 @@ export default function EditorPage() {
                         <div className="menu-item-1-subtitle user-select-none">
                             Emergencies
                             <button
-                                onClick={()=> setMenuSelects(m => ({...m, 3: !m[3]}) )}
+                                onClick={()=> setMenuSelects(m => ({...m, 4: !m[4]}) )}
                             >
-                                {menuSelects[3] ? "V" : "𐌡"}
+                                {menuSelects[4] ? "V" : "𐌡"}
                             </button>
                         </div>
 
-                        <div className={`menu-item-2-container ${menuSelects[3] ? "" : "hidden"}`}>
-                            {emergencies?.map(e => (
-                                <div className="menu-item-2">
+                        <div className={`menu-item-2-container ${menuSelects[4] ? "" : "hidden"}`}>
+                            {emergencies?.map((e, i) => (
+                                <div 
+                                    className={`menu-item-2 ${
+                                        canvasSelect.icon === e.emoji && 
+                                        canvasSelect.name === e.name ? "selected" : ""
+                                    }`}
+                                    key={`emergency-${i}`}
+                                    onClick={()=> selectCanvasAddon(e.emoji, e.name)}
+                                >
                                     <p>{e.emoji}</p>
                                     <p>{e.name}</p>
                                 </div>
@@ -327,15 +390,22 @@ export default function EditorPage() {
                         <div className="menu-item-1-subtitle user-select-none">
                             Buildings
                             <button
-                                onClick={()=> setMenuSelects(m => ({...m, 4: !m[4]}) )}
+                                onClick={()=> setMenuSelects(m => ({...m, 5: !m[5]}) )}
                             >
-                                {menuSelects[4] ? "V" : "𐌡"}
+                                {menuSelects[5] ? "V" : "𐌡"}
                             </button>
                         </div>
 
-                        <div className={`menu-item-2-container ${menuSelects[4] ? "" : "hidden"}`}>
-                            {buildings?.map(b => (
-                                <div className="menu-item-2">
+                        <div className={`menu-item-2-container ${menuSelects[5] ? "" : "hidden"}`}>
+                            {buildings?.map((b, i) => (
+                                <div 
+                                    className={`menu-item-2 ${
+                                        canvasSelect.icon === b && 
+                                        canvasSelect.name === "building" ? "selected" : ""
+                                    }`}
+                                    key={`build-${i}`}
+                                    onClick={()=> selectCanvasAddon(b, "building")}
+                                >
                                     {b}
                                 </div>
                             ))}
@@ -401,6 +471,8 @@ export default function EditorPage() {
                 layer={layer} 
                 lngLat={lngLat} 
                 markers={markers} 
+                canvasTool={canvasSelect}
+                createdCanvasObject={addCanvasObjects}
             />             
         </div>
     </div>

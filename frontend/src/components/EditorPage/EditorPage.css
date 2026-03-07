@@ -10,6 +10,14 @@
     width: 0;
 }
 
+.selected {
+    background: #eee;
+}
+
+.canvasMarker {
+    display: none;
+    /* visibility: hidden; */
+}
 
 /* Main Elements */
 #editor {
@@ -278,3 +286,4 @@
     font-size: large;
     margin-left: auto;
 }
+
