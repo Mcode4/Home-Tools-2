@@ -39,7 +39,15 @@ export default function EditorPage() {
         }
         return parsed?.data || {};
     });
-    const [points, setPoints] = useState({});
+    const [points, setPoints] = useState(()=> {
+        const stored = localStorage.getItem("points");
+        const parsed = JSON.parse(stored);
+        if(parsed && Date.now() > parsed?.expires) {
+            localStorage.removeItem("points");
+            return {};
+        }
+        return parsed?.data || {};
+    });
     const { pathname } = useLocation();
     const id = Number(pathname.split("/").pop());
     const [loaded, setLoaded] = useState(false);
@@ -105,13 +113,19 @@ export default function EditorPage() {
     }, [canvasObjects]);
 
     useEffect(()=> {
-        if(propertyStore.pinned.length || propertyStore.other.length) return;
-        dispatch(thunkGetAllProperties());
+        if(!propertyStore.pinned.length || !propertyStore.other.length) {
+            dispatch(thunkGetAllProperties());
+        }
+        if(!pointStore.data.length)  {
+            dispatch(thunkGetAllPoints());
+        }
+        
     }, [dispatch]);
 
     useEffect(()=> {
         console.log("Properties", propertyStore);
         console.log("SAVED PROP FROM LOCAL", otherProperties);
+        console.log("POINTS from STORE", pointStore)
         if (!propertyStore.pinned.length && !propertyStore.other.length) return;
         
         let property;
@@ -165,7 +179,14 @@ export default function EditorPage() {
         if(pointStore?.data.length) {
             console.log("POINTS DATA ADDING", pointStore?.data);
 
-            pointStore.data.map(p => {
+            pointStore.data.map(prev => {
+                let p;
+                if(points[prev]) {
+                    p = points[prev];
+                } else {
+                    points[prev] = prev;
+                    p = prev;
+                }
                 if(p.type === "icon") {
                     allMarkers.push({
                         pointId: p.id,
@@ -243,6 +264,14 @@ export default function EditorPage() {
             expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
         }));
     }, [otherProperties]);
+
+    useEffect(()=> {
+        if(!loaded) return;
+        localStorage.setItem("points", JSON.stringify({
+            data: points,
+            expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
+        }));
+    }, [points]);
     
 
     const selectMenu = (e, val) => {
@@ -324,14 +353,16 @@ export default function EditorPage() {
                         type: p.type,
                         name: p.name,
                         icon: p.icon,
-                        lngLat: [p.lng, p.lat]
+                        lng: p.lng,
+                        lat: p.lat
                     };
                 } else if(copy[obj.pointId].type === "marker") {
                     copy[obj.pointId] = {
                         pointId: p.id,
                         type: p.type,
                         name: p.name,
-                        lngLat: [p.lng, p.lat]
+                        lng: p.lng,
+                        lat: p.lat
                     };
                 } else if(copy[obj.pointId].type === "radius") {
                     copy[obj.pointId] = {
@@ -339,17 +370,31 @@ export default function EditorPage() {
                         type: p.type,
                         name: p.name,
                         radius: p.radius,
-                        lngLat: [p.lng, p.lat]
+                        lng: p.lng,
+                        lat: p.lat
                     };
                 };
+                console.log("COPY SET", copy[obj.pointId]);
                 return copy;
             });
         };
+        
+        setCanvasObjects(prev => {
+            const copy = {...prev};
 
-        setCanvasObjects(prev => ({
-            ...prev,
-            [obj.id]: obj
-        }));
+            if(copy[obj.id]) {
+                copy[obj.id].lng = obj.lng;
+                copy[obj.id].lat = obj.lat;
+                if(copy[obj.id] === "radius") {
+                    copy[obj.id].radius = obj.radius;
+                };
+            } else {
+                copy[obj.pointId] = {...obj};
+                copy[obj.pointId].name = "New " + obj.type;
+            };
+
+            return copy;
+        });
     };
 
     const deleteCanvasObjects = (id) => {
@@ -382,38 +427,6 @@ export default function EditorPage() {
         })
     }
 
-    const formatUnsavedPoints = useMemo(() => {
-        const points = [];
-        let markerCount = 0;
-        let iconCount = 0;
-        let radiusCount = 0;
-
-        for (const obj of Object.values(canvasObjects)) {
-            if(obj.propertyId || obj.pointId) continue;
-            
-            if(obj.type === "icon") {
-                iconCount++;
-                points.push({
-                    name: `(${obj.name}) Icon ${iconCount}`,
-                    lngLat: [obj.lng, obj.lat]
-                });
-            } else if (obj.type === "marker") {
-                markerCount++;
-                points.push({
-                    name: `Marker ${markerCount}`,
-                    lngLat: [obj.lng, obj.lat]
-                });
-            } else if (obj.type === "radius") {
-                radiusCount++;
-                points.push({
-                    name: `Radius ${radiusCount}`,
-                    lngLat: [obj.lng, obj.lat]
-                });
-            }
-        };
-        return points;
-    }, [canvasObjects]);
-
     const handleSave = async (e) => {
         console.log("SAVING HIT")
         e.preventDefault();
@@ -425,82 +438,121 @@ export default function EditorPage() {
         let parsed = JSON.parse(storedPinnedProps);
 
         if(parsed?.data) {
-            const createProp = {...parsed?.data};
-            await Promise.all(
-                propertyStore.pinned.map(p => {
-                    if(createProp[p.id]) {
-                        const edit = dispatch(thunkEditProperty(p.id, createProp[p.id]));
-                        delete createProp[p.id];
-                        return edit;
-                    };
-                })
-            )
-            if(Object.keys(createProp).length) {
+            try {
+                const createProp = {...parsed?.data};
                 await Promise.all(
-                    Object.values(createProp).map(p=> {
-                        return dispatch(thunkCreateProperty(p))
+                    propertyStore.pinned.map(p => {
+                        if(createProp[p.id]) {
+                            if(createProp[p.id].name.includes("(Unsaved)")) {
+                                createProp[p.id].name = createProp[p.id].name
+                                    .split("(Unsaved)")[1]
+                                    .trim();
+                            }
+                            const edit = dispatch(thunkEditProperty(p.id, createProp[p.id]));
+                            delete createProp[p.id];
+                            return edit;
+                        };
                     })
-                );
-            }
-            if(deletedProperties.pinned.length) {
-                await Promise.all(
-                    deletedProperties.pinned.map(id => { 
-                        return dispatch(thunkDeleteProperty(id)) 
-                    })
-                );
+                )
+                if(Object.keys(createProp).length) {
+                    await Promise.all(
+                        Object.values(createProp).map(p=> {
+                            if(p.name.includes("(Unsaved)")) {
+                                p.name = p.name.split("(Unsaved)")[1].trim();
+                            }
+                            return dispatch(thunkCreateProperty(p))
+                        })
+                    );
+                }
+                if(deletedProperties.pinned.length) {
+                    await Promise.all(
+                        deletedProperties.pinned.map(id => { 
+                            return dispatch(thunkDeleteProperty(id)) 
+                        })
+                    );
+                }
+                localStorage.removeItem("pinnedProperty");
+            } catch(e) {
+                console.error("Failed to save other properties, quitting before other properties, and points", e);
+                return;
             }
         }
         parsed = JSON.parse(storedOtherProps);
 
         if(parsed?.data) {
-            const createProp = {...parsed?.data};
-            await Promise.all(
-                propertyStore.other.map(p => {
-                    if(createProp[p.id]) {
-                        const edit = dispatch(thunkEditProperty(p.id, createProp[p.id]));
-                        delete createProp[p.id];
-                        return edit;
-                    };
-                })
-            );
-            if(Object.keys(createProp).length) {
+            try{
+                const createProp = {...parsed?.data};
                 await Promise.all(
-                    Object.values.map(p => {
-                        return dispatch(thunkCreateProperty(p));
+                    propertyStore.other.map(p => {
+                        if(createProp[p.id]) {
+                            if(createProp[p.id].name.includes("(Unsaved)")) {
+                                createProp[p.id].name = createProp[p.id].name
+                                    .split("(Unsaved)")[1]
+                                    .trim();
+                            }
+                            const edit = dispatch(thunkEditProperty(p.id, createProp[p.id]));
+                            delete createProp[p.id];
+                            return edit;
+                        };
                     })
                 );
-            };
-            if(deletedPoints.length) {
-                await Promise.all(
-                    deletedPoints.map(id => {
-                        return dispatch(thunkDeletePoint(id));
-                    })
-                );
-            };
+                if(Object.keys(createProp).length) {
+                    await Promise.all(
+                        Object.values.map(p => {
+                            if(p.name.includes("(Unsaved)")) {
+                                p.name = p.name.split("(Unsaved)")[1].trim();
+                            }
+                            return dispatch(thunkCreateProperty(p));
+                        })
+                    );
+                };
+                if(deletedProperties.other.length) {
+                    await Promise.all(
+                        deletedProperties.other.map(id => { 
+                            return dispatch(thunkDeleteProperty(id)) 
+                        })
+                    );
+                }
+                localStorage.removeItem("otherProperties");
+            }
+            catch(e) {
+                console.error("Failed to save other properties, quitting before points", e);
+                return;
+            }
         }
         
         parsed = JSON.parse(storedCanvasObjs);
 
         if(parsed?.data) {
-            const createPoint = {...parsed?.data};
-            await Promise.all(
-                pointStore.data.map(p => {
-                    if(createPoint[p.id]) {
-                        const edit = dispatch(thunkEditPoint(p.id, createPoint[p.id]));
-                        delete createPoint[p.id];
-                        return edit;
-                    };
-                })
-            );
-            if(Object.keys(createPoint).length) {
+            try {
+                const createPoint = {...parsed?.data};
                 await Promise.all(
-                    Object.values(createPoint).map(p => {
-                        return dispatch(thunkCreatePoint(p));
+                    pointStore.data.map(p => {
+                        if(createPoint[p.id]) {
+                            const edit = dispatch(thunkEditPoint(p.id, createPoint[p.id]));
+                            delete createPoint[p.id];
+                            return edit;
+                        };
                     })
-                )
-            };
-            if(deletedProperties.other.length) {
-                await Promise.all()
+                );
+                if(Object.keys(createPoint).length) {
+                    await Promise.all(
+                        Object.values(createPoint).map(p => {
+                            return dispatch(thunkCreatePoint(p));
+                        })
+                    )
+                };
+                if(deletedPoints.length) {
+                    await Promise.all(
+                        deletedPoints.map(id => {
+                            return dispatch(thunkDeletePoint(id));
+                        })
+                    );
+                };
+                localStorage.removeItem("points");
+            } catch(e) {
+                console.error("Failed to save points", e);
+                return;
             }
         }
 
@@ -662,16 +714,41 @@ export default function EditorPage() {
                             </div>
                         )}
                         <div className="menu-item-1-subtitle user-select-none">
-                            Unsaved Points
+                            Points
                             <button
                                 onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}))}
                             >
                                 {menuSelects[2] ? "V" : "𐌡"}
                             </button>
                         </div>
-                        {Object.keys(canvasObjects)?.length > 0 && (
+                        {Object.keys(points)?.length > 0 && (
                             <div className={`${menuSelects[2] ? "" : "hidden"}`}>
-                                {formatUnsavedPoints.map((p, i) => (
+                                {Object.values(points).map((p, i) => (
+                                <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
+                                    <p>{p.name}</p>
+                                    <div className="menu-item-1-actions user-select-none">
+                                        <button onClick={()=> setLngLat(p.lngLat)}>
+                                            <img src="/icons/location.svg" alt="View" />
+                                        </button>
+                                        <button>
+                                            <img src="/icons/setting.svg" alt="View" />
+                                        </button>
+                                    </div>
+                                </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="menu-item-1-subtitle user-select-none">
+                            Unsaved Points
+                            <button
+                                onClick={()=> setMenuSelects(m => ({...m, 3: !m[3]}))}
+                            >
+                                {menuSelects[3] ? "V" : "𐌡"}
+                            </button>
+                        </div>
+                        {Object.keys(canvasObjects)?.length > 0 && (
+                            <div className={`${menuSelects[3] ? "" : "hidden"}`}>
+                                {Object.values(canvasObjects).map((p, i) => (
                                 <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
                                     <p>{p.name}</p>
                                     <div className="menu-item-1-actions user-select-none">

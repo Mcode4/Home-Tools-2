@@ -19,7 +19,7 @@ PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
 router = APIRouter(prefix="/points", tags=["Points"], redirect_slashes=False)
 
 # Get All Points
-@router.get("")
+@router.get("/all")
 def get_all_points(current_user = Depends(get_current_user)):
     if PROJECT_ENV == "development":
         return _all_points_dev(current_user)
@@ -44,7 +44,7 @@ def _all_points_prod(current_user = Depends(get_current_user)):
 
 
 # Add Point
-@router.post("")
+@router.post("/")
 def add_point(point: Point, current_user = Depends(get_current_user)):
     if PROJECT_ENV == "development":
         return _add_p_dev(point, current_user)
@@ -75,7 +75,7 @@ def _add_p_dev(point: Point, current_user = Depends(get_current_user)):
         """
             INSERT INTO points
             (owner_id, type, name, icon, lng, lat, radius)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             current_user["id"],

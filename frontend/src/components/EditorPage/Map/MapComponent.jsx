@@ -186,9 +186,9 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const newLngLat = marker.getLngLat();
                     createdCanvasObject({
                         id: markerId,
-                        type: canvasTool.type,
-                        name: canvasTool.name,
-                        icon: canvasTool.icon,
+                        type: m.type,
+                        name: m.name,
+                        icon: m.icon,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat
                     });
@@ -221,8 +221,8 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const newLngLat = marker.getLngLat();
                     createdCanvasObject({
                         id: markerId,
-                        type: canvasTool.type,
-                        name: canvasTool.name,
+                        type: m.type,
+                        name: m.name,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat
                     });
@@ -342,6 +342,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     createdCanvasObject({
                         id: radiusId,
                         type: "radius",
+                        name: m.name,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat,
                         radius: radius
@@ -420,9 +421,6 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const newLngLat = marker.getLngLat();
                     createdCanvasObject({
                         id: markerId,
-                        type: canvasTool.type,
-                        name: canvasTool.name,
-                        icon: canvasTool.icon,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat
                     });
@@ -465,8 +463,6 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const newLngLat = marker.getLngLat();
                     createdCanvasObject({
                         id: markerId,
-                        type: canvasTool.type,
-                        name: canvasTool.name,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat
                     });
@@ -594,7 +590,6 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const newLngLat = centerMarker.getLngLat()
                     createdCanvasObject({
                         id: radiusId,
-                        type: "radius",
                         lng: newLngLat.lng,
                         lat: newLngLat.lat,
                         radius: radius
@@ -607,6 +602,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 createdCanvasObject({
                     id: radiusId,
                     type: "radius",
+                    name: "radius",
                     lng: lng,
                     lat: lat,
                     radius: radius
