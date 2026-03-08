@@ -26,6 +26,12 @@ ENV SECRET_KEY=${SECRET_KEY}
 ENV ALGORITHM=${ALGORITHM}
 ENV PROJECT_ENV=${PROJECT_ENV}
 
+# File Testing
+RUN pwd && ls -la
+RUN find /app -maxdepth 3 -type d
+RUN which python || true
+RUN python --version || true
+
 WORKDIR /app/backend
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python3 main.py
