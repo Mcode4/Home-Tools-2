@@ -851,7 +851,7 @@ export default function EditorPage() {
                         )}
                     </li>
                     <li
-                        className="hidden menu-item-container"
+                        className="menu-item-container hidden"
                         id="menu-item-draw"
                     >
                         <div className="menu-item-title user-select-none">Draw</div>

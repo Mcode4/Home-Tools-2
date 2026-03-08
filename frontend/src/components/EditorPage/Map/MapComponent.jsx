@@ -24,10 +24,10 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
             zoom: 6,
             // minZoom: 1,
             maxZoom: 18,
-            maxBounds: [
-                [-130, 20],
-                [-60, 50]
-            ],
+            // maxBounds: [
+            //     [-130, 20],
+            //     [-60, 50]
+            // ],
             style: {
                 version: 8,
                 sources: {
