@@ -220,9 +220,10 @@ export default function EditorPage() {
             localStorage.removeItem("canvasObjects");
         }
         console.log("PARSED OBJ DATA:", parsed?.data)
-        console.log("PARSED OBJ VALUES:", Object.values(parsed?.data))
+        
         if(parsed?.data) {
             setCanvasObjects(parsed?.data);
+            console.log("PARSED OBJ VALUES:", Object.values(parsed?.data))
             Object.values(parsed?.data).map(p => {
                 switch(p.type) {
                     case "icon":
@@ -456,40 +457,65 @@ export default function EditorPage() {
     };
 
     const deleteCanvasObjects = (id) => {
-        setCanvasObjects(prev => {
-            if(!prev[id]) {
-                console.log("ID NOT FOUND");
+        console.log("DELETION ID", id);
+        console.log("AT DELETION OTHER PROPERTIES", otherProperties);
+        console.log("AT DELETION POINTS", points);
+        const split = id.split("-");
+        console.log("SPLIT ID:", split)
+
+        switch(split[0]) {
+            case "temp":
+                setCanvasObjects(prev => {
+                    const copy = {...prev};
+                    delete copy[id];
+                    return copy;
+                });
                 return;
-            };
-
-            const copy = {...prev};
-            const objRef = copy[id];
-
-            if(objRef.propertyId) {
-                if(objRef.pinned) {
+            case "prop":
+                if(pinnedProperties[split[1]]) {
+                    const p_id = Number(split[1])
                     setDeletedProperties(p => ({
                         ...p,
-                        pinned: [...p.pinned, objRef.propertyId]
+                        pinned: [...p.pinned, p_id]
                     }));
-                } else {
+                    setPinnedProperties(p => {
+                        const copy = {...p};
+                        delete copy[p_id];
+                        return copy;
+                    });
+                } else if (otherProperties[split[1]]) {
+                    console.log("OTHER PROP")
+                    const p_id = Number(split[1])
                     setDeletedProperties(p => ({
                         ...p,
-                        other: [...p.other, objRef.propertyId]
+                        other: [...p.pinned, p_id]
                     }));
+                    setOtherProperties(p => {
+                        const copy = {...p};
+                        delete copy[p_id];
+                        return copy;
+                    });
                 }
-            } else if(objRef.pointId) {
-                setDeletedPoints(p => [...p, objRef.pointId]);
-            }
-            delete copy[id];
-            return copy;
-        })
+                return;
+            case "icon":
+            case "marker":
+            case "radius":
+                console.log("POINT DETECT")
+                const p_id = Number(split[1])
+                setDeletedPoints(p => [...p, p_id]);
+                setPoints(p => {
+                    const copy = {...p};
+                    delete copy[p_id];
+                    return copy;
+                })
+                return;
+        }
     }
 
     const handleSave = async (e) => {
         console.log("SAVING HIT")
         e.preventDefault();
 
-        setLoaded(false);
         const storedPinnedProps = localStorage.getItem("pinnedProperties");
         const storedOtherProps = localStorage.getItem("otherProperties");
         const storedCanvasObjs = localStorage.getItem("canvasObjects");
@@ -623,7 +649,6 @@ export default function EditorPage() {
         }
 
         setCanvasObjects({});
-        setLoaded(true);
     }
 
     return (<>

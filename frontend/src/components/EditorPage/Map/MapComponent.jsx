@@ -116,7 +116,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
         markers.map((m, i) => {
             console.log("MARKER AT INDEX:", i, "MARKER:", m)
             if(m.propertyId) {
-                const markerId = `marker-prop${m.propertyId}`;
+                const markerId = `prop-${m.propertyId}`;
                 const marker = new maplibregl.Marker({
                     color: "red",
                     draggable: true
@@ -165,7 +165,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     </div>
                 );
 
-                const markerId = m.id ?? `marker-icon${m.pointId}`;
+                const markerId = m.id ?? `icon-${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
                     element: iconDiv,
@@ -201,7 +201,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 };
                 console.log("ICON IMPORTANCE", {marker, el, iconDiv, markerId})
             } else if(m.type === "marker") {
-                const markerId = m.id ?? `marker-m${m.pointId}`;
+                const markerId = m.id ?? `marker-${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
                     draggable: true,
@@ -235,7 +235,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     marker
                 };
             } else if(m.type === "radius") {
-                const radiusId = m.id ?? `radius-point${m.pointId || m.id}`;
+                const radiusId = m.id ?? `radius-${m.pointId}`;
 
                 map.addSource(radiusId, {
                     type: "geojson",
@@ -401,7 +401,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     </div>
                 );
 
-                const markerId = `marker-${Date.now()}`;
+                const markerId = `temp-marker-${Date.now()}`;
 
                 const marker = new maplibregl.Marker({
                     element: iconDiv,
@@ -443,7 +443,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 };
 
             } else if(canvasTool.type === "marker") {
-                const markerId = `marker-${Date.now()}`;
+                const markerId = `temp-marker-${Date.now()}`;
 
                 const marker = new maplibregl.Marker({
                     draggable: true,
@@ -484,7 +484,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 };
 
             } else if(canvasTool.type === "radius") {
-                const radiusId = `radius-${Date.now()}`;
+                const radiusId = `temp-radius-${Date.now()}`;
 
                 map.addSource(radiusId, {
                     type: "geojson",

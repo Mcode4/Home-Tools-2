@@ -29,7 +29,7 @@ def get_all_points(current_user = Depends(get_current_user)):
 def _all_points_dev(current_user = Depends(get_current_user)):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT type, name, icon, lng, lat, radius FROM points WHERE owner_id=?", (current_user["id"],))
+    cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE owner_id=?", (current_user["id"],))
     points = cursor.fetchall()
     conn.close()
     return ResponseModel(True, "", {"points": points})
@@ -37,7 +37,7 @@ def _all_points_dev(current_user = Depends(get_current_user)):
 def _all_points_prod(current_user = Depends(get_current_user)):
     conn = get_pg_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT type, name, icon, lng, lat, radius FROM points WHERE owner_id=%s", (current_user["id"],))
+    cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE owner_id=%s", (current_user["id"],))
     points = cursor.fetchall()
     conn.close()
     return ResponseModel(True, "", {"points": points})
@@ -89,7 +89,7 @@ def _add_p_dev(point: Point, current_user = Depends(get_current_user)):
         )
         conn.commit()
         p_id = cursor.lastrowid
-        cursor.execute("SELECT type, name, icon, lng, lat, radius FROM points WHERE id=?", (p_id,))
+        cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE id=?", (p_id,))
         point = cursor.fetchone()
         conn.close()
         return ResponseModel(True, "", {"point": point})
@@ -124,7 +124,7 @@ def _add_p_prod(point: Point, current_user = Depends(get_current_user)):
             INSERT INTO points
             (owner_id, type, name, icon, lng, lat, radius)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING type, name, icon, lng, lat, radius
+            RETURNING id, type, name, icon, lng, lat, radius
         """,
         (
             current_user["id"],
@@ -193,7 +193,7 @@ def _edit_p_dev(id: int, point: Point, current_user = Depends(get_current_user))
         )
         )
         conn.commit()
-        cursor.execute("SELECT type, name, icon, lng, lat, radius FROM points WHERE id=?", (id,))
+        cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE id=?", (id,))
         point = cursor.fetchone()
         conn.close()
         return ResponseModel(True, "", {"point": point})
@@ -241,7 +241,7 @@ def _edit_p_prod(id: int, point: Point, current_user = Depends(get_current_user)
         )
         )
         conn.commit()
-        cursor.execute("SELECT type, name, icon, lng, lat, radius FROM points WHERE id=%s", (id,))
+        cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE id=%s", (id,))
         point = cursor.fetchone()
         conn.close()
         return ResponseModel(True, "", {"point": point})
