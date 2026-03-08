@@ -19,7 +19,7 @@ export default function LoginFormPage() {
                 console.log('Login successful, USER:', user);
                 if(user.success) {
                     // addToast("Welcome back! 👋", "info");
-                    navigate('/home');
+                    navigate('/editor');
                 } else {
                     setErr({server: String(user.detail)})
                 }

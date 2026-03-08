@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { thunkGetAllProperties, thunkDeleteProperty } from "../../redux/properties";
 import { ModalButton, ModalItem } from "../../context/Modal";
 import CreatePropertyForm from "../CreatePropertyForm/CreatePropertyForm";
-import "./HomePage.css"
+import "./DashboardPage.css"
 
-export default function HomePage() {
+export default function DashboardPage() {
     const data = useSelector(store => store.properties);
     const [images, setImages] = useState(null);
     const navigate = useNavigate();
@@ -68,7 +68,9 @@ export default function HomePage() {
                         <p>{prop.name}</p>
 
                         <div className="property-actions">
-                            <button onClick={()=> navigate(`/map/${prop.id}`)}>Map</button>
+                            <button onClick={()=> navigate("/editor", {
+                                state: { id: prop.id}
+                            })}>Map</button>
                             <ModalButton
                                 modalComponent={<CreatePropertyForm id={prop.id} />}
                                 itemText={"Edit"} 

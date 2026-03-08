@@ -19,6 +19,7 @@ import MapComponent from "./Map";
 import "./EditorPage.css";
 
 export default function EditorPage() {
+    const { state } = useLocation()
     const propertyStore = useSelector(store => store.properties);
     const pointStore = useSelector(store => store.points);
     const [otherProperties, setOtherProperties] = useState(()=> {
@@ -48,8 +49,6 @@ export default function EditorPage() {
         }
         return parsed?.data || {};
     });
-    const { pathname } = useLocation();
-    const id = Number(pathname.split("/").pop());
     const [loaded, setLoaded] = useState(false);
     const [layer, setLayer] = useState("osm-layer");
     const [popups, setPopups] = useState({});
@@ -119,15 +118,17 @@ export default function EditorPage() {
         console.log("SAVED PROP FROM LOCAL", otherProperties);
         console.log("POINTS from STORE", pointStore);
         console.log("SAVED POINTS", points);
-        if (!propertyStore.pinned.length && !propertyStore.other.length) return;
+        if (!propertyStore.pinned.length && !propertyStore.other.length) {    
+            setLoaded(true);
+            return;
+        }
         
-        let property;
         const allMarkers = [];
 
         propertyStore.pinned.forEach(p => {
-            if(p.id === id) {
-                if(!pinnedProperties[p.id]) property = p;
-                else property = pinnedProperties[p.id]
+            if(state?.id && p.id === state?.id) {
+                if(!pinnedProperties[p.id]) setLngLat([p.lng, p.lat]);
+                else setLngLat([pinnedProperties[p.id].lng, pinnedProperties[p.id].lat]);
             }
             const {lng, lat} = p;
             if(!pinnedProperties[p.id]) {
@@ -143,13 +144,13 @@ export default function EditorPage() {
                     pinnned: true,
                     lngLat: [pinnedProperties[p.id].lng, pinnedProperties[p.id].lat] 
                 });
-            }
+            };
         });
 
         propertyStore.other.forEach(p => {
-            if(p.id === id) {
-                if(!otherProperties[p.id]) property = p;
-                else property = otherProperties[p.id]
+            if(state?.id && p.id === state?.id) {
+                if(!otherProperties[p.id]) setLngLat([p.lng, p.lat]);
+                else setLngLat([otherProperties[p.id].lng, otherProperties[p.id].lat]);
             }
             const {lng, lat} = p;
             if(!otherProperties[p.id]) {
@@ -166,7 +167,7 @@ export default function EditorPage() {
                     lngLat: [otherProperties[p.id].lng, otherProperties[p.id].lat] 
                 });
                 console.log("PROP HAS ID:", p.id, " PROP:", otherProperties)
-            }
+            };
         });
 
         if(pointStore?.data.length) {
@@ -255,14 +256,8 @@ export default function EditorPage() {
                 }
             })
         }
-
-        setMarkers(allMarkers);
-
-        if(property) {
-            setLngLat([property.lng, property.lat]);
-        };
-        
         setLoaded(true);
+        setMarkers(allMarkers);
     }, [propertyStore, pointStore]);
 
     useEffect(()=> {
@@ -701,7 +696,7 @@ export default function EditorPage() {
 
                 <button 
                     className="user-select-none" 
-                    onClick={()=> navigate("/home")}
+                    onClick={()=> navigate("/dashboard")}
                 >Exit to Dashboard</button>
             </div>
         </div>

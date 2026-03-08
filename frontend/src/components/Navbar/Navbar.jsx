@@ -13,7 +13,7 @@ export default function Navbar({ isLoaded }) {
     const navigate = useNavigate();
     const location = useLocation();
     const startLocations = useRef(new Set(["/", "", "/login", "/signup"]));
-    const disabledLocations = useRef(new Set(["map"]))
+    const disabledLocations = useRef(new Set(["editor"]))
     const dispatch = useDispatch();
     
 
@@ -24,7 +24,7 @@ export default function Navbar({ isLoaded }) {
         console.log("USER", user)
         if(user) {
             if(startLocations.current.has(location.pathname)) {
-                navigate("/home");
+                navigate("/dashboard");
                 console.log("NAVIGATING..", location.pathname, "TARGET LOCCATIONS:", startLocations.current)
             };
 
