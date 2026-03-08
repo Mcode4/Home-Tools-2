@@ -113,7 +113,8 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
 
         const map = mapInstance.current;
 
-        markers.map(m => {
+        markers.map((m, i) => {
+            console.log("MARKER AT INDEX:", i, "MARKER:", m)
             if(m.propertyId) {
                 const markerId = `marker-prop${m.propertyId}`;
                 const marker = new maplibregl.Marker({
@@ -150,6 +151,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     marker
                 };
             } else if(m.type === "icon") {
+                console.log("MARKER AT ICON", m)
                 const iconDiv = document.createElement("div");
                 createRoot(iconDiv).render(
                     <div 
@@ -158,12 +160,12 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                         <div 
                             className="canvasMarkerIcon"
                             style={{fontSize: "28px"}}
-                        >{canvasTool.icon}</div>
-                        <p className="canvasMarkerName">{canvasTool.name}</p>
+                        >{m.icon}</div>
+                        <p className="canvasMarkerName">{m.name}</p>
                     </div>
                 );
 
-                const markerId = `marker-icon${m.pointId}`;
+                const markerId = m.id ?? `marker-icon${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
                     element: iconDiv,
@@ -197,8 +199,9 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 canvasObjectsRef.current[markerId] = {
                     marker
                 };
+                console.log("ICON IMPORTANCE", {marker, el, iconDiv, markerId})
             } else if(m.type === "marker") {
-                const markerId = `marker-m${m.pointId}`;
+                const markerId = m.id ?? `marker-m${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
                     draggable: true,
@@ -232,7 +235,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     marker
                 };
             } else if(m.type === "radius") {
-                const radiusId = `radius-point${m.pointId}`;
+                const radiusId = m.id ?? `radius-point${m.pointId || m.id}`;
 
                 map.addSource(radiusId, {
                     type: "geojson",

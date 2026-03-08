@@ -72,15 +72,7 @@ export default function EditorPage() {
     ]);
     const [buildings, setBuildings] = useState(["A", "B", "C", "D", "E", "F", "G"]);
     const [canvasSelect, setCanvasSelect] = useState({icon: null, name: null, type: null});
-    const [canvasObjects, setCanvasObjects] = useState(()=> {
-        const stored = localStorage.getItem("canvasObjects");
-        const parsed = JSON.parse(stored)
-        if(parsed && Date.now() > parsed?.expires) {
-            localStorage.removeItem("canvasObjects");
-            return {}
-        }
-        return parsed?.data || {};
-    });
+    const [canvasObjects, setCanvasObjects] = useState({})
     const [err, setErr] = useState({});
     const [deletedProperties, setDeletedProperties] = useState({pinned: [], other: []})
     const [deletedPoints, setDeletedPoints] = useState([]);
@@ -125,7 +117,8 @@ export default function EditorPage() {
     useEffect(()=> {
         console.log("Properties", propertyStore);
         console.log("SAVED PROP FROM LOCAL", otherProperties);
-        console.log("POINTS from STORE", pointStore)
+        console.log("POINTS from STORE", pointStore);
+        console.log("SAVED POINTS", points);
         if (!propertyStore.pinned.length && !propertyStore.other.length) return;
         
         let property;
@@ -181,37 +174,85 @@ export default function EditorPage() {
 
             pointStore.data.map(prev => {
                 let p;
-                if(points[prev]) {
-                    p = points[prev];
+                if(points[prev.id]) {
+                    console.log("USING PREVIOUS POINT", points[prev])
+                    p = points[prev.id];
                 } else {
-                    points[prev] = prev;
+                    console.log("USING UNSAVED POINT", prev)
+                    points[prev.id] = prev;
                     p = prev;
                 }
-                if(p.type === "icon") {
-                    allMarkers.push({
-                        pointId: p.id,
-                        type: p.type,
-                        name: p.name,
-                        icon: p.icon,
-                        lngLat: [p.lng, p.lat]
-                    });
-                } else if(p.type === "marker") {
-                    allMarkers.push({
-                        pointId: p.id,
-                        type: p.type,
-                        name: p.name,
-                        lngLat: [p.lng, p.lat]
-                    });
-                } else if(p.type === "radius") {
-                    allMarkers.push({
-                        pointId: p.id,
-                        type: p.type,
-                        name: p.name,
-                        radius: p.radius,
-                        lngLat: [p.lng, p.lat]
-                    });
+
+                switch(p.type) {
+                    case "icon":
+                        allMarkers.push({
+                            pointId: p.id,
+                            type: p.type,
+                            name: p.name,
+                            icon: p.icon,
+                            lngLat: [p.lng, p.lat]
+                        });
+                        break
+                    case "marker":
+                        allMarkers.push({
+                            pointId: p.id,
+                            type: p.type,
+                            name: p.name,
+                            lngLat: [p.lng, p.lat]
+                        });
+                        break
+                    case "radius":
+                        allMarkers.push({
+                            pointId: p.id,
+                            type: p.type,
+                            name: p.name,
+                            radius: p.radius,
+                            lngLat: [p.lng, p.lat]
+                        });
+                        break
                 }
             });
+        }
+
+        const stored = localStorage.getItem("canvasObjects");
+        const parsed = JSON.parse(stored)
+        if(parsed && Date.now() > parsed?.expires) {
+            localStorage.removeItem("canvasObjects");
+        }
+        console.log("PARSED OBJ DATA:", parsed?.data)
+        console.log("PARSED OBJ VALUES:", Object.values(parsed?.data))
+        if(parsed?.data) {
+            setCanvasObjects(parsed?.data);
+            Object.values(parsed?.data).map(p => {
+                switch(p.type) {
+                    case "icon":
+                        allMarkers.push({
+                            id: p.id,
+                            type: p.type,
+                            name: p.name,
+                            icon: p.icon,
+                            lngLat: [p.lng, p.lat]
+                        });
+                        break
+                    case "marker":
+                        allMarkers.push({
+                            id: p.id,
+                            type: p.type,
+                            name: p.name,
+                            lngLat: [p.lng, p.lat]
+                        });
+                        break
+                    case "radius":
+                        allMarkers.push({
+                            id: p.id,
+                            type: p.type,
+                            name: p.name,
+                            radius: p.radius,
+                            lngLat: [p.lng, p.lat]
+                        });
+                        break
+                }
+            })
         }
 
         setMarkers(allMarkers);
@@ -347,40 +388,57 @@ export default function EditorPage() {
             return setPoints(p => {
                 const copy = {...p};
 
-                if(copy[obj.pointId].type === "icon") {
-                    copy[obj.pointId] = {
-                        pointId: p.id,
-                        type: p.type,
-                        name: p.name,
-                        icon: p.icon,
-                        lng: p.lng,
-                        lat: p.lat
+                if(copy[obj.pointId]) {
+                    copy[obj.pointId].lng = obj.lng;
+                    copy[obj.pointId].lat = obj.lat;
+                    if(!copy[obj.pointId].name.includes("(Unsaved")) {
+                        copy[obj.pointId].name = "(Unsaved) " + copy[obj.pointId].name;
                     };
-                } else if(copy[obj.pointId].type === "marker") {
-                    copy[obj.pointId] = {
-                        pointId: p.id,
-                        type: p.type,
-                        name: p.name,
-                        lng: p.lng,
-                        lat: p.lat
+                    if(copy[obj.pointId].type === "radius") {
+                        copy[obj.pointId].radius = obj.radius;
                     };
-                } else if(copy[obj.pointId].type === "radius") {
-                    copy[obj.pointId] = {
-                        pointId: p.id,
-                        type: p.type,
-                        name: p.name,
-                        radius: p.radius,
-                        lng: p.lng,
-                        lat: p.lat
+                } else {
+                    switch(copy[obj.pointId].type) {
+                        case "icon":
+                            copy[obj.pointId] = {
+                                pointId: obj.id,
+                                type: obj.type,
+                                name: obj.name,
+                                icon: obj.icon,
+                                lng: obj.lng,
+                                lat: obj.lat
+                            };
+                            break;
+                        case "marker":
+                            copy[obj.pointId] = {
+                                pointId: obj.id,
+                                type: obj.type,
+                                name: obj.name,
+                                lng: obj.lng,
+                                lat: obj.lat
+                            };
+                            break;
+                        case "radius":
+                            copy[obj.pointId] = {
+                                pointId: obj.id,
+                                type: obj.type,
+                                name: obj.name,
+                                radius: obj.radius,
+                                lng: obj.lng,
+                                lat: obj.lat
+                            };
+                            break;
                     };
                 };
-                console.log("COPY SET", copy[obj.pointId]);
+                // console.log("COPY SET", copy[obj.pointId]);
                 return copy;
             });
         };
         
         setCanvasObjects(prev => {
             const copy = {...prev};
+
+            console.log("CANVAS RECIEVED OBJECT", obj);
 
             if(copy[obj.id]) {
                 copy[obj.id].lng = obj.lng;
@@ -389,10 +447,10 @@ export default function EditorPage() {
                     copy[obj.id].radius = obj.radius;
                 };
             } else {
-                copy[obj.pointId] = {...obj};
-                copy[obj.pointId].name = "New " + obj.type;
+                copy[obj.id] = {...obj};
+                copy[obj.id].name = "New " + obj.type;
             };
-
+            console.log("FINISHED CANVAS OBJECT", copy[obj.id])
             return copy;
         });
     };
@@ -529,6 +587,11 @@ export default function EditorPage() {
                 await Promise.all(
                     pointStore.data.map(p => {
                         if(createPoint[p.id]) {
+                            if(createPoint[p.id].name.includes("(Unsaved)")) {
+                                createPoint[p.id].name = createPoint[p.id].name
+                                    .split("(Unsaved)")[1]
+                                    .trim();
+                            }
                             const edit = dispatch(thunkEditPoint(p.id, createPoint[p.id]));
                             delete createPoint[p.id];
                             return edit;
@@ -538,6 +601,9 @@ export default function EditorPage() {
                 if(Object.keys(createPoint).length) {
                     await Promise.all(
                         Object.values(createPoint).map(p => {
+                            if(p.name.includes("(Unsaved)")) {
+                                p.name = p.name.split("(Unsaved)")[1].trim();
+                            }
                             return dispatch(thunkCreatePoint(p));
                         })
                     )
@@ -727,7 +793,7 @@ export default function EditorPage() {
                                 <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
                                     <p>{p.name}</p>
                                     <div className="menu-item-1-actions user-select-none">
-                                        <button onClick={()=> setLngLat(p.lngLat)}>
+                                        <button onClick={()=> setLngLat([p.lng, p.lat])}>
                                             <img src="/icons/location.svg" alt="View" />
                                         </button>
                                         <button>
@@ -752,7 +818,7 @@ export default function EditorPage() {
                                 <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
                                     <p>{p.name}</p>
                                     <div className="menu-item-1-actions user-select-none">
-                                        <button onClick={()=> setLngLat(p.lngLat)}>
+                                        <button onClick={()=> setLngLat([p.lng, p.lat])}>
                                             <img src="/icons/location.svg" alt="View" />
                                         </button>
                                         <button>
