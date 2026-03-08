@@ -26,7 +26,12 @@ ENV SECRET_KEY=${SECRET_KEY}
 ENV ALGORITHM=${ALGORITHM}
 ENV PROJECT_ENV=${PROJECT_ENV}
 
-WORKDIR /app/frontend
+WORKDIR /app/backend
+RUN pip install --no-cache-dir -r requirements.txt
+RUN python3 main.py
+RUN python3 ./scripts/migrate_db_to_psql.py
+
+# WORKDIR /app/frontend
 # RUN npm install
 # RUN npm run build
 
