@@ -84,23 +84,23 @@ export const thunkDeletePoint = (id) => async(dispatch) => {
 }
 
 
-const initialState = {points: null};
+const initialState = {data: []};
 
 export default function pointsReducer(state = initialState, action) {
     switch(action.type){
         case CREATE_POINT:
-            return {...state, points: [...state.points, action.payload]};
+            return {...state, data: [...state.data, action.payload]};
         case LOAD_POINTS:
-            return {...state, points: action.payload};
+            return {...state, data: action.payload};
         case EDIT_POINT:
             return {
                 ...state,
-                points: state.points.map(p => p.id === action.payload.id ? action.payload : p)
+                data: state.data.map(p => p.id === action.payload.id ? action.payload : p)
             };
         case DELETE_POINT:
             return {
                 ...state,
-                points: state.points.filter(p => p.id !== id)
+                data: state.data.filter(p => p.id !== action.payload.id)
             };
         default:
             return state;

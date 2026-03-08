@@ -103,90 +103,264 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
         console.log("HITTT MARKERS, MAPINSTANCE:", mapInstance, "MARKERS:", markers)
         if (!mapInstance.current || !isLoaded || !markers) return;
 
+        if(Object.keys(canvasObjectsRef.current).length) {
+            console.log("KEYS FOUND IN REF THAT MAY CONFLICT:", canvasObjectsRef.current)
+            Object.values(canvasObjectsRef.current).forEach(id => {
+                deleteCanvasObject(id);
+            });
+            canvasObjectsRef.current = {};
+        };
+
         const map = mapInstance.current;
 
-        markers.forEach(m => {
-            const markerId = `marker-${Date.now()}-${m.propertyId}`;
+        markers.map(m => {
+            if(m.propertyId) {
+                const markerId = `marker-prop${m.propertyId}`;
+                const marker = new maplibregl.Marker({
+                    color: "red",
+                    draggable: true
+                })
+                    .setLngLat(m.lngLat)
+                    .addTo(map);
 
-            const marker = new maplibregl.Marker({
-                color: "red",
-                draggable: true
-            })
-                .setLngLat(m.lngLat)
-                .addTo(map);
+                const el = marker.getElement();
 
-            const el = marker.getElement();
+                el.style.cursor = "cell";
 
-            el.style.cursor = "cell";
-
-            el.addEventListener("contextmenu", (e)=> {
-                e.preventDefault();
-                deleteCanvasObject(markerId);
-            });
-
-            marker.on("dragstart", ()=> setCursor("grabbing"));
-            marker.on("dragend", ()=> {
-                setCursor(getBaseCursor());
-                const newLngLat = marker.getLngLat();
-                createdCanvasObject({
-                    id: markerId,
-                    propertyId: m.propertyId,
-                    lng: newLngLat.lng,
-                    lat: newLngLat.lat
+                el.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(markerId);
                 });
-            });
 
-            canvasObjectsRef.current[markerId] = {
-                marker
-            };
-        })
-        // const geojson = {
-        //     type: "FeatureCollection",
-        //     features: markers.map(m => ({
-        //         type: "Feature",
-        //         properties: {
-        //             id: m.propertyId
-        //         },
-        //         geometry: {
-        //             type: "Point",
-        //             coordinates: m.lngLat
-        //         }
-        //     }))
-        // };
+                marker.on("dragstart", ()=> setCursor("grabbing"));
+                marker.on("dragend", ()=> {
+                    setCursor(getBaseCursor());
+                    const newLngLat = marker.getLngLat();
+                    console.log("CHANGING CANVAS OBJ, ID:", markerId)
+                    createdCanvasObject({
+                        id: markerId,
+                        propertyId: m.propertyId,
+                        pinned: m.pinned,
+                        lng: newLngLat.lng,
+                        lat: newLngLat.lat
+                    });
+                });
 
-        // if(!map.getSource("properties") && geojson.features.length > 0){
-        //     try {
-        //         map.addSource("properties", {
-        //             type: "geojson",
-        //             data: geojson,
-        //             cluster: true,
-        //             clusterMaxZoom: 14,
-        //             clusterRadius: 50
-        //         });
+                canvasObjectsRef.current[markerId] = {
+                    marker
+                };
+            } else if(m.type === "icon") {
+                const iconDiv = document.createElement("div");
+                createRoot(iconDiv).render(
+                    <div 
+                        className="canvasMarker"
+                        style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
+                        <div 
+                            className="canvasMarkerIcon"
+                            style={{fontSize: "28px"}}
+                        >{canvasTool.icon}</div>
+                        <p className="canvasMarkerName">{canvasTool.name}</p>
+                    </div>
+                );
 
-        //         map.addLayer({
-        //             id: "property-points",
-        //             type: "circle",
-        //             source: "properties",
-        //             filter: ["!", ["has", "point_count"]],
-        //             paint: {
-        //                 "circle-radius": 9,
-        //                 "circle-color": "#ff0000",
-        //                 "circle-stroke-width": 1,
-        //                 "circle-stroke-color": "#ffffff"
-        //             }
-        //         });
-        //     } catch(e) {
-        //         console.warn("Map failed to add markers", e)
-        //     }
-        // } else {
-        //     try {
-        //         map.getSource("properties").setData(geojson);
-        //     } catch(e) {
-        //         console.warn("Map source not ready yet:", e);
-        //     };
-        // };
+                const markerId = `marker-icon${m.pointId}`;
 
+                const marker = new maplibregl.Marker({
+                    element: iconDiv,
+                    draggable: true 
+                })
+                    .setLngLat(m.lngLat)
+                    .addTo(map);
+
+                const el = marker.getElement();
+                el.style.cursor = "cell";
+
+                el.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(markerId);
+                });
+
+                marker.on("dragstart", ()=> setCursor("grabbing"));
+                marker.on("dragend", ()=> {
+                    setCursor(getBaseCursor());
+                    const newLngLat = marker.getLngLat();
+                    createdCanvasObject({
+                        id: markerId,
+                        type: canvasTool.type,
+                        name: canvasTool.name,
+                        icon: canvasTool.icon,
+                        lng: newLngLat.lng,
+                        lat: newLngLat.lat
+                    });
+                });
+
+                canvasObjectsRef.current[markerId] = {
+                    marker
+                };
+            } else if(m.type === "marker") {
+                const markerId = `marker-m${m.pointId}`;
+
+                const marker = new maplibregl.Marker({
+                    draggable: true,
+                    color: "red"
+                })
+                    .setLngLat(m.lngLat)
+                    .addTo(map);
+
+                const el = marker.getElement();
+                el.style.cursor = "cell";
+
+                el.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(markerId);
+                });
+
+                marker.on("dragstart", ()=> setCursor("grabbing"));
+                marker.on("dragend", ()=> {
+                    setCursor(getBaseCursor());
+                    const newLngLat = marker.getLngLat();
+                    createdCanvasObject({
+                        id: markerId,
+                        type: canvasTool.type,
+                        name: canvasTool.name,
+                        lng: newLngLat.lng,
+                        lat: newLngLat.lat
+                    });
+                });
+
+                canvasObjectsRef.current[markerId] = {
+                    marker
+                };
+            } else if(m.type === "radius") {
+                const radiusId = `radius-point${m.pointId}`;
+
+                map.addSource(radiusId, {
+                    type: "geojson",
+                    data: createCircle(m.lngLat[0], m.lngLat[1], 500)
+                });
+
+                map.addLayer({
+                    id: `${radiusId}-fill`,
+                    type: "fill",
+                    source: radiusId,
+                    paint: {
+                        "fill-color": "#4A90E2",
+                        "fill-opacity": 0.25
+                    }
+                });
+
+                map.addLayer({
+                    id: `${radiusId}-outline`,
+                    type: "line",
+                    source: radiusId,
+                    paint: {
+                        "line-color": "#4A90E2",
+                        "line-width": 2 
+                    }
+                });
+
+                const centerMarker = new maplibregl.Marker({
+                    draggable: true
+                })
+                    .setLngLat(m.lngLat)
+                    .addTo(map);
+
+                let radius = m.radius;
+                const handleLng = m.lngLat[0] + (radius / 111320); // rough meters to lng conversation
+
+                const handleMarker = new maplibregl.Marker({
+                    draggable: true,
+                    color: "blue"
+                })
+                    .setLngLat([handleLng, m.lngLat[1]])
+                    .addTo(map);
+
+                const labelDiv = document.createElement("div");
+                labelDiv.style.background = "white";
+                labelDiv.style.padding = "2px 6px";
+                labelDiv.style.borderRadius = "4px";
+                labelDiv.style.fontSize = "12px";
+                labelDiv.style.textAlign = "center";
+                labelDiv.style.innerText = "500m";
+
+                const labelMarker = new maplibregl.Marker({
+                    element: labelDiv,
+                    anchor: "bottom"
+                })
+                    .setLngLat([handleMarker.getLngLat().lng, handleMarker.getLngLat().lat])
+                    .addTo(map)
+
+                handleMarker.on("drag", ()=> {
+                    const center = centerMarker.getLngLat();
+                    const handle = handleMarker.getLngLat();
+
+                    const dx = handle.lng - center.lng;
+                    const dy = handle.lat - center.lat;
+                    
+                    radius = Math.sqrt(dx*dx + dy*dy) * 111320;
+
+                    const newCircle = createCircle(center.lng, center.lat, radius);
+                    labelDiv.innerText = radius > 1000 ? 
+                        `${(radius/1000).toFixed(2)}km` :
+                        `${Math.round(radius)}m`;
+                    labelMarker.setLngLat([handle.lng, handle.lat]);
+                    map.getSource(radiusId).setData(newCircle);
+                });
+
+                centerMarker.on("drag", ()=> {
+                    const center = centerMarker.getLngLat();
+                    const handle = handleMarker.getLngLat();
+
+                    const dx = handle.lng - center.lng;
+                    const dy = handle.lat - center.lat;
+                    
+                    radius = Math.sqrt(dx*dx + dy*dy) * 111320;
+
+                    const newCircle = createCircle(center.lng, center.lat, radius);
+                    labelDiv.innerText = radius > 1000 ? 
+                        `${(radius/1000).toFixed(2)}km` :
+                        `${Math.round(radius)}m`;
+                    labelMarker.setLngLat([handle.lng, handle.lat]);
+                    map.getSource(radiusId).setData(newCircle);
+                });
+
+                const centerEl = centerMarker.getElement();
+                const handleEl = handleMarker.getElement();
+
+                centerEl.style.cursor = "cell";
+                handleEl.style.cursor = "grab";
+
+                centerEl.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(radiusId);
+                })
+
+                centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
+                centerMarker.on("dragend", ()=> {
+                    map.getCanvas().style.cursor = getBaseCursor();
+                    const newLngLat = centerMarker.getLngLat()
+                    createdCanvasObject({
+                        id: radiusId,
+                        type: "radius",
+                        lng: newLngLat.lng,
+                        lat: newLngLat.lat,
+                        radius: radius
+                    });
+                });
+
+                handleMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
+                handleMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
+
+                canvasObjectsRef.current[radiusId] = {
+                    centerMarker,
+                    handleMarker,
+                    labelMarker,
+                    sourceId: radiusId,
+                    fillLayer: `${radiusId}-fill`,
+                    outlineLayer: `${radiusId}-outline`
+                };
+            }
+        });
     }, [markers, isLoaded]);
 
 

@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
-import { thunkGetAllProperties } from "../../redux/properties";
+import { 
+    thunkGetAllProperties, 
+    thunkCreateProperty,
+    thunkEditProperty,
+    thunkDeleteProperty 
+} from "../../redux/properties";
+import { 
+    thunkGetAllPoints ,
+    thunkCreatePoint,
+    thunkEditPoint,
+    thunkDeletePoint
+} from "../../redux/points";
 import { handleSearchAddress } from "../../functions/search/search";
 
 import MapComponent from "./Map";
@@ -9,15 +20,26 @@ import "./EditorPage.css";
 
 export default function EditorPage() {
     const propertyStore = useSelector(store => store.properties);
-    const [properties, setProperties] = useState({pinned: {}, other: {}})
+    const pointStore = useSelector(store => store.points);
     const [otherProperties, setOtherProperties] = useState(()=> {
-        const storedOtherProps = localStorage.getItem("otherProperties");
-        return storedOtherProps ? JSON.parse(storedOtherProps) : {}
+        const stored = localStorage.getItem("otherProperties");
+        const parsed = JSON.parse(stored);
+        if(parsed && Date.now() > parsed?.expires) {
+            localStorage.removeItem("canvasObjects");
+            return {};
+        };
+        return parsed?.data || {};
     });
     const [pinnedProperties, setPinnedProperties] = useState(()=> {
-        const storedPinnedProps = localStorage.getItem("pinnedProperties");
-        return storedPinnedProps ? JSON.parse(storedPinnedProps) : {}
+        const stored = localStorage.getItem("pinnedProperties");
+        const parsed = JSON.parse(stored);
+        if(parsed && Date.now() > parsed?.expires) {
+            localStorage.removeItem("canvasObjects");
+            return {};
+        }
+        return parsed?.data || {};
     });
+    const [points, setPoints] = useState({});
     const { pathname } = useLocation();
     const id = Number(pathname.split("/").pop());
     const [loaded, setLoaded] = useState(false);
@@ -43,16 +65,22 @@ export default function EditorPage() {
     const [buildings, setBuildings] = useState(["A", "B", "C", "D", "E", "F", "G"]);
     const [canvasSelect, setCanvasSelect] = useState({icon: null, name: null, type: null});
     const [canvasObjects, setCanvasObjects] = useState(()=> {
-        const storedCanvasObject = localStorage.getItem("canvasObjects");
-        return storedCanvasObject ? JSON.parse(storedCanvasObject) : {};
+        const stored = localStorage.getItem("canvasObjects");
+        const parsed = JSON.parse(stored)
+        if(parsed && Date.now() > parsed?.expires) {
+            localStorage.removeItem("canvasObjects");
+            return {}
+        }
+        return parsed?.data || {};
     });
     const [err, setErr] = useState({});
+    const [deletedProperties, setDeletedProperties] = useState({pinned: [], other: []})
+    const [deletedPoints, setDeletedPoints] = useState([]);
     const searchRef = useRef();
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
     // TESTING
-
     useEffect(()=> {
         console.log("LNG LAT CHANGED", lngLat);
     }, [lngLat]);
@@ -96,10 +124,18 @@ export default function EditorPage() {
             }
             const {lng, lat} = p;
             if(!pinnedProperties[p.id]) {
-                allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
+                allMarkers.push({ 
+                    propertyId: p.id, 
+                    pinned: true,
+                    lngLat: [lng, lat] 
+                });
                 pinnedProperties[p.id] = {...p};
             } else {
-                allMarkers.push({ propertyId: p.id, lngLat: [pinnedProperties[p.id].lng, pinnedProperties[p.id].lat] });
+                allMarkers.push({ 
+                    propertyId: p.id, 
+                    pinnned: true,
+                    lngLat: [pinnedProperties[p.id].lng, pinnedProperties[p.id].lat] 
+                });
             }
         });
 
@@ -110,13 +146,52 @@ export default function EditorPage() {
             }
             const {lng, lat} = p;
             if(!otherProperties[p.id]) {
-                allMarkers.push({ propertyId: p.id, lngLat: [lng, lat] });
+                allMarkers.push({ 
+                    propertyId: p.id, 
+                    pinned: false,
+                    lngLat: [lng, lat] 
+                });
                 otherProperties[p.id] = {...p};
             } else {
-                allMarkers.push({ propertyId: p.id, lngLat: [otherProperties[p.id].lng, otherProperties[p.id].lat] });
+                allMarkers.push({ 
+                    propertyId: p.id, 
+                    pinned: false,
+                    lngLat: [otherProperties[p.id].lng, otherProperties[p.id].lat] 
+                });
                 console.log("PROP HAS ID:", p.id, " PROP:", otherProperties)
             }
         });
+
+        if(pointStore?.data.length) {
+            console.log("POINTS DATA ADDING", pointStore?.data);
+
+            pointStore.data.map(p => {
+                if(p.type === "icon") {
+                    allMarkers.push({
+                        pointId: p.id,
+                        type: p.type,
+                        name: p.name,
+                        icon: p.icon,
+                        lngLat: [p.lng, p.lat]
+                    });
+                } else if(p.type === "marker") {
+                    allMarkers.push({
+                        pointId: p.id,
+                        type: p.type,
+                        name: p.name,
+                        lngLat: [p.lng, p.lat]
+                    });
+                } else if(p.type === "radius") {
+                    allMarkers.push({
+                        pointId: p.id,
+                        type: p.type,
+                        name: p.name,
+                        radius: p.radius,
+                        lngLat: [p.lng, p.lat]
+                    });
+                }
+            });
+        }
 
         setMarkers(allMarkers);
 
@@ -125,7 +200,7 @@ export default function EditorPage() {
         };
         
         setLoaded(true);
-    }, [propertyStore]);
+    }, [propertyStore, pointStore]);
 
     useEffect(()=> {
         setSearchResults([]);
@@ -147,17 +222,26 @@ export default function EditorPage() {
 
     useEffect(()=> {
         if(!loaded) return;
-        localStorage.setItem("canvasObjects", JSON.stringify(canvasObjects));
+        localStorage.setItem("canvasObjects", JSON.stringify({
+            data: canvasObjects,
+            expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
+        }));
     }, [canvasObjects]);
 
     useEffect(()=> {
         if(!loaded) return;
-        localStorage.setItem("pinnedProperties", JSON.stringify(pinnedProperties));
+        localStorage.setItem("pinnedProperties", JSON.stringify({
+            data: pinnedProperties,
+            expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
+        }));
     }, [pinnedProperties]);
 
     useEffect(()=> {
         if(!loaded) return;
-        localStorage.setItem("otherProperties", JSON.stringify(otherProperties));
+        localStorage.setItem("otherProperties", JSON.stringify({
+            data: otherProperties,
+            expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
+        }));
     }, [otherProperties]);
     
 
@@ -199,6 +283,10 @@ export default function EditorPage() {
         if(obj.propertyId) {
             console.log("PROPERTIES CHANGE HITT")
             if(pinnedProperties[obj.propertyId]) {
+                console.log("SETTING NEW/UNSAVED PINNED PROPERTY ID:", obj.propertyId,
+                    " PINNED PROPETIES:", pinnedProperties,
+                    "OBJECT:", obj
+                )
                 setPinnedProperties(p => {
                     const copy = {...p};
                     const update = copy[obj.propertyId]
@@ -207,8 +295,13 @@ export default function EditorPage() {
                     }
                     update.lat = obj.lat;
                     update.lng = obj.lng;
+                    return copy
                 });
             } else if(otherProperties[obj.propertyId]) {
+                console.log("SETTING NEW/UNSAVED OTHER PROPERTY ID:", obj.propertyId,
+                    " OTHER PROPETIES:", otherProperties,
+                    "OBJECT:", obj
+                )
                 setOtherProperties(p => {
                     const copy = {...p};
                     const update = copy[obj.propertyId]
@@ -220,7 +313,37 @@ export default function EditorPage() {
                     return copy
                 });
             };
-            return
+            return;
+        } else if(obj.pointId) {
+            return setPoints(p => {
+                const copy = {...p};
+
+                if(copy[obj.pointId].type === "icon") {
+                    copy[obj.pointId] = {
+                        pointId: p.id,
+                        type: p.type,
+                        name: p.name,
+                        icon: p.icon,
+                        lngLat: [p.lng, p.lat]
+                    };
+                } else if(copy[obj.pointId].type === "marker") {
+                    copy[obj.pointId] = {
+                        pointId: p.id,
+                        type: p.type,
+                        name: p.name,
+                        lngLat: [p.lng, p.lat]
+                    };
+                } else if(copy[obj.pointId].type === "radius") {
+                    copy[obj.pointId] = {
+                        pointId: p.id,
+                        type: p.type,
+                        name: p.name,
+                        radius: p.radius,
+                        lngLat: [p.lng, p.lat]
+                    };
+                };
+                return copy;
+            });
         };
 
         setCanvasObjects(prev => ({
@@ -237,6 +360,23 @@ export default function EditorPage() {
             };
 
             const copy = {...prev};
+            const objRef = copy[id];
+
+            if(objRef.propertyId) {
+                if(objRef.pinned) {
+                    setDeletedProperties(p => ({
+                        ...p,
+                        pinned: [...p.pinned, objRef.propertyId]
+                    }));
+                } else {
+                    setDeletedProperties(p => ({
+                        ...p,
+                        other: [...p.other, objRef.propertyId]
+                    }));
+                }
+            } else if(objRef.pointId) {
+                setDeletedPoints(p => [...p, objRef.pointId]);
+            }
             delete copy[id];
             return copy;
         })
@@ -248,7 +388,9 @@ export default function EditorPage() {
         let iconCount = 0;
         let radiusCount = 0;
 
-        Object.values(canvasObjects).forEach(obj => {
+        for (const obj of Object.values(canvasObjects)) {
+            if(obj.propertyId || obj.pointId) continue;
+            
             if(obj.type === "icon") {
                 iconCount++;
                 points.push({
@@ -268,9 +410,103 @@ export default function EditorPage() {
                     lngLat: [obj.lng, obj.lat]
                 });
             }
-        });
+        };
         return points;
     }, [canvasObjects]);
+
+    const handleSave = async (e) => {
+        console.log("SAVING HIT")
+        e.preventDefault();
+
+        setLoaded(false);
+        const storedPinnedProps = localStorage.getItem("pinnedProperties");
+        const storedOtherProps = localStorage.getItem("otherProperties");
+        const storedCanvasObjs = localStorage.getItem("canvasObjects");
+        let parsed = JSON.parse(storedPinnedProps);
+
+        if(parsed?.data) {
+            const createProp = {...parsed?.data};
+            await Promise.all(
+                propertyStore.pinned.map(p => {
+                    if(createProp[p.id]) {
+                        const edit = dispatch(thunkEditProperty(p.id, createProp[p.id]));
+                        delete createProp[p.id];
+                        return edit;
+                    };
+                })
+            )
+            if(Object.keys(createProp).length) {
+                await Promise.all(
+                    Object.values(createProp).map(p=> {
+                        return dispatch(thunkCreateProperty(p))
+                    })
+                );
+            }
+            if(deletedProperties.pinned.length) {
+                await Promise.all(
+                    deletedProperties.pinned.map(id => { 
+                        return dispatch(thunkDeleteProperty(id)) 
+                    })
+                );
+            }
+        }
+        parsed = JSON.parse(storedOtherProps);
+
+        if(parsed?.data) {
+            const createProp = {...parsed?.data};
+            await Promise.all(
+                propertyStore.other.map(p => {
+                    if(createProp[p.id]) {
+                        const edit = dispatch(thunkEditProperty(p.id, createProp[p.id]));
+                        delete createProp[p.id];
+                        return edit;
+                    };
+                })
+            );
+            if(Object.keys(createProp).length) {
+                await Promise.all(
+                    Object.values.map(p => {
+                        return dispatch(thunkCreateProperty(p));
+                    })
+                );
+            };
+            if(deletedPoints.length) {
+                await Promise.all(
+                    deletedPoints.map(id => {
+                        return dispatch(thunkDeletePoint(id));
+                    })
+                );
+            };
+        }
+        
+        parsed = JSON.parse(storedCanvasObjs);
+
+        if(parsed?.data) {
+            const createPoint = {...parsed?.data};
+            await Promise.all(
+                pointStore.data.map(p => {
+                    if(createPoint[p.id]) {
+                        const edit = dispatch(thunkEditPoint(p.id, createPoint[p.id]));
+                        delete createPoint[p.id];
+                        return edit;
+                    };
+                })
+            );
+            if(Object.keys(createPoint).length) {
+                await Promise.all(
+                    Object.values(createPoint).map(p => {
+                        return dispatch(thunkCreatePoint(p));
+                    })
+                )
+            };
+            if(deletedProperties.other.length) {
+                await Promise.all()
+            }
+        }
+
+        setCanvasObjects({});
+        setLoaded(true);
+    }
 
     return (<>
     {loaded && (
@@ -316,6 +552,8 @@ export default function EditorPage() {
             <div className="editor-controls">
                 <button
                     className="user-select-none"
+                    onClick={handleSave}
+                    disabled={!Object.keys(otherProperties) && !Object.keys(pinnedProperties) && !canvasObjects.length}
                 >Save All</button>
 
                 <button 
