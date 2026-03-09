@@ -11,7 +11,7 @@ FROM python:3.12-slim
 
 RUN apt-get update && \
     apt-get install -y nginx && \
-    rm -rf /var/lib/apt/lists/* 
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -47,9 +47,6 @@ RUN python --version || true
 COPY start.sh .
 
 EXPOSE 10000
-
-WORKDIR /app
-RUN npm install
 
 # File Testing
 RUN pwd && ls -la
