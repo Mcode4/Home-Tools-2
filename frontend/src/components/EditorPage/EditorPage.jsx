@@ -675,7 +675,7 @@ export default function EditorPage() {
         };
         setCanvasObjects({});
         setDeletedPoints([]);
-        setDeletedProperties([{ pinned: [], other: [] }]);
+        setDeletedProperties({ pinned: [], other: [] });
     };
 
     function signalPointUpdate(id, changesObj) {
@@ -728,12 +728,12 @@ export default function EditorPage() {
                 <button
                     className="user-select-none"
                     onClick={handleSaveAll}
-                    // disabled={
-                    //     Object.keys(canvasObjects ?? {}).length === 0 &&
-                    //     deletedProperties.pinned.length === 0 &&
-                    //     deletedProperties.other.length === 0 &&
-                    //     deletedPoints.length === 0
-                    //  }
+                    disabled={
+                        Object.keys(canvasObjects ?? {}).length === 0 &&
+                        deletedProperties.pinned.length === 0 &&
+                        deletedProperties.other.length === 0 &&
+                        deletedPoints.length === 0
+                     }
                 >Save All</button>
 
                 <button 
