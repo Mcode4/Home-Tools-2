@@ -514,6 +514,14 @@ export default function EditorPage() {
     };
 
     const deleteData = async (type, id) => {
+        if(isNaN(id)) {
+            setCanvasObjects(prev => {
+                const copy = {...prev};
+                delete copy[id];
+                return copy;
+            });
+            return
+        }
         if(type === "property") {
             const res = await dispatch(thunkDeleteProperty(id));
             return res;
@@ -524,7 +532,6 @@ export default function EditorPage() {
             throw new Error("deleteData: undefined type")
         };
     };
-
 
     const handleSaveAll = async (e) => {
         console.log("SAVING HIT")
@@ -546,7 +553,7 @@ export default function EditorPage() {
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = editData("properties", createProp[p.id]);
+                            const edit = editData("property", createProp[p.id]);
                             delete createProp[p.id];
                             return edit;
                         };
@@ -789,9 +796,16 @@ export default function EditorPage() {
                                     <button onClick={()=> setLngLat([p.lng, p.lat])}>
                                         <img src="/icons/location.svg" alt="Manage" />
                                     </button>
-                                    <button>
-                                        <img src="/icons/setting.svg" alt="Manage" />
-                                    </button>
+                                    <ModalButton 
+                                        itemText={<img src="/icons/setting.svg" alt="Manage" />}
+                                        modalComponent={<ManagePointsModal 
+                                            point={p}
+                                            isSaved={true}
+                                            createFunc={createData}
+                                            editFunc={editData}
+                                            deleteFunc={deleteData}
+                                        />}
+                                    />
                                 </div>
                             </div>
                             ))}
@@ -815,9 +829,15 @@ export default function EditorPage() {
                                         <button onClick={()=> setLngLat([p.lng, p.lat])}>
                                             <img src="/icons/location.svg" alt="Manage" />
                                         </button>
-                                        <button>
-                                            <img src="/icons/setting.svg" alt="Manage" />
-                                        </button>
+                                        <ModalButton 
+                                            itemText={<img src="/icons/setting.svg" alt="Manage" />}
+                                            modalComponent={<ManagePointsModal 
+                                               point={p}
+                                               isSaved={true}
+                                               addFunc={addCanvasObjects}
+                                               deleteFunc={deleteCanvasObjects}
+                                            />}
+                                        />
                                     </div>
                                 </div>
                             ))}
@@ -845,6 +865,8 @@ export default function EditorPage() {
                                             modalComponent={<ManagePointsModal 
                                                point={p}
                                                isSaved={true}
+                                               addFunc={addCanvasObjects}
+                                               deleteFunc={deleteCanvasObjects}
                                             />}
                                         />
                                     </div>
@@ -867,11 +889,17 @@ export default function EditorPage() {
                                     <p>{p.name}</p>
                                     <div className="menu-item-1-actions user-select-none">
                                         <button onClick={()=> setLngLat([p.lng, p.lat])}>
-                                            <img src="/icons/location.svg" alt="Manage" />
+                                            <img src="/icons/location.svg" alt="Go to" />
                                         </button>
-                                        <button>
-                                            <img src="/icons/setting.svg" alt="Manage" />
-                                        </button>
+                                        <ModalButton 
+                                            itemText={<img src="/icons/setting.svg" alt="Manage" />}
+                                            modalComponent={<ManagePointsModal 
+                                               point={p}
+                                               isSaved={false}
+                                               addFunc={addCanvasObjects}
+                                               deleteFunc={deleteCanvasObjects}
+                                            />}
+                                        />
                                     </div>
                                 </div>
                                 ))}
