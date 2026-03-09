@@ -537,11 +537,12 @@ export default function EditorPage() {
         const storedPinnedProps = localStorage.getItem("pinnedProperties");
         const storedOtherProps = localStorage.getItem("otherProperties");
         const storedCanvasObjs = localStorage.getItem("canvasObjects");
-        let parsed = JSON.parse(storedPinnedProps);
+        let parsed = storedPinnedProps ? JSON.parse(storedPinnedProps) : null;
 
         if(parsed?.data) {
             try {
                 const createProp = {...parsed?.data};
+                console.log("SAVE PINNED PROP DATA", createProp);
                 await Promise.all(
                     propertyStore.pinned.map(p => {
                         if(createProp[`prop-${p.id}`]) {
@@ -550,7 +551,7 @@ export default function EditorPage() {
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = dispatch(thunkEditProperty(createProp[`prop-${p.id}`]));
+                            const edit = dispatch(thunkEditProperty(p.id, createProp[`prop-${p.id}`]));
                             delete createProp[`prop-${p.id}`];
                             return edit;
                         };
@@ -573,17 +574,18 @@ export default function EditorPage() {
                         })
                     );
                 }
-                localStorage.removeItem("pinnedProperty");
+                localStorage.removeItem("pinnedProperties");
             } catch(e) {
                 console.error("Failed to save other properties, quitting before other properties, and points", e);
                 return;
             };
         };
 
-        parsed = JSON.parse(storedOtherProps);
+        parsed = storedOtherProps ? JSON.parse(storedOtherProps) : null;
         if(parsed?.data) {
             try{
                 const createProp = {...parsed?.data};
+                console.log("SAVE OTHER PROP DATA", createProp);
                 await Promise.all(
                     propertyStore.other.map(p => {
                         if(createProp[`prop-${p.id}`]) {
@@ -592,13 +594,13 @@ export default function EditorPage() {
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = dispatch(thunkEditProperty(createProp[`prop-${p.id}`]));
+                            const edit = dispatch(thunkEditProperty(p.id, createProp[`prop-${p.id}`]));
                             delete createProp[`prop-${p.id}`];
                             return edit;
                         };
                     })
                 );
-                if(Object.keys(createProp).length) {
+                if(Object.keys(createProp ?? {}).length) {
                     await Promise.all(
                         Object.values(createProp).map(p => {
                             if(p.name.includes("(Unsaved)")) {
@@ -623,25 +625,29 @@ export default function EditorPage() {
             };
         };
         
-        parsed = JSON.parse(storedCanvasObjs);
+        parsed = storedCanvasObjs ? JSON.parse(storedCanvasObjs) : null;
 
         if(parsed?.data) {
             try {
                 const createPoint = {...parsed?.data};
+                console.log("SAVE OTHER PROP DATA", createPoint);
                 await Promise.all(
                     pointStore.data.map(p => {
+                        console.log("P IN MAP", p)
+                        console.log("POINT IN MAP", createPoint)
                         if(createPoint[`${p.type}-${p.id}`]) {
                             if(createPoint[`${p.type}-${p.id}`].name.includes("(Unsaved)")) {
                                 createPoint[`${p.type}-${p.id}`].name = createPoint[`${p.type}-${p.id}`].name
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = dispatch(thunkEditPoint(createPoint[`${p.type}-${p.id}`]));
+                            const edit = dispatch(thunkEditPoint(p.id, createPoint[`${p.type}-${p.id}`]));
                             delete createPoint[`${p.type}-${p.id}`];
                             return edit;
                         };
                     })
                 );
+                console.log("SAVED EDIT POINTS PASSED, CURRENT:", createPoint)
                 if(Object.keys(createPoint).length) {
                     await Promise.all(
                         Object.values(createPoint).map(p => {
@@ -652,6 +658,7 @@ export default function EditorPage() {
                         })
                     )
                 };
+                console.log("SAVED CREATE POINTS PASSED, CURRENT:", createPoint)
                 if(deletedPoints.length > 0) {
                     await Promise.all(
                         deletedPoints.map(id => {
@@ -659,6 +666,7 @@ export default function EditorPage() {
                         })
                     );
                 };
+                console.log("SAVED DELETE POINTS PASSED, CURRENT:", createPoint)
                 localStorage.removeItem("points");
             } catch(e) {
                 console.error("Failed to save points", e);
@@ -720,12 +728,12 @@ export default function EditorPage() {
                 <button
                     className="user-select-none"
                     onClick={handleSaveAll}
-                    disabled={
-                        Object.keys(canvasObjects ?? {}).length === 0 &&
-                        deletedProperties.pinned.length === 0 &&
-                        deletedProperties.other.length === 0 &&
-                        deletedPoints.length === 0
-                     }
+                    // disabled={
+                    //     Object.keys(canvasObjects ?? {}).length === 0 &&
+                    //     deletedProperties.pinned.length === 0 &&
+                    //     deletedProperties.other.length === 0 &&
+                    //     deletedPoints.length === 0
+                    //  }
                 >Save All</button>
 
                 <button 
