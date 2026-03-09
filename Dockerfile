@@ -1,10 +1,26 @@
+FROM node:20 AS frontend-build
+
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm install
+
+COPY frontend .
+RUN npm run build
+
 FROM python:3.12-slim
 
 RUN apt-get update && \
-    apt-get install -y curl gnupg build-essential nginx && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
+    apt-get install -y nginx && \
     rm -rf /var/lib/apt/lists/* 
+
+WORKDIR /app
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirement.txt
+
+COPY backend ./backend
+
+COPY --from=frontend-build /frontend/dist /var/www/frontend
 
 COPY /nginx/nginx.conf /etc/nginx/nginx.conf
 
@@ -14,10 +30,6 @@ ARG POSTGRES_URL
 ARG SECRET_KEY
 ARG ALGORITHM
 ARG PROJECT_ENV
-
-WORKDIR /app
-
-COPY . .
 
 ENV ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
 ENV SQLITE_PATH=${SQLITE_PATH}
@@ -32,14 +44,7 @@ RUN find /app -maxdepth 3 -type d
 RUN which python || true
 RUN python --version || true
 
-WORKDIR /app/backend
-RUN pip install --no-cache-dir -r requirements.txt
-RUN python main.py
-RUN python ./scripts/migrate_db_to_psql.py
-
-# WORKDIR /app/frontend
-# RUN npm install
-# RUN npm run build
+COPY start.sh .
 
 EXPOSE 10000
 
@@ -52,4 +57,4 @@ RUN find /app -maxdepth 3 -type d
 RUN which python || true
 RUN python --version || true
 
-CMD ["npm", "run", "docker-setup"]
+CMD ["sh", "start.sh"]
