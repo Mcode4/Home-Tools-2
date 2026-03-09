@@ -55,38 +55,12 @@ export default function ManagePointsModal({
         console.log("POINT MODAL POINT:", point, "ISSAVED:", isSaved);
     }, []);
 
-    function formatObject() {
-        const format = {...point};
-        if(point.zip) {
-            format.propertyId = point.id
-            format.id = `prop-${point.id}`
-        } else {
-            switch(point.type) {
-                case "icon":
-                    format.pointId = point.id
-                    format.id = `icon-${point.id}`;
-                    break
-                case "marker":
-                    format.pointId = point.id
-                    format.id = `marker-${point.id}`;
-                    break
-                case "radius":
-                    format.pointId = point.id
-                    format.id = `radius-${point.id}`;
-                    break
-            }
-        }
-        return format;
-    }
-
     const handleAdd = (e) => {
         e.preventDefault();
         setErr({});
 
-        const obj = isSaved ? formatObject() : point
-
         const newPoint = {
-            ...obj,
+            ...point,
             name,
             type,
             // location,

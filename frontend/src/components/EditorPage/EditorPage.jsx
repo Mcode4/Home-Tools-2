@@ -162,16 +162,17 @@ export default function EditorPage() {
         console.log("SAVED PROP FROM LOCAL", otherProperties);
         console.log("POINTS from STORE", pointStore);
         console.log("SAVED POINTS", points);
+        console.log("DELETE TESSSSSSSSSSSSSSSSTT", Object.keys(canvasObjects).length)
         if(!initialized) {
             console.error("Not Initialized")
             return;
         }
 
         if (
-            !propertyStore.pinned.length && 
-            !propertyStore.other.length &&
-            !pointStore.data.length &&
-            !Object.keys(canvasObjects).length
+            !propertyStore?.pinned.length && 
+            !propertyStore?.other.length &&
+            !pointStore?.data.length &&
+            !Object.keys(canvasObjects)?.length
         ) {    
             setLoaded(true);
             return;
@@ -504,7 +505,7 @@ export default function EditorPage() {
                     const p_id = Number(split[1])
                     setDeletedProperties(p => ({
                         ...p,
-                        other: [...p.pinned, p_id]
+                        other: [...p.other, p_id]
                     }));
                     setOtherProperties(p => {
                         const copy = {...p};
@@ -521,6 +522,7 @@ export default function EditorPage() {
                 setDeletedPoints(p => [...p, p_id]);
                 setPoints(p => {
                     const copy = {...p};
+                    console.log("P DELETE", copy)
                     delete copy[p_id];
                     return copy;
                 });
@@ -542,14 +544,14 @@ export default function EditorPage() {
                 const createProp = {...parsed?.data};
                 await Promise.all(
                     propertyStore.pinned.map(p => {
-                        if(createProp[p.id]) {
-                            if(createProp[p.id].name.includes("(Unsaved)")) {
-                                createProp[p.id].name = createProp[p.id].name
+                        if(createProp[`prop-${p.id}`]) {
+                            if(createProp[`prop-${p.id}`].name.includes("(Unsaved)")) {
+                                createProp[`prop-${p.id}`].name = createProp[`prop-${p.id}`].name
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = dispatch(thunkEditProperty(createProp[p.id]));
-                            delete createProp[p.id];
+                            const edit = dispatch(thunkEditProperty(createProp[`prop-${p.id}`]));
+                            delete createProp[`prop-${p.id}`];
                             return edit;
                         };
                     })
@@ -564,7 +566,7 @@ export default function EditorPage() {
                         })
                     );
                 }
-                if(deletedProperties.pinned.length) {
+                if(deletedProperties.pinned.length > 0) {
                     await Promise.all(
                         deletedProperties.pinned.map(id => { 
                             return dispatch(thunkDeleteProperty(id))
@@ -584,21 +586,21 @@ export default function EditorPage() {
                 const createProp = {...parsed?.data};
                 await Promise.all(
                     propertyStore.other.map(p => {
-                        if(createProp[p.id]) {
-                            if(createProp[p.id].name.includes("(Unsaved)")) {
-                                createProp[p.id].name = createProp[p.id].name
+                        if(createProp[`prop-${p.id}`]) {
+                            if(createProp[`prop-${p.id}`].name.includes("(Unsaved)")) {
+                                createProp[`prop-${p.id}`].name = createProp[`prop-${p.id}`].name
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = dispatch(thunkEditProperty(createProp[p.id]));
-                            delete createProp[p.id];
+                            const edit = dispatch(thunkEditProperty(createProp[`prop-${p.id}`]));
+                            delete createProp[`prop-${p.id}`];
                             return edit;
                         };
                     })
                 );
                 if(Object.keys(createProp).length) {
                     await Promise.all(
-                        Object.values.map(p => {
+                        Object.values(createProp).map(p => {
                             if(p.name.includes("(Unsaved)")) {
                                 p.name = p.name.split("(Unsaved)")[1].trim();
                             }
@@ -606,7 +608,7 @@ export default function EditorPage() {
                         })
                     );
                 };
-                if(deletedProperties.other.length) {
+                if(deletedProperties.other.length > 0) {
                     await Promise.all(
                         deletedProperties.other.map(id => { 
                             return dispatch(thunkDeleteProperty(id))
@@ -628,14 +630,14 @@ export default function EditorPage() {
                 const createPoint = {...parsed?.data};
                 await Promise.all(
                     pointStore.data.map(p => {
-                        if(createPoint[p.id]) {
-                            if(createPoint[p.id].name.includes("(Unsaved)")) {
-                                createPoint[p.id].name = createPoint[p.id].name
+                        if(createPoint[`${p.type}-${p.id}`]) {
+                            if(createPoint[`${p.type}-${p.id}`].name.includes("(Unsaved)")) {
+                                createPoint[`${p.type}-${p.id}`].name = createPoint[`${p.type}-${p.id}`].name
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = dispatch(thunkEditPoint(createPoint[p.id]));
-                            delete createPoint[p.id];
+                            const edit = dispatch(thunkEditPoint(createPoint[`${p.type}-${p.id}`]));
+                            delete createPoint[`${p.type}-${p.id}`];
                             return edit;
                         };
                     })
@@ -650,7 +652,7 @@ export default function EditorPage() {
                         })
                     )
                 };
-                if(deletedPoints.length) {
+                if(deletedPoints.length > 0) {
                     await Promise.all(
                         deletedPoints.map(id => {
                             return dispatch(thunkDeletePoint(id));
@@ -665,7 +667,7 @@ export default function EditorPage() {
         };
         setCanvasObjects({});
         setDeletedPoints([]);
-        setDeletedProperties([]);
+        setDeletedProperties([{ pinned: [], other: [] }]);
     };
 
     function signalPointUpdate(id, changesObj) {
@@ -720,7 +722,8 @@ export default function EditorPage() {
                     onClick={handleSaveAll}
                     disabled={
                         Object.keys(canvasObjects ?? {}).length === 0 &&
-                        deletedProperties.length === 0 &&
+                        deletedProperties.pinned.length === 0 &&
+                        deletedProperties.other.length === 0 &&
                         deletedPoints.length === 0
                      }
                 >Save All</button>
