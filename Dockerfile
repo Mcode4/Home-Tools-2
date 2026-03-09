@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend ./backend
 
-COPY --from=frontend-build /frontend/dist /var/www/frontend
+COPY --from=frontend-build /frontend/build /var/www/frontend
 
 COPY /nginx/nginx.conf /etc/nginx/nginx.conf
 
