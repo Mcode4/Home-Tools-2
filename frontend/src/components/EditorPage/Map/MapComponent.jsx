@@ -1,12 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, createContext } from "react";
 import { createRoot } from "react-dom/client";
 import { circle } from "@turf/turf";
 import maplibregl from "maplibre-gl";
 import 'maplibre-gl/dist/maplibre-gl.css';
-import "./MapComponent.css"
+import "./MapComponent.css";
 
 
-export default function MapComponent({ layer, lngLat, markers, canvasTool, createdCanvasObject, deletedCanvasObject }) {
+export default function MapComponent({ 
+    layer, lngLat, markers, canvasTool,
+    createdCanvasObject, deletedCanvasObject,
+    updateObject
+}) {
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -103,14 +107,6 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
         console.log("HITTT MARKERS, MAPINSTANCE:", mapInstance, "MARKERS:", markers)
         if (!mapInstance.current || !isLoaded || !markers) return;
 
-        if(Object.keys(canvasObjectsRef.current).length) {
-            console.log("KEYS FOUND IN REF THAT MAY CONFLICT:", canvasObjectsRef.current)
-            Object.values(canvasObjectsRef.current).forEach(id => {
-                deleteCanvasObject(id);
-            });
-            canvasObjectsRef.current = {};
-        };
-
         const map = mapInstance.current;
 
         markers.map((m, i) => {
@@ -153,7 +149,8 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
             } else if(m.type === "icon") {
                 console.log("MARKER AT ICON", m)
                 const iconDiv = document.createElement("div");
-                createRoot(iconDiv).render(
+                const root = createRoot(iconDiv);
+            root.render(
                     <div 
                         className="canvasMarker"
                         style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
@@ -165,7 +162,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     </div>
                 );
 
-                const markerId = m.id ?? `icon-${m.pointId}`;
+                const markerId = m.id ? `icon-${m.id}` : `icon-${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
                     element: iconDiv,
@@ -201,7 +198,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 };
                 console.log("ICON IMPORTANCE", {marker, el, iconDiv, markerId})
             } else if(m.type === "marker") {
-                const markerId = m.id ?? `marker-${m.pointId}`;
+                const markerId = m.id ? `marker-${m.id}` : `marker-${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
                     draggable: true,
@@ -224,6 +221,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     const newLngLat = marker.getLngLat();
                     createdCanvasObject({
                         id: markerId,
+                        pointId: m.pointId,
                         type: m.type,
                         name: m.name,
                         lng: newLngLat.lng,
@@ -235,11 +233,13 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     marker
                 };
             } else if(m.type === "radius") {
-                const radiusId = m.id ?? `radius-${m.pointId}`;
+                const radiusId = m.id ? `radius-${m.id}` : `radius-${m.pointId}`;
+
+                let radius = Number(m.radius) || 500;
 
                 map.addSource(radiusId, {
                     type: "geojson",
-                    data: createCircle(m.lngLat[0], m.lngLat[1], 500)
+                    data: createCircle(m.lngLat[0], m.lngLat[1], radius)
                 });
 
                 map.addLayer({
@@ -268,7 +268,6 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     .setLngLat(m.lngLat)
                     .addTo(map);
 
-                let radius = m.radius;
                 const handleLng = m.lngLat[0] + (radius / 111320); // rough meters to lng conversation
 
                 const handleMarker = new maplibregl.Marker({
@@ -284,7 +283,9 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 labelDiv.style.borderRadius = "4px";
                 labelDiv.style.fontSize = "12px";
                 labelDiv.style.textAlign = "center";
-                labelDiv.style.innerText = "500m";
+                labelDiv.style.innerText = radius < 1000 
+                    ? `${radius}m` 
+                    : `${(radius/1000).toFixed(2)}km`;
 
                 const labelMarker = new maplibregl.Marker({
                     element: labelDiv,
@@ -343,7 +344,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     map.getCanvas().style.cursor = getBaseCursor();
                     const newLngLat = centerMarker.getLngLat()
                     createdCanvasObject({
-                        id: radiusId,
+                        pointId: radiusId,
                         type: "radius",
                         name: m.name,
                         lng: newLngLat.lng,
@@ -389,7 +390,8 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 // iconDiv.innerHTML = canvasTool.icon
                 // iconDiv.style.fontSize = "28px"
 
-                createRoot(iconDiv).render(
+                const root = createRoot(iconDiv);
+            root.render(
                     <div 
                         className="canvasMarker"
                         style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
@@ -409,6 +411,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 })
                     .setLngLat([lng, lat])
                     .addTo(map);
+
                 const el = marker.getElement();
 
                 el.style.cursor = "cell";
@@ -486,9 +489,11 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
             } else if(canvasTool.type === "radius") {
                 const radiusId = `temp-radius-${Date.now()}`;
 
+                let radius = 500; // meters
+
                 map.addSource(radiusId, {
                     type: "geojson",
-                    data: createCircle(lng, lat, 500)
+                    data: createCircle(lng, lat, radius)
                 });
 
                 map.addLayer({
@@ -516,8 +521,7 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 })
                     .setLngLat([lng, lat])
                     .addTo(map);
-
-                let radius = 500; // meters
+                    
                 const handleLng = lng + (radius / 111320); // rough meters to lng conversation
 
                 const handleMarker = new maplibregl.Marker({
@@ -533,7 +537,9 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                 labelDiv.style.borderRadius = "4px";
                 labelDiv.style.fontSize = "12px";
                 labelDiv.style.textAlign = "center";
-                labelDiv.style.innerText = "500m";
+                labelDiv.style.innerText = labelDiv.style.innerText = radius < 1000 
+                    ? `${radius}m` 
+                    : `${(radius/1000).toFixed(2)}km`;
 
                 const labelMarker = new maplibregl.Marker({
                     element: labelDiv,
@@ -597,10 +603,19 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                         lat: newLngLat.lat,
                         radius: radius
                     });
+                    canvasObjectsRef.current[radiusId].centerMarker = centerMarker;
                 });
 
                 handleMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
-                handleMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
+                handleMarker.on("dragend", ()=> {
+                    map.getCanvas().style.cursor = getBaseCursor();
+                    createdCanvasObject({
+                        id: radiusId,
+                        radius: radius
+                    });
+                    canvasObjectsRef.current[radiusId].handleMarker = handleMarker;
+                    canvasObjectsRef.current[radiusId].labelMarker = labelMarker;
+                });
 
                 createdCanvasObject({
                     id: radiusId,
@@ -617,7 +632,8 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
                     labelMarker,
                     sourceId: radiusId,
                     fillLayer: `${radiusId}-fill`,
-                    outlineLayer: `${radiusId}-outline`
+                    outlineLayer: `${radiusId}-outline`,
+                    radius: radius
                 };
             }
         };
@@ -635,6 +651,46 @@ export default function MapComponent({ layer, lngLat, markers, canvasTool, creat
             map.off("dragend", dragEnd);
         };
     }, [canvasTool, isLoaded]);
+
+    useEffect(()=> {
+        console.log("UPDATE POINT HIT MAPCOMPONENT", updateObject)
+        if(!updateObject) return;
+        const id = updateObject.id;
+        const updates = updateObject.updates;
+
+        const map = mapInstance.current;
+        const obj = canvasObjectsRef.current[id];
+        if(!map || !obj) return;
+
+        if(updates.radius && obj.sourceId) {
+            const center = obj.centerMarker.getLngLat();
+            const dx = updates.radius / 111320;
+            const radius = Math.sqrt(dx*dx) * 111320;
+            const newCircle = createCircle(center.lng, center.lat, radius);
+            obj.handleMarker.setLngLat([center.lng, center.lat + dx]);
+            obj.labelMarker.setLngLat([center.lng, center.lat + dx]);
+        };
+        if(updates.icon && updates.name) {
+            const iconDiv = document.createElement("div")
+            const root = createRoot(iconDiv);
+            root.render(
+                <div 
+                    className="canvasMarker"
+                    style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
+                    <div 
+                        className="canvasMarkerIcon"
+                        style={{fontSize: "28px"}}
+                    >{updates.icon}</div>
+                    <p className="canvasMarkerName">{updates.name}</p>
+                </div>
+            );
+            const el = obj.marker.getElement()
+            el.innerHTML = ""
+            el.appendChild(iconDiv);
+
+            console.log("EL", el)
+        };
+    }, [updateObject])
 
     const setCursor = (cursor) => {
         const map = mapInstance.current;

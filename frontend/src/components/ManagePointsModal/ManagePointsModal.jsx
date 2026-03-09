@@ -20,7 +20,8 @@ export default function ManagePointsModal({
     point, 
     isSaved,
     addFunc,
-    deleteFunc
+    deleteFunc,
+    changeFunc
 }) {
     const [name, setName] = useState(point?.name);
     const [location, setLocation] = useState(null);
@@ -28,34 +29,73 @@ export default function ManagePointsModal({
     const [radius, setRadius] = useState(null);
     const [type, setType] = useState(null);
     const [err, setErr] = useState({});
+    const [initialState, setInitialState] = useState({});
     const dispatch = useDispatch();
     const { closeModal } = useModal();
 
     useEffect(()=> {
+        setInitialState({
+            name,
+            location
+        });
+
         if(point?.type) {
             setType(point?.type);
+            setInitialState(prev => ({...prev, type: point?.type}));
             
             if(point?.type === "icon") {
                 setIcon(point?.icon);
+                setInitialState(prev => ({...prev, icon: point?.icon}));
             } else if(point?.type === "radius") {
                 setRadius(point?.radius);
+                setInitialState(prev => ({...prev, radius: point?.radius}));
             };
-        }
-        console.log("POINT MODAL POINT:", point);
+        };
+
+        console.log("POINT MODAL POINT:", point, "ISSAVED:", isSaved);
     }, []);
+
+    function formatObject() {
+        const format = {...point};
+        if(point.zip) {
+            format.propertyId = point.id
+            format.id = `prop-${point.id}`
+        } else {
+            switch(point.type) {
+                case "icon":
+                    format.pointId = point.id
+                    format.id = `icon-${point.id}`;
+                    break
+                case "marker":
+                    format.pointId = point.id
+                    format.id = `marker-${point.id}`;
+                    break
+                case "radius":
+                    format.pointId = point.id
+                    format.id = `radius-${point.id}`;
+                    break
+            }
+        }
+        return format;
+    }
 
     const handleAdd = (e) => {
         e.preventDefault();
         setErr({});
 
+        const obj = isSaved ? formatObject() : point
+
         const newPoint = {
-            ...point,
+            ...obj,
             name,
             type,
-            location,
+            // location,
             icon,
             radius
         };
+
+        if(initialState.icon !== icon) handleIconChange();
+        if(initialState.radius !== radius) handleRadiusChange();
 
         addFunc(newPoint);
         closeModal();
@@ -68,6 +108,28 @@ export default function ManagePointsModal({
         deleteFunc(point.id);
         closeModal();
     };
+
+    const handleTypeChange = (value) => {
+        if(!["radius", "marker", "icon"].includes(value)) {
+            setErr({e: "Type must be: Marker, Icon, or Radius"})
+        }
+    };
+
+    const handleIconChange = (value) => {
+        console.log("ICON CHANGE HIT")
+        changeFunc(point.id, {icon, name})
+        return true
+    };
+
+    const handleRadiusChange = (value) => {
+        if(isNaN(value)) {
+            setErr({e: "Radius must be a number"});
+            return;
+        };
+        changeFunc(point.id, {radius: value});
+        return true
+    };
+
     return (
         <form onSubmit={handleAdd}>
             <div className="form-group">
@@ -103,7 +165,9 @@ export default function ManagePointsModal({
                 <input 
                     type="text" 
                     name="point-icon" 
-                    id="point-icon" 
+                    id="point-icon"
+                    value={icon}
+                    onChange={(e)=> setIcon(e.target.value)}
                 />
                 </div>
             )}
@@ -111,7 +175,13 @@ export default function ManagePointsModal({
             {point?.type === "radius" && (
                 <div className="form-group">
                 <label htmlFor="point-radius">Radius:</label>
-                <input type="text" name="point-radius" id="point-radius" />
+                <input 
+                    type="number" 
+                    name="point-radius" 
+                    id="point-radius" 
+                    value={radius}
+                    onChange={(e)=> setRadius(e.target.value)}
+                />
                 </div>
             )}
 
