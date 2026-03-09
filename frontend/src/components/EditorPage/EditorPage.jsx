@@ -434,9 +434,9 @@ export default function EditorPage() {
     };
 
     const deleteCanvasObjects = (id) => {
-        console.log("DELETION ID", id);
-        console.log("AT DELETION OTHER PROPERTIES", otherProperties);
-        console.log("AT DELETION POINTS", points);
+        // console.log("DELETION ID", id);
+        // console.log("AT DELETION OTHER PROPERTIES", otherProperties);
+        // console.log("AT DELETION POINTS", points);
         const split = id.split("-");
         console.log("SPLIT ID:", split)
 
@@ -487,9 +487,46 @@ export default function EditorPage() {
                 });
                 return;
         };
-    }
+    };
 
-    const handleSave = async (e) => {
+    const createData = async (type, obj) => {
+        if(type === "property") {
+            const res = await dispatch(thunkCreateProperty(obj));
+            return res;
+        } else if (type === "point") {
+            const res = await dispatch(thunkCreatePoint(obj));
+            return res;
+        } else {
+            throw new Error("savedData: undefined type")
+        };
+    };
+
+    const editData = async (type, obj) => {
+        if(type === "property") {
+            const res = await dispatch(thunkEditProperty(obj.id, obj));
+            return res;
+        } else if (type === "point") {
+            const res = await dispatch(thunkEditPoint(obj.id, obj));
+            return res;
+        } else {
+            throw new Error("editData: undefined type")
+        };
+    };
+
+    const deleteData = async (type, id) => {
+        if(type === "property") {
+            const res = await dispatch(thunkDeleteProperty(id));
+            return res;
+        } else if (type === "point") {
+            const res = await dispatch(thunkDeletePoint(id));
+            return res;
+        } else {
+            throw new Error("deleteData: undefined type")
+        };
+    };
+
+
+    const handleSaveAll = async (e) => {
         console.log("SAVING HIT")
         e.preventDefault();
 
@@ -509,7 +546,7 @@ export default function EditorPage() {
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = dispatch(thunkEditProperty(p.id, createProp[p.id]));
+                            const edit = editData("properties", createProp[p.id]);
                             delete createProp[p.id];
                             return edit;
                         };
@@ -521,14 +558,14 @@ export default function EditorPage() {
                             if(p.name.includes("(Unsaved)")) {
                                 p.name = p.name.split("(Unsaved)")[1].trim();
                             }
-                            return dispatch(thunkCreateProperty(p))
+                            return createData("property", p)
                         })
                     );
                 }
                 if(deletedProperties.pinned.length) {
                     await Promise.all(
                         deletedProperties.pinned.map(id => { 
-                            return dispatch(thunkDeleteProperty(id)) 
+                            return deleteData("property", id)
                         })
                     );
                 }
@@ -538,8 +575,8 @@ export default function EditorPage() {
                 return;
             };
         };
-        parsed = JSON.parse(storedOtherProps);
 
+        parsed = JSON.parse(storedOtherProps);
         if(parsed?.data) {
             try{
                 const createProp = {...parsed?.data};
@@ -551,7 +588,7 @@ export default function EditorPage() {
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = dispatch(thunkEditProperty(p.id, createProp[p.id]));
+                            const edit = editData("property", createProp[p.id]);
                             delete createProp[p.id];
                             return edit;
                         };
@@ -563,14 +600,14 @@ export default function EditorPage() {
                             if(p.name.includes("(Unsaved)")) {
                                 p.name = p.name.split("(Unsaved)")[1].trim();
                             }
-                            return dispatch(thunkCreateProperty(p));
+                            return createData("property", p);
                         })
                     );
                 };
                 if(deletedProperties.other.length) {
                     await Promise.all(
                         deletedProperties.other.map(id => { 
-                            return dispatch(thunkDeleteProperty(id)) 
+                            return deleteData("property", id);
                         })
                     );
                 }
@@ -595,7 +632,7 @@ export default function EditorPage() {
                                     .split("(Unsaved)")[1]
                                     .trim();
                             }
-                            const edit = dispatch(thunkEditPoint(p.id, createPoint[p.id]));
+                            const edit = editData("point", createPoint[p.id]);
                             delete createPoint[p.id];
                             return edit;
                         };
@@ -607,14 +644,14 @@ export default function EditorPage() {
                             if(p.name.includes("(Unsaved)")) {
                                 p.name = p.name.split("(Unsaved)")[1].trim();
                             }
-                            return dispatch(thunkCreatePoint(p));
+                            return createData("point", p);
                         })
                     )
                 };
                 if(deletedPoints.length) {
                     await Promise.all(
                         deletedPoints.map(id => {
-                            return dispatch(thunkDeletePoint(id));
+                            return deleteData("point", id);
                         })
                     );
                 };
@@ -625,6 +662,8 @@ export default function EditorPage() {
             };
         };
         setCanvasObjects({});
+        setDeletedPoints([]);
+        setDeletedProperties([]);
     };
 
     return (<>
@@ -671,12 +710,12 @@ export default function EditorPage() {
             <div className="editor-controls">
                 <button
                     className="user-select-none"
-                    onClick={handleSave}
+                    onClick={handleSaveAll}
                     disabled={
-                        !Object.keys(otherProperties ?? {}).length > 0 && 
-                        !Object.keys(pinnedProperties ?? {}).length > 0 && 
-                        !Object.keys(canvasObjects ?? {}).length > 0
-                    }
+                        Object.keys(canvasObjects ?? {}).length === 0 &&
+                        deletedProperties.length === 0 &&
+                        deletedPoints.length === 0
+                     }
                 >Save All</button>
 
                 <button 

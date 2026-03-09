@@ -16,7 +16,13 @@ import {
 import { useModal } from "../../context/Modal";
 import "./ManagePointsModal.css"
 
-export default function ManagePointsModal({point, isSaved}) {
+export default function ManagePointsModal({
+    point, 
+    isSaved,
+    editFunc,
+    deleteFunc,
+    saveFunc
+}) {
     const [name, setName] = useState(point?.name);
     const [location, setLocation] = useState();
     const [icon, setIcon] = useState();
