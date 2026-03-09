@@ -235,7 +235,7 @@ export default function MapComponent({
             } else if(m.type === "radius") {
                 const radiusId = m.id ? `radius-${m.id}` : `radius-${m.pointId}`;
 
-                let radius = Number(m.radius) || 500;
+                let radius = Number(m.radius ?? 500);
 
                 map.addSource(radiusId, {
                     type: "geojson",
@@ -345,16 +345,25 @@ export default function MapComponent({
                     const newLngLat = centerMarker.getLngLat()
                     createdCanvasObject({
                         pointId: radiusId,
-                        type: "radius",
-                        name: m.name,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat,
                         radius: radius
                     });
+                    canvasObjectsRef.current[radiusId].centerMarker = centerMarker;
+                    canvasObjectsRef.current[radiusId].radius = radius;
                 });
 
                 handleMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
-                handleMarker.on("dragend", ()=> map.getCanvas().style.cursor = getBaseCursor());
+                handleMarker.on("dragend", ()=> {
+                    map.getCanvas().style.cursor = getBaseCursor();
+                    createdCanvasObject({
+                        pointId: radiusId,
+                        radius: radius
+                    });
+                    canvasObjectsRef.current[radiusId].handleMarker = handleMarker;
+                    canvasObjectsRef.current[radiusId].labelMarker = labelMarker;
+                    canvasObjectsRef.current[radiusId].radius = radius;
+                });
 
                 canvasObjectsRef.current[radiusId] = {
                     centerMarker,
@@ -362,7 +371,8 @@ export default function MapComponent({
                     labelMarker,
                     sourceId: radiusId,
                     fillLayer: `${radiusId}-fill`,
-                    outlineLayer: `${radiusId}-outline`
+                    outlineLayer: `${radiusId}-outline`,
+                    radius
                 };
             }
         });
@@ -604,6 +614,7 @@ export default function MapComponent({
                         radius: radius
                     });
                     canvasObjectsRef.current[radiusId].centerMarker = centerMarker;
+                    canvasObjectsRef.current[radiusId].radius = radius;
                 });
 
                 handleMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
@@ -615,6 +626,7 @@ export default function MapComponent({
                     });
                     canvasObjectsRef.current[radiusId].handleMarker = handleMarker;
                     canvasObjectsRef.current[radiusId].labelMarker = labelMarker;
+                    canvasObjectsRef.current[radiusId].radius = radius;
                 });
 
                 createdCanvasObject({
@@ -664,11 +676,13 @@ export default function MapComponent({
 
         if(updates.radius && obj.sourceId) {
             const center = obj.centerMarker.getLngLat();
+            const radius = Number(updates.radius);
             const dx = updates.radius / 111320;
-            const radius = Math.sqrt(dx*dx) * 111320;
             const newCircle = createCircle(center.lng, center.lat, radius);
-            obj.handleMarker.setLngLat([center.lng, center.lat + dx]);
-            obj.labelMarker.setLngLat([center.lng, center.lat + dx]);
+            obj.handleMarker.setLngLat([center.lng + dx, center.lat]);
+            obj.labelMarker.setLngLat([center.lng + dx, center.lat]);
+
+            map.getSource(obj.souceId).setData(newCircle);
         };
         if(updates.icon && updates.name) {
             const iconDiv = document.createElement("div")

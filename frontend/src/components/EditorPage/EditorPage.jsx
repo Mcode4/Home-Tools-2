@@ -363,10 +363,11 @@ export default function EditorPage() {
             };
         }
         if(!obj.pointId && !obj.propertyId && !obj.id) throw new Error("Missing id");
-        if (!obj.lng) throw new Error("Missing lng");
-        if (!obj.lat) throw new Error("Missing lat");
-        if (typeof obj.lng !== "number") throw new Error("lng must be number");
-        if (typeof obj.lat !== "number") throw new Error("lat must be number");
+        // Handle gives no lat and lng
+        // if (!obj.lng) throw new Error("Missing lng");
+        // if (!obj.lat) throw new Error("Missing lat");
+        // if (typeof obj.lng !== "number") throw new Error("lng must be number");
+        // if (typeof obj.lat !== "number") throw new Error("lat must be number");
     }
     
 
@@ -405,14 +406,14 @@ export default function EditorPage() {
         validatePoint(obj);
         if(obj.propertyId) {
             console.log("PROPERTIES CHANGE HITT")
-            if(pinnedProperties[obj.propertyId]) {
-                console.log("SETTING NEW/UNSAVED PINNED PROPERTY ID:", obj.propertyId,
+            if(pinnedProperties[obj.id]) {
+                console.log("SETTING NEW/UNSAVED PINNED PROPERTY ID:", obj.id,
                     " PINNED PROPETIES:", pinnedProperties,
                     "OBJECT:", obj
                 )
                 setPinnedProperties(p => {
                     const copy = {...p};
-                    const update = copy[obj.propertyId]
+                    const update = copy[obj.id]
                     if(!update.name.includes("(Unsaved)")) {
                         update.name = "(Unsaved) " + update.name;
                     }
@@ -420,14 +421,14 @@ export default function EditorPage() {
                     update.lng = obj.lng;
                     return copy
                 });
-            } else if(otherProperties[obj.propertyId]) {
-                console.log("SETTING NEW/UNSAVED OTHER PROPERTY ID:", obj.propertyId,
+            } else if(otherProperties[obj.id]) {
+                console.log("SETTING NEW/UNSAVED OTHER PROPERTY ID:", obj.id,
                     " OTHER PROPETIES:", otherProperties,
                     "OBJECT:", obj
                 )
                 setOtherProperties(p => {
                     const copy = {...p};
-                    const update = copy[obj.propertyId]
+                    const update = copy[obj.id]
                     if(!update.name.includes("(Unsaved)")) {
                         update.name = "(Unsaved) " + update.name;
                     }
@@ -439,7 +440,9 @@ export default function EditorPage() {
             return;
         } else if(obj.pointId) {
             return setPoints(p => {
-                const existing = p[obj.pointId];
+                console.log("ADDING EXISTING POINT TO P:", p)
+                console.log("ID:", obj.id, "PROP ID", obj.propId)
+                const existing = p[obj.id];
                 const updated = existing
                     ? {...existing, ...obj}
                     : {...obj};
@@ -447,29 +450,28 @@ export default function EditorPage() {
                 if(!updated.name?.includes("(Unsaved)")) {
                     updated.name = "(Unsaved) " + updated.name;
                 }
-                // console.log("COPY SET", copy);
+                console.log("SET POINT RESULTS", existing);
                 return {
                     ...p,
-                    [obj.pointId]: updated
+                    [obj.id]: updated
                 };
             });
         };
         
-        setCanvasObjects(prev => {
-            const copy = {...prev};
+        setCanvasObjects(p => {
             console.log("CANVAS RECIEVED OBJECT", obj);
-            if(copy[obj.id]) {
-                copy[obj.id].lng = obj.lng;
-                copy[obj.id].lat = obj.lat;
-                if(copy[obj.id] === "radius") {
-                    copy[obj.id].radius = obj.radius;
-                };
-            } else {
-                copy[obj.id] = {...obj};
-                copy[obj.id].name = "New " + obj.type;
+            const existing = p[obj.id];
+            const updated = existing
+                ? {...existing, ...obj}
+                : {...obj};
+            if(!updated.name) {
+                updated.name = "New " + updated.type;
             };
-            console.log("FINISHED CANVAS OBJECT", copy[obj.id])
-            return copy;
+            console.log("FINISHED CANVAS OBJECT", updated);
+            return {
+                ...p,
+                [obj.id]: updated
+            };
         });
     };
 

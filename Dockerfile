@@ -34,8 +34,8 @@ RUN python --version || true
 
 WORKDIR /app/backend
 RUN pip install --no-cache-dir -r requirements.txt
-# RUN python3 main.py
-RUN python3 ./scripts/migrate_db_to_psql.py
+RUN python main.py
+RUN python ./scripts/migrate_db_to_psql.py
 
 # WORKDIR /app/frontend
 # RUN npm install
