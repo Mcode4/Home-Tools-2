@@ -2,10 +2,10 @@
 set -e
 
 echo "Running DB Migration..."
-cd /app/backend
-python backend/scripts/migrate_db_to_psql.py
+python app/backend/scripts/migrate_db_to_psql.py
 
 echo "Starting FastAPI..."
+cd /app/backend
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
 
 echo "Waiting for FastAPI to be ready..."
