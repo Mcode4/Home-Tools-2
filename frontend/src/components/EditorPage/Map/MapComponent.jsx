@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef, createContext } from "react";
+import { useState, useEffect, useRef} from "react";
 import { createRoot } from "react-dom/client";
-import { circle } from "@turf/turf";
 import maplibregl from "maplibre-gl";
 import 'maplibre-gl/dist/maplibre-gl.css';
 import "./MapComponent.css";
@@ -116,6 +115,7 @@ export default function MapComponent({
             if (obj.labelMarker) obj.labelMarker.remove();
             if (obj.fillLayer && map.getLayer(obj.fillLayer)) map.removeLayer(obj.fillLayer);
             if (obj.outlineLayer && map.getLayer(obj.outlineLayer)) map.removeLayer(obj.outlineLayer);
+            if (obj.spokeLayer && map.getLayer(obj.spokeLayer)) map.removeLayer(obj.spokeLayer);
             if (obj.sourceId && map.getSource(obj.sourceId)) map.removeSource(obj.sourceId);
         });
         canvasObjectsRef.current = {};
@@ -245,33 +245,7 @@ export default function MapComponent({
                 };
             } else if(m.type === "radius") {
                 const radiusId = m.id ?? `radius-${m.pointId}`;
-
                 let radius = Number(m.radius ?? 500);
-
-                map.addSource(radiusId, {
-                    type: "geojson",
-                    data: createCircle(m.lngLat[0], m.lngLat[1], radius)
-                });
-
-                map.addLayer({
-                    id: `${radiusId}-fill`,
-                    type: "fill",
-                    source: radiusId,
-                    paint: {
-                        "fill-color": "#4A90E2",
-                        "fill-opacity": 0.25
-                    }
-                });
-
-                map.addLayer({
-                    id: `${radiusId}-outline`,
-                    type: "line",
-                    source: radiusId,
-                    paint: {
-                        "line-color": "#4A90E2",
-                        "line-width": 2 
-                    }
-                });
 
                 const centerMarker = new maplibregl.Marker({
                     draggable: true
@@ -279,13 +253,42 @@ export default function MapComponent({
                     .setLngLat(m.lngLat)
                     .addTo(map);
 
-                const handleLng = getHandleLng(m.lngLat[0], m.lngLat[1], radius);
+                const handlePos = getHandlePosition(m.lngLat[0], m.lngLat[1], radius);
+
+                map.addSource(radiusId, {
+                    type: "geojson",
+                    data: createRadiusData(m.lngLat[0], m.lngLat[1], radius, handlePos.lng, handlePos.lat)
+                });
+
+                map.addLayer({
+                    id: `${radiusId}-fill`,
+                    type: "fill",
+                    source: radiusId,
+                    filter: ["==", "$type", "Polygon"], 
+                    paint: {"fill-color": "#4A90E2", "fill-opacity": 0.25}
+                });
+
+                map.addLayer({
+                    id: `${radiusId}-outline`,
+                    type: "line",
+                    source: radiusId,
+                    filter: ["==", "$type", "Polygon"], 
+                    paint: {"line-color": "#4A90E2", "line-width": 2}
+                });
+
+                map.addLayer({
+                    id: `${radiusId}-spoke`,
+                    type: "line",
+                    source: radiusId,
+                    filter: ["==", "$type", "LineString"],
+                    paint: {"line-color": "#4A90E2", "line-width": 1.5, "line-dasharray": [4,2]}
+                })
 
                 const handleMarker = new maplibregl.Marker({
                     draggable: true,
                     color: "blue"
                 })
-                    .setLngLat([handleLng, m.lngLat[1]])
+                    .setLngLat([handlePos.lng, handlePos.lat])
                     .addTo(map);
 
                 const labelDiv = document.createElement("div");
@@ -294,9 +297,7 @@ export default function MapComponent({
                 labelDiv.style.borderRadius = "4px";
                 labelDiv.style.fontSize = "12px";
                 labelDiv.style.textAlign = "center";
-                labelDiv.style.innerText = radius < 1000 
-                    ? `${radius}m` 
-                    : `${(radius/1000).toFixed(2)}km`;
+                labelDiv.innerText = radius < 1000 ? `${radius}m` : `${(radius/1000).toFixed(2)}km`;
 
                 const labelMarker = new maplibregl.Marker({
                     element: labelDiv,
@@ -308,43 +309,21 @@ export default function MapComponent({
                 handleMarker.on("drag", ()=> {
                     const center = centerMarker.getLngLat();
                     const handle = handleMarker.getLngLat();
-
-                    const dx = handle.lng - center.lng;
-                    const dy = handle.lat - center.lat;
-
-                    const cosLat = Math.cos(center.lng * Math.PI / 180);
-                    const dxMeters = dx * 111320 * cosLat;
-                    const dyMeters = dy * 111320;
-                    
-                    radius = Math.sqrt(dxMeters * dxMeters + dyMeters * dyMeters);
-
-                    const newCircle = createCircle(center.lng, center.lat, radius);
-                    labelDiv.innerText = radius > 1000 ? 
-                        `${(radius/1000).toFixed(2)}km` :
-                        `${Math.round(radius)}m`;
+                    radius = mercatorDistance(center.lng, center.lat, handle.lng, handle.lat);
+                    const newData = createRadiusData(center.lng, center.lat, radius, handle.lng, handle.lat);
+                    labelDiv.innerText = radius > 1000 ? `${(radius/1000).toFixed(2)}km` : `${Math.round(radius)}m`;
                     labelMarker.setLngLat([handle.lng, handle.lat]);
-                    map.getSource(radiusId).setData(newCircle);
+                    map.getSource(radiusId).setData(newData);
                 });
 
                 centerMarker.on("drag", ()=> {
                     const center = centerMarker.getLngLat();
                     const handle = handleMarker.getLngLat();
-
-                    const dx = handle.lng - center.lng;
-                    const dy = handle.lat - center.lat;
-                    
-                    const cosLat = Math.cos(center.lng * Math.PI / 180);
-                    const dxMeters = dx * 111320 * cosLat;
-                    const dyMeters = dy * 111320;
-                    
-                    radius = Math.sqrt(dxMeters * dxMeters + dyMeters * dyMeters);
-
-                    const newCircle = createCircle(center.lng, center.lat, radius);
-                    labelDiv.innerText = radius > 1000 ? 
-                        `${(radius/1000).toFixed(2)}km` :
-                        `${Math.round(radius)}m`;
+                    radius = mercatorDistance(center.lng, center.lat, handle.lng, handle.lat);
+                    const newData = createRadiusData(center.lng, center.lat, radius, handle.lng, handle.lat);
+                    labelDiv.innerText = radius > 1000 ? `${(radius/1000).toFixed(2)}km` : `${Math.round(radius)}m`;
                     labelMarker.setLngLat([handle.lng, handle.lat]);
-                    map.getSource(radiusId).setData(newCircle);
+                    map.getSource(radiusId).setData(newData);
                 });
 
                 const centerEl = centerMarker.getElement();
@@ -391,6 +370,7 @@ export default function MapComponent({
                     sourceId: radiusId,
                     fillLayer: `${radiusId}-fill`,
                     outlineLayer: `${radiusId}-outline`,
+                    spokeLayer: `${radiusId}-spoke`,
                     radius
                 };
             }
@@ -520,44 +500,48 @@ export default function MapComponent({
 
                 let radius = 500; // meters
 
-                map.addSource(radiusId, {
-                    type: "geojson",
-                    data: createCircle(lng, lat, radius)
-                });
-
-                map.addLayer({
-                    id: `${radiusId}-fill`,
-                    type: "fill",
-                    source: radiusId,
-                    paint: {
-                        "fill-color": "#4A90E2",
-                        "fill-opacity": 0.25
-                    }
-                });
-
-                map.addLayer({
-                    id: `${radiusId}-outline`,
-                    type: "line",
-                    source: radiusId,
-                    paint: {
-                        "line-color": "#4A90E2",
-                        "line-width": 2 
-                    }
-                });
-
                 const centerMarker = new maplibregl.Marker({
                     draggable: true
                 })
                     .setLngLat([lng, lat])
                     .addTo(map);
                     
-                const handleLng = getHandleLng(lng, lat, radius); // rough meters to lng conversation
+                const handlePos = getHandlePosition(lng, lat, radius);
+
+                map.addSource(radiusId, {
+                    type: "geojson",
+                    data: createRadiusData(lng, lat, radius, handlePos.lng, handlePos.lat)
+                });
+
+                map.addLayer({
+                    id: `${radiusId}-fill`,
+                    type: "fill",
+                    source: radiusId,
+                    filter: ["==", "$type", "Polygon"],
+                    paint:{"fill-color": "#4A90E2", "fill-opacity": 0.25}
+                });
+
+                map.addLayer({
+                    id: `${radiusId}-outline`,
+                    type: "line",
+                    source: radiusId,
+                    filter: ["==", "$type", "Polygon"],
+                    paint: {"line-color": "#4A90E2", "line-width": 2}
+                });
+
+                map.addLayer({
+                    id: `${radiusId}-spoke`,
+                    type: "line",
+                    source: radiusId,
+                    filter: ["==", "$type", "LineString"],
+                    paint: {"line-color": "#4A90E2", "line-width": 1.5, "line-dasharray": [4,2]}
+                });
 
                 const handleMarker = new maplibregl.Marker({
                     draggable: true,
                     color: "blue"
                 })
-                    .setLngLat([handleLng, lat])
+                    .setLngLat([handlePos.lng, handlePos.lat])
                     .addTo(map);
 
                 const labelDiv = document.createElement("div");
@@ -566,9 +550,7 @@ export default function MapComponent({
                 labelDiv.style.borderRadius = "4px";
                 labelDiv.style.fontSize = "12px";
                 labelDiv.style.textAlign = "center";
-                labelDiv.style.innerText = labelDiv.style.innerText = radius < 1000 
-                    ? `${radius}m` 
-                    : `${(radius/1000).toFixed(2)}km`;
+                labelDiv.innerText = radius < 1000 ? `${radius}m` : `${(radius/1000).toFixed(2)}km`;
 
                 const labelMarker = new maplibregl.Marker({
                     element: labelDiv,
@@ -580,35 +562,21 @@ export default function MapComponent({
                 handleMarker.on("drag", ()=> {
                     const center = centerMarker.getLngLat();
                     const handle = handleMarker.getLngLat();
-
-                    const dx = handle.lng - center.lng;
-                    const dy = handle.lat - center.lat;
-                    
-                    radius = Math.sqrt(dx*dx + dy*dy) * 111320;
-
-                    const newCircle = createCircle(center.lng, center.lat, radius);
-                    labelDiv.innerText = radius > 1000 ? 
-                        `${(radius/1000).toFixed(2)}km` :
-                        `${Math.round(radius)}m`;
+                    radius = mercatorDistance(center.lng, center.lat, handle.lng, handle.lat);
+                    const newData = createRadiusData(center.lng, center.lat, radius, handle.lng, handle.lat);
+                    labelDiv.innerText = radius > 1000 ? `${(radius/1000).toFixed(2)}km` : `${Math.round(radius)}m`;
                     labelMarker.setLngLat([handle.lng, handle.lat]);
-                    map.getSource(radiusId).setData(newCircle);
+                    map.getSource(radiusId).setData(newData);
                 });
 
                 centerMarker.on("drag", ()=> {
                     const center = centerMarker.getLngLat();
                     const handle = handleMarker.getLngLat();
-
-                    const dx = handle.lng - center.lng;
-                    const dy = handle.lat - center.lat;
-                    
-                    radius = Math.sqrt(dx*dx + dy*dy) * 111320;
-
-                    const newCircle = createCircle(center.lng, center.lat, radius);
-                    labelDiv.innerText = radius > 1000 ? 
-                        `${(radius/1000).toFixed(2)}km` :
-                        `${Math.round(radius)}m`;
+                    radius = mercatorDistance(center.lng, center.lat, handle.lng, handle.lat);
+                    const newData = createRadiusData(center.lng, center.lat, radius, handle.lng, handle.lat);
+                    labelDiv.innerText = radius > 1000 ? `${(radius/1000).toFixed(2)}km` : `${Math.round(radius)}m`;
                     labelMarker.setLngLat([handle.lng, handle.lat]);
-                    map.getSource(radiusId).setData(newCircle);
+                    map.getSource(radiusId).setData(newData);
                 });
 
                 const centerEl = centerMarker.getElement();
@@ -664,6 +632,7 @@ export default function MapComponent({
                     sourceId: radiusId,
                     fillLayer: `${radiusId}-fill`,
                     outlineLayer: `${radiusId}-outline`,
+                    spokeLayer: `${radiusId}-spoke`,
                     radius: radius
                 };
             }
@@ -696,14 +665,12 @@ export default function MapComponent({
         if(updates.radius && obj.sourceId) {
             const center = obj.centerMarker.getLngLat();
             const radius = Number(updates.radius);
-
-            const dx = radius / 111320 * Math.cos(center.lat * Math.PI / 180);
-            
-            const newCircle = createCircle(center.lng, center.lat, radius);
-            obj.handleMarker.setLngLat([center.lng + dx, center.lat]);
-            obj.labelMarker.setLngLat([center.lng + dx, center.lat]);
+            const handlePos = getHandlePosition(center.lng, center.lat, radius);
+            const newData = createRadiusData(center.lng, center.lat, radius, handlePos.lng, handlePos.lat);
+            obj.handleMarker.setLngLat([handlePos.lng, handlePos.lat]);
+            obj.labelMarker.setLngLat([handlePos.lng, handlePos.lat]);
             obj.radius = radius;
-            map.getSource(obj.sourceId).setData(newCircle);
+            map.getSource(obj.sourceId).setData(newData);
         };
         if(updates.icon && updates.name) {
             const iconDiv = document.createElement("div")
@@ -735,15 +702,75 @@ export default function MapComponent({
 
     const getBaseCursor = () => canvasTool?.type ? "crosshair" : "grab";
 
-    function createCircle(lng, lat, radiusMeters) {
-        return circle([lng, lat], radiusMeters / 1000, {
-            steps: 64,
-            unit: "kilometers"
-        })
+    const EARTH_R = 6378137;
+
+    function lngLatToMercator(lng, lat) {
+        const x = lng * Math.PI / 180 * EARTH_R;
+        const y = Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * EARTH_R;
+        return { x, y };
     }
 
-    function getHandleLng(centerLng, centerLat, radiusMeters) {
-        return centerLng + radiusMeters / (111320 * Math.cos(centerLat * Math.PI / 180));
+    function mercatorToLngLat(x, y) {
+        const lng = x / EARTH_R * 180 / Math.PI;
+        const lat = (2 * Math.atan(Math.exp(y / EARTH_R)) - Math.PI / 2) * 180 / Math.PI;
+        return { lng, lat };
+    }
+
+    function mercatorDistance(lng1, lat1, lng2, lat2) {
+        const a = lngLatToMercator(lng1, lat1);
+        const b = lngLatToMercator(lng2, lat2);
+        return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+    }
+
+    function getHandlePosition(centerLng, centerLat, radiusMeters) {
+        const c = lngLatToMercator(centerLng, centerLat);
+        console.log("HANDLE POSITION CALLED LNG:", centerLng, " LAT:", centerLat, " C:", c);
+        return mercatorToLngLat(c.x + radiusMeters, c.y);
+    }
+
+    function createRadiusData(centerLng, centerLat, radiusMeters, handleLng, handleLat, steps = 64) {
+        const c = lngLatToMercator(centerLng, centerLat);
+        const coords = []
+        for(let i=0; i<= steps; i++) {
+            const angle = (i/steps) * 2 * Math.PI;
+            const pt = mercatorToLngLat(
+                c.x + radiusMeters * Math.cos(angle),
+                c.y + radiusMeters * Math.sin(angle)
+            );
+            coords.push([pt.lng, pt.lat]);
+        };
+        return {
+            type: "FeatureCollection",
+            features: [
+                {
+                    type: "Feature",
+                    geometry: {type: "Polygon", coordinates: [coords]},
+                    properties: {}
+                },
+                {
+                    type: "Feature",
+                    geometry: {
+                        type: "LineString",
+                        coordinates: [[centerLng, centerLat], [handleLng, handleLat]]
+                    },
+                    properties: {}
+                }
+            ]
+        }
+    }
+
+    function createLineData(aLng, aLat, bLng, bLat) {
+        return {
+            type: "FeatureCollection",
+            feature: [{
+                type: "Feature",
+                geometry: {
+                    type: "LineString",
+                    coordinates: [[aLng, aLat], [bLng, bLat]]
+                },
+                properties: {}
+            }]
+        }
     }
 
     const deleteCanvasObject = (id) => {
@@ -767,7 +794,9 @@ export default function MapComponent({
         if(obj.outlineLayer && map.getLayer(obj.outlineLayer)) {
             map.removeLayer(obj.outlineLayer);
         };
-
+        if(obj.spokeLayer && map.getLayer(obj.spokeLayer)) {
+            map.removeLayer(obj.spokeLayer);
+        };
         if(obj.sourceId && map.getSource(obj.sourceId)) {
             map.removeSource(obj.sourceId);
         };

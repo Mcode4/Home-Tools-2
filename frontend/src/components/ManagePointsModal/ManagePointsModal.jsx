@@ -153,7 +153,7 @@ export default function ManagePointsModal({
                     type="number" 
                     name="point-radius" 
                     id="point-radius" 
-                    value={radius}
+                    value={Number(radius).toFixed(2)}
                     onChange={(e)=> setRadius(e.target.value)}
                 />
                 </div>
