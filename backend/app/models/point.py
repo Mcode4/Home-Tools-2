@@ -6,6 +6,7 @@ class PointType(str, Enum):
     icon = "icon"
     radius = "radius"
     marker = "marker"
+    line = "line"
 
 class Point(BaseModel):
     type: PointType
@@ -13,4 +14,6 @@ class Point(BaseModel):
     icon: Optional[str] = None
     lng: float
     lat: float
+    endLng: Optional[float] = None
+    endLat: Optional[float] = None
     radius: Optional[float] = None

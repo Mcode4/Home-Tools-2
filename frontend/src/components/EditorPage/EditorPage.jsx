@@ -251,6 +251,11 @@ export default function EditorPage() {
                     pointObj.radius = p.radius;
                     allMarkers.push(pointObj);
                     break
+                case "line":
+                    pointObj.endLng = p.endLng;
+                    pointObj.endLat = p.endLat;
+                    allMarkers.push(allMarkers);
+                    break
             }
         });
         
@@ -274,6 +279,11 @@ export default function EditorPage() {
                     case "radius":
                         pointObj.radius = p.radius;
                         allMarkers.push(pointObj);
+                        break
+                    case "line":
+                        pointObj.endLng = p.endLng;
+                        pointObj.endLat = p.endLat;
+                        allMarkers.push(allMarkers);
                         break
                 };
             });
@@ -361,6 +371,7 @@ export default function EditorPage() {
         // if (!obj.lat) throw new Error("Missing lat");
         // if (typeof obj.lng !== "number") throw new Error("lng must be number");
         // if (typeof obj.lat !== "number") throw new Error("lat must be number");
+        return true;
     }
     
 
@@ -461,7 +472,7 @@ export default function EditorPage() {
             const updated = existing
                 ? {...existing, ...obj}
                 : {...obj};
-            if(!updated.name) {
+            if(!updated.name || updated.name === updated.type) {
                 updated.name = "New " + updated.type;
             };
             console.log("FINISHED CANVAS OBJECT", updated);
@@ -497,6 +508,7 @@ export default function EditorPage() {
             case "icon":
             case "marker":
             case "radius":
+            case "line":
                 console.log("POINT DETECT")
                 const numberId = Number(split[1])
                 setDeletedPoints(p => [...p, numberId]);

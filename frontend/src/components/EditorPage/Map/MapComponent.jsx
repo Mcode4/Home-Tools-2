@@ -163,17 +163,17 @@ export default function MapComponent({
                 console.log("MARKER AT ICON", m)
                 const iconDiv = document.createElement("div");
                 const root = createRoot(iconDiv);
-            root.render(
-                    <div 
-                        className="canvasMarker"
-                        style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
+                root.render(
                         <div 
-                            className="canvasMarkerIcon"
-                            style={{fontSize: "28px"}}
-                        >{m.icon}</div>
-                        <p className="canvasMarkerName">{m.name}</p>
-                    </div>
-                );
+                            className="canvasMarker"
+                            style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
+                            <div 
+                                className="canvasMarkerIcon"
+                                style={{fontSize: "28px"}}
+                            >{m.icon}</div>
+                            <p className="canvasMarkerName">{m.name}</p>
+                        </div>
+                    );
 
                 const markerId = m.id ?? `icon-${m.pointId}`;
 
@@ -374,6 +374,92 @@ export default function MapComponent({
                     outlineLayer: `${radiusId}-outline`,
                     spokeLayer: `${radiusId}-spoke`,
                     radius
+                };
+            } else if(canvasTool.type === "line") {
+                const lineId = m.id ?? `line-${m.pointId}`;
+                let distance = m.distance;
+
+                map.addSource(lineId, {
+                    type: "geojson",
+                    data: createLineData(m.lngLat[0], m.lngLat[1], m.endLng, m.endLat)
+                });
+
+                map.addLayer({
+                    id: `${lineId}-line`,
+                    type: "line",
+                    source: lineId,
+                    paint: {"line-color": "#E24A4A", "line-width": 2}
+                });
+
+                const startMarker = new maplibregl.Marker({ draggable: true, color: "red" })
+                    .setLngLat([m.lngLat[0], m.lngLat[1]])
+                    .addTo(map);
+
+                const endMarker = new maplibregl.Marker({ draggable: true, color: "red" })
+                    .setLngLat([m.endLng, m.endLat])
+                    .addTo(map);
+
+                const labelDiv = document.createElement("div");
+                labelDiv.style.background = "white";
+                labelDiv.style.padding = "2px 6px";
+                labelDiv.style.borderRadius = "4px";
+                labelDiv.style.fontSize = "12px";
+                labelDiv.style.textAlign = "center";
+                labelDiv.style.pointerEvents = "none";
+
+                const updateLineLabel = () => {
+                    const a = startMarker.getLngLat();
+                    const b = endMarker.getLngLat();
+                    const dist = mercatorDistance(a.lng, a.lat, b.lng, b.lat);
+                    labelDiv.innerText = dist > 1000 ? `${(dist/1000).toFixed(2)}km` : `${Math.round(dist)}m`;
+                    let aToMercator = lngLatToMercator(a.lng, a.lat);
+                    let bToMercator = lngLatToMercator(b.lng, b.lat);
+                    let midMerc = {x: (aToMercator.x + bToMercator.x)/2, y: (aToMercator.y + bToMercator.y)/2}
+                    const mid = mercatorToLngLat(midMerc.x, midMerc.y);
+                    labelMarker.setLngLat([mid.lng, mid.lat]);
+                }
+
+                const initialDist = mercatorDistance(m.lngLat[0], m.lngLat[1], m.endLng, m.endLat);
+                labelDiv.innerText = `${Math.round(initialDist)}m`;
+
+                let startToMercator = lngLatToMercator(m.lngLat[0], m.lngLat[1]);
+                let endToMercator = lngLatToMercator(m.endLng, m.endLat);
+                const initialMid = mercatorToLngLat((startToMercator.x + endToMercator.x)/2, (startToMercator.y + endToMercator.y)/2);
+
+                const labelMarker = new maplibregl.Marker({ element: labelDiv, anchor: "bottom" })
+                    .setLngLat([initialMid.lng, initialMid.lat])
+                    .addTo(map);
+                
+                const onDrag = () => {
+                    const a = startMarker.getLngLat();
+                    const b = endMarker.getLngLat();
+                    map.getSource(lineId).setData(createLineData(a.lng, a.lat, b.lng, b.lat));
+                    updateLineLabel();
+                }
+
+                startMarker.on("drag", onDrag);
+                endMarker.on("drag", onDrag);
+
+                const startEl = startMarker.getElement();
+                const endEl = endMarker.getElement();
+
+                startEl.style.cursor = "grab";
+                endEl.style.cursor = "grab";
+                startEl.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(lineId);
+                });
+                endEl.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(lineId);
+                });
+
+                canvasObjectsRef.current[lineId] = {
+                    startMarker,
+                    endMarker,
+                    labelMarker,
+                    sourceId: lineId,
+                    lineLayer: `${lineId}-line`
                 };
             }
         });

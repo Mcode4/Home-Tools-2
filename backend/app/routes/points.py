@@ -29,7 +29,7 @@ def get_all_points(current_user = Depends(get_current_user)):
 def _all_points_dev(current_user = Depends(get_current_user)):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE owner_id=?", (current_user["id"],))
+    cursor.execute("SELECT id, type, name, icon, lng, lat, radius, endLng, endLat FROM points WHERE owner_id=?", (current_user["id"],))
     points = cursor.fetchall()
     conn.close()
     return ResponseModel(True, "", {"points": points})
@@ -37,7 +37,7 @@ def _all_points_dev(current_user = Depends(get_current_user)):
 def _all_points_prod(current_user = Depends(get_current_user)):
     conn = get_pg_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE owner_id=%s", (current_user["id"],))
+    cursor.execute("SELECT id, type, name, icon, lng, lat, radius, endLng, endLat FROM points WHERE owner_id=%s", (current_user["id"],))
     points = cursor.fetchall()
     conn.close()
     return ResponseModel(True, "", {"points": points})
@@ -57,6 +57,8 @@ def _add_p_dev(point: Point, current_user = Depends(get_current_user)):
     try:
         icon = None
         radius = None
+        endLng = None
+        endLat = None
         if point.type == "icon":
             if point.icon:
                 icon = point.icon
@@ -67,6 +69,16 @@ def _add_p_dev(point: Point, current_user = Depends(get_current_user)):
                 radius = point.radius
             else:
                 raise HTTPException(status_code=400, detail="Missing radius for point type: 'radius'")
+        if point.type == "line":
+            if point.endLng and point.endLat:
+                if not (-180 <= point.endLng <= 180):
+                    raise HTTPException(status_code=400, detail="Invalid end longitude")
+                if not (-90 <= point.endLat <= 90):
+                    raise HTTPException(status_code=400, detail="Invalid end latitude")
+                endLng = point.endLng
+                endLat = point.endLat
+            else:
+                raise HTTPException(status_code=400, detail="Missing endLng and/or endLat for point type: 'line'")
         if not (-180 <= point.lng <= 180):
             raise HTTPException(status_code=400, detail="Invalid longitude")
         if not (-90 <= point.lat <= 90):
@@ -74,8 +86,8 @@ def _add_p_dev(point: Point, current_user = Depends(get_current_user)):
         cursor.execute(
         """
             INSERT INTO points
-            (owner_id, type, name, icon, lng, lat, radius)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (owner_id, type, name, icon, lng, lat, radius, endLng, endLat)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             current_user["id"],
@@ -85,11 +97,13 @@ def _add_p_dev(point: Point, current_user = Depends(get_current_user)):
             point.lng,
             point.lat,
             radius,
+            endLng,
+            endLat
         )
         )
         conn.commit()
         p_id = cursor.lastrowid
-        cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE id=?", (p_id,))
+        cursor.execute("SELECT id, type, name, icon, lng, lat, radius, endLng, endLat FROM points WHERE id=?", (p_id,))
         point = cursor.fetchone()
         conn.close()
         return ResponseModel(True, "", {"point": point})
@@ -105,6 +119,8 @@ def _add_p_prod(point: Point, current_user = Depends(get_current_user)):
     try:
         icon = None
         radius = None
+        endLng = None
+        endLat = None
         if point.type == "icon":
             if point.icon:
                 icon = point.icon
@@ -115,6 +131,16 @@ def _add_p_prod(point: Point, current_user = Depends(get_current_user)):
                 radius = point.radius
             else:
                 raise HTTPException(status_code=400, detail="Missing radius for point type: 'radius'")
+        if point.type == "line":
+            if point.endLng and point.endLat:
+                if not (-180 <= point.endLng <= 180):
+                    raise HTTPException(status_code=400, detail="Invalid end longitude")
+                if not (-90 <= point.endLat <= 90):
+                    raise HTTPException(status_code=400, detail="Invalid end latitude")
+                endLng = point.endLng
+                endLat = point.endLat
+            else:
+                raise HTTPException(status_code=400, detail="Missing endLng and/or endLat for point type: 'line'")
         if not (-180 <= point.lng <= 180):
             raise HTTPException(status_code=400, detail="Invalid longitude")
         if not (-90 <= point.lat <= 90):
@@ -122,9 +148,9 @@ def _add_p_prod(point: Point, current_user = Depends(get_current_user)):
         cursor.execute(
         """
             INSERT INTO points
-            (owner_id, type, name, icon, lng, lat, radius)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, type, name, icon, lng, lat, radius
+            (owner_id, type, name, icon, lng, lat, radius, endLng, endLat)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, type, name, icon, lng, lat, radius, endLng, endLat
         """,
         (
             current_user["id"],
@@ -134,6 +160,8 @@ def _add_p_prod(point: Point, current_user = Depends(get_current_user)):
             point.lng,
             point.lat,
             radius,
+            endLng,
+            endLat
         )
         )
         conn.commit()
@@ -161,6 +189,8 @@ def _edit_p_dev(id: int, point: Point, current_user = Depends(get_current_user))
     try:
         icon = None
         radius = None
+        endLng = None
+        endLat = None
         if point.type == "icon":
             if point.icon:
                 icon = point.icon
@@ -171,6 +201,16 @@ def _edit_p_dev(id: int, point: Point, current_user = Depends(get_current_user))
                 radius = point.radius
             else:
                 raise HTTPException(status_code=400, detail="Missing radius for point type: 'radius'")
+        if point.type == "line":
+            if point.endLng and point.endLat:
+                if not (-180 <= point.endLng <= 180):
+                    raise HTTPException(status_code=400, detail="Invalid end longitude")
+                if not (-90 <= point.endLat <= 90):
+                    raise HTTPException(status_code=400, detail="Invalid end latitude")
+                endLng = point.endLng
+                endLat = point.endLat
+            else:
+                raise HTTPException(status_code=400, detail="Missing endLng and/or endLat for point type: 'line'")
         if not (-180 <= point.lng <= 180):
             raise HTTPException(status_code=400, detail="Invalid longitude")
         if not (-90 <= point.lat <= 90):
@@ -178,7 +218,7 @@ def _edit_p_dev(id: int, point: Point, current_user = Depends(get_current_user))
         cursor.execute(
         """
             UPDATE points
-            SET type=?, name=?, icon=?, lng=?, lat=?, radius=?
+            SET type=?, name=?, icon=?, lng=?, lat=?, radius=?, endLng=?, endLat=?
             WHERE id=? and owner_id=?
         """,
         (
@@ -188,12 +228,14 @@ def _edit_p_dev(id: int, point: Point, current_user = Depends(get_current_user))
             point.lng,
             point.lat,
             radius,
+            endLng,
+            endLat,
             id,
             current_user["id"]
         )
         )
         conn.commit()
-        cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE id=?", (id,))
+        cursor.execute("SELECT id, type, name, icon, lng, lat, radius, endLng, endLat FROM points WHERE id=?", (id,))
         point = cursor.fetchone()
         conn.close()
         return ResponseModel(True, "", {"point": point})
@@ -209,6 +251,8 @@ def _edit_p_prod(id: int, point: Point, current_user = Depends(get_current_user)
     try:
         icon = None
         radius = None
+        endLng = None
+        endLat = None
         if point.type == "icon":
             if point.icon:
                 icon = point.icon
@@ -219,6 +263,16 @@ def _edit_p_prod(id: int, point: Point, current_user = Depends(get_current_user)
                 radius = point.radius
             else:
                 raise HTTPException(status_code=400, detail="Missing radius for point type: 'radius'")
+        if point.type == "line":
+            if point.endLng and point.endLat:
+                if not (-180 <= point.endLng <= 180):
+                    raise HTTPException(status_code=400, detail="Invalid end longitude")
+                if not (-90 <= point.endLat <= 90):
+                    raise HTTPException(status_code=400, detail="Invalid end latitude")
+                endLng = point.endLng
+                endLat = point.endLat
+            else:
+                raise HTTPException(status_code=400, detail="Missing endLng and/or endLat for point type: 'line'")
         if not (-180 <= point.lng <= 180):
             raise HTTPException(status_code=400, detail="Invalid longitude")
         if not (-90 <= point.lat <= 90):
@@ -226,7 +280,7 @@ def _edit_p_prod(id: int, point: Point, current_user = Depends(get_current_user)
         cursor.execute(
         """
             UPDATE points
-            SET type=%s, name=%s, icon=%s, lng=%s, lat=%s, radius=%s
+            SET type=%s, name=%s, icon=%s, lng=%s, lat=%s, radius=%s, endLng=%s, endLat=%s
             WHERE id=%s and owner_id=%s
         """,
         (
@@ -236,12 +290,14 @@ def _edit_p_prod(id: int, point: Point, current_user = Depends(get_current_user)
             point.lng,
             point.lat,
             radius,
+            endLng,
+            endLat,
             id,
             current_user["id"]
         )
         )
         conn.commit()
-        cursor.execute("SELECT id, type, name, icon, lng, lat, radius FROM points WHERE id=%s", (id,))
+        cursor.execute("SELECT id, type, name, icon, lng, lat, radius, endLng, endLat FROM points WHERE id=%s", (id,))
         point = cursor.fetchone()
         conn.close()
         return ResponseModel(True, "", {"point": point})

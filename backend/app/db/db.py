@@ -136,6 +136,8 @@ def init_db():
             icon TEXT,
             lng REAL NOT NULL,
             lat REAL NOT NULL,
+            endLng REAL,
+            endLat REAL,
             radius REAL
         )
     """)
