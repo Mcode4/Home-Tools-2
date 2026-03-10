@@ -27,6 +27,7 @@ export default function EditorPage() {
     const pointStore = useSelector(store => store.points);
     const [initialized, setInitialized] = useState(false);
     const [loaded, setLoaded] = useState(false);
+    const [reload, setReload] = useState(0);
     const [err, setErr] = useState({});
 
     // MAIN DATA
@@ -155,7 +156,7 @@ export default function EditorPage() {
             setInitialized(true);
         }
         initialData();
-    }, []);
+    }, [reload]);
 
     useEffect(()=> {
         console.log("Properties", propertyStore);
@@ -181,72 +182,62 @@ export default function EditorPage() {
         const allMarkers = [];
 
         propertyStore?.pinned.forEach(prev => {
-            let p;
-            if(pinnedProperties[prev.id]) {
-                p = pinnedProperties[prev.id];
-            }
-            else {
-                p = {...prev};
-                pinnedProperties[p.id] = p;
-            }
-            console.log("P PINNED", p)
+            const prefixedKey = `prop-${prev.id}`; 
+            const p = pinnedProperties[prefixedKey] ?? {...prev, propertyId: prev.id, id: prefixedKey};
+
+            if (!pinnedProperties[prefixedKey]) {
+                setPinnedProperties(prev => ({ ...prev, [prefixedKey]: p }));
+            };
+            
+            console.log("P PINNED", p);
             const {lng, lat} = p;
             if(state?.id && p.id === state?.id) setLngLat([lng, lat]);
             
             allMarkers.push({ 
-                propertyId: p.id, 
+                id: prefixedKey,
+                propertyId: prev.id,
                 pinned: true,
                 lngLat: [lng, lat] 
             });
-
-            if(!p.name.includes("-")) {
-                pinnedProperties[prev.id].propertyId = p.id;
-                pinnedProperties[prev.id].id = `prop-${p.id}`;
-            };
         });
 
         propertyStore?.other.forEach(prev => {
-            let p;
-            if(otherProperties[prev.id]) {
-                p = otherProperties[prev.id];
-            }
-            else {
-                p = {...prev};
-                otherProperties[p.id] = p;
-            }
+            const prefixedKey = `prop-${prev.id}`;
+            const p = otherProperties[prefixedKey] ?? {...prev, propertyId: prev.id, id: prefixedKey};
+
+            if (!otherProperties[prefixedKey]) {
+                setOtherProperties(prev => ({ ...prev, [prefixedKey]: p }));
+            };
+
             console.log("P OTHER", p)
             const {lng, lat} = p;
             if(state?.id && p.id === state?.id) setLngLat([lng, lat]);
             
             allMarkers.push({ 
-                propertyId: p.id, 
+                id: prefixedKey,
+                propertyId: prev.id, 
                 pinned: true,
                 lngLat: [lng, lat] 
             });
-
-            if(!p.name.includes("-")) {
-                console.log("OTHER PROP CHANGE")
-                otherProperties[prev.id].propertyId = p.id;
-                otherProperties[prev.id].id = `prop-${p.id}`;
-            };
         });
 
         pointStore?.data.forEach(prev => {
-            let p;
-            if(points[prev.id]) {
-                p = points[prev.id];
-            } else {
-                p = {...prev};
-                points[prev.id] = p;
-            }
+            const prefixedKey = `${prev.type}-${prev.id}`;
+            const p = points[prefixedKey] ?? {...prev, pointId: prev.id, id: prefixedKey};
+
+            if (!points[prefixedKey]) {
+                setPoints(prev => ({ ...prev, [prefixedKey]: p }));
+            };
+
             const pointObj = {
-                pointId: p.id,
+                id: prefixedKey,
+                pointId: prev.id,
                 type: p.type,
                 name: p.name,
                 lngLat: [p.lng, p.lat]
-            }
+            };
 
-            switch(p.type) {
+            switch(prev.type) {
                 case "marker":
                     allMarkers.push(pointObj);
                     break
@@ -259,12 +250,6 @@ export default function EditorPage() {
                     allMarkers.push(pointObj);
                     break
             }
-
-            if(!p.name.includes("-")) {
-                console.log("POINT CHANGE")
-                points[prev.id].pointId = p.id;
-                points[prev.id].id = `${p.type}-${p.id}`;
-            };
         });
         
         if(Object.keys(canvasObjects ?? {}).length > 0) {
@@ -292,6 +277,7 @@ export default function EditorPage() {
             });
         };
         
+        setInitialized(false);
         setLoaded(true);
         setMarkers(allMarkers);
     }, [initialized]);
@@ -323,6 +309,7 @@ export default function EditorPage() {
 
     useEffect(()=> {
         if(!loaded) return;
+        console.log("SAVING OTHER PROPERTIES HIT:", otherProperties);
         localStorage.setItem("otherProperties", JSON.stringify({
             data: otherProperties,
             expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
@@ -331,6 +318,7 @@ export default function EditorPage() {
 
     useEffect(()=> {
         if(!loaded) return;
+        console.log("SAVING POINTS HIT:", points);
         localStorage.setItem("points", JSON.stringify({
             data: points,
             expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
@@ -347,15 +335,17 @@ export default function EditorPage() {
 
     function validatePoint(obj) {
         const allowedKeys = [
-            "pointId",
-            "propertyId",
-            "id",
-            "type",
-            "name",
-            "lng",
-            "lat",
-            "icon",
-            "radius"
+            "pointId", "details",
+            "propertyId", "created_at",
+            "id", "group_id",
+            "type", "pinned",
+            "name", "updated_at",
+            "lng", "zip",
+            "lat", "address",
+            "icon", "state",
+            "radius", "county",
+            "owner_id", "country",
+            "city",
         ];
         for(const key of Object.keys(obj)) {
             if(!allowedKeys.includes(key)) {
@@ -439,21 +429,25 @@ export default function EditorPage() {
             };
             return;
         } else if(obj.pointId) {
+            const key = typeof obj.pointId === "string"
+                ? obj.pointId
+                : `${obj.type}-${obj.pointId}`;
+
             return setPoints(p => {
-                console.log("ADDING EXISTING POINT TO P:", p)
-                console.log("ID:", obj.id, "PROP ID", obj.propId)
-                const existing = p[obj.id];
+                console.log("ADDING EXISTING POINT TO P:", p);
+                console.log("POINT ID:", obj.pointId, "KEY", key);
+                const existing = p[key];
                 const updated = existing
                     ? {...existing, ...obj}
                     : {...obj};
                 
                 if(!updated.name?.includes("(Unsaved)")) {
-                    updated.name = "(Unsaved) " + updated.name;
+                    updated.name = "(Unsaved) " + (updated.name || "");
                 }
                 console.log("SET POINT RESULTS", existing);
                 return {
                     ...p,
-                    [obj.id]: updated
+                    [key]: updated
                 };
             });
         };
@@ -484,50 +478,26 @@ export default function EditorPage() {
 
         switch(split[0]) {
             case "temp":
-                setCanvasObjects(prev => {
-                    const copy = {...prev};
-                    delete copy[id];
-                    return copy;
-                });
+                setCanvasObjects(prev => { const copy = {...prev}; delete copy[id]; return copy; });
                 return;
             case "prop":
-                if(pinnedProperties[split[1]]) {
-                    const p_id = Number(split[1])
-                    setDeletedProperties(p => ({
-                        ...p,
-                        pinned: [...p.pinned, p_id]
-                    }));
-                    setPinnedProperties(p => {
-                        const copy = {...p};
-                        delete copy[p_id];
-                        return copy;
-                    });
-                } else if (otherProperties[split[1]]) {
-                    console.log("OTHER PROP")
-                    const p_id = Number(split[1])
-                    setDeletedProperties(p => ({
-                        ...p,
-                        other: [...p.other, p_id]
-                    }));
-                    setOtherProperties(p => {
-                        const copy = {...p};
-                        delete copy[p_id];
-                        return copy;
-                    });
+                if(pinnedProperties[id]) {
+                    const numberId = Number(split[1])
+                    setDeletedProperties(p => ({ ...p, pinned: [...p.pinned, numberId] }));
+                    setPinnedProperties(p => { const copy = {...p}; delete copy[id]; return copy; });
+                } else if (otherProperties[id]) {
+                    const numberId = Number(split[1])
+                    setDeletedProperties(p => ({ ...p, other: [...p.other, numberId] }));
+                    setOtherProperties(p => { const copy = {...p}; delete copy[id]; return copy; });
                 };
                 return;
             case "icon":
             case "marker":
             case "radius":
                 console.log("POINT DETECT")
-                const p_id = Number(split[1])
-                setDeletedPoints(p => [...p, p_id]);
-                setPoints(p => {
-                    const copy = {...p};
-                    console.log("P DELETE", copy)
-                    delete copy[p_id];
-                    return copy;
-                });
+                const numberId = Number(split[1])
+                setDeletedPoints(p => [...p, numberId]);
+                setPoints(p => { const copy = {...p}; delete copy[id]; return copy; });
                 return;
         };
     };
@@ -538,6 +508,7 @@ export default function EditorPage() {
 
         const storedPinnedProps = localStorage.getItem("pinnedProperties");
         const storedOtherProps = localStorage.getItem("otherProperties");
+        const storedPoints = localStorage.getItem("points");
         const storedCanvasObjs = localStorage.getItem("canvasObjects");
         let parsed = storedPinnedProps ? JSON.parse(storedPinnedProps) : null;
 
@@ -626,9 +597,8 @@ export default function EditorPage() {
                 return;
             };
         };
-        
-        parsed = storedCanvasObjs ? JSON.parse(storedCanvasObjs) : null;
 
+        parsed = storedPoints ? JSON.parse(storedPoints) : null;
         if(parsed?.data) {
             try {
                 const createPoint = {...parsed?.data};
@@ -675,9 +645,33 @@ export default function EditorPage() {
                 return;
             };
         };
+        
+        parsed = storedCanvasObjs ? JSON.parse(storedCanvasObjs) : null;
+        if(parsed?.data) {
+            try {
+                const createPoint = {...parsed?.data};
+                console.log("SAVED EDIT POINTS PASSED, CURRENT:", createPoint)
+                if(Object.keys(createPoint).length) {
+                    await Promise.all(
+                        Object.values(createPoint).map(p => {
+                            if(p.name.includes("(Unsaved)")) {
+                                p.name = p.name.split("(Unsaved)")[1].trim();
+                            }
+                            return dispatch(thunkCreatePoint(p));
+                        })
+                    )
+                };
+                localStorage.removeItem("canvasObjects");
+            } catch(e) {
+                console.error("Failed to save canvas objects", e);
+                return;
+            };
+        };
+
         setCanvasObjects({});
         setDeletedPoints([]);
         setDeletedProperties({ pinned: [], other: [] });
+        setReload(r => r += 1);
     };
 
     function signalPointUpdate(id, changesObj) {

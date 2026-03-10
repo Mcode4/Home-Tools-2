@@ -109,6 +109,17 @@ export default function MapComponent({
 
         const map = mapInstance.current;
 
+        Object.entries(canvasObjectsRef.current).forEach(([id, obj])=> {
+            if (obj.marker) obj.marker.remove();
+            if (obj.centerMarker) obj.centerMarker.remove();
+            if (obj.handleMarker) obj.handleMarker.remove();
+            if (obj.labelMarker) obj.labelMarker.remove();
+            if (obj.fillLayer && map.getLayer(obj.fillLayer)) map.removeLayer(obj.fillLayer);
+            if (obj.outlineLayer && map.getLayer(obj.outlineLayer)) map.removeLayer(obj.outlineLayer);
+            if (obj.sourceId && map.getSource(obj.sourceId)) map.removeSource(obj.sourceId);
+        });
+        canvasObjectsRef.current = {};
+
         markers.map((m, i) => {
             console.log("MARKER AT INDEX:", i, "MARKER:", m)
             if(m.propertyId) {
@@ -162,7 +173,7 @@ export default function MapComponent({
                     </div>
                 );
 
-                const markerId = m.id ? `icon-${m.id}` : `icon-${m.pointId}`;
+                const markerId = m.id ?? `icon-${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
                     element: iconDiv,
@@ -198,7 +209,7 @@ export default function MapComponent({
                 };
                 console.log("ICON IMPORTANCE", {marker, el, iconDiv, markerId})
             } else if(m.type === "marker") {
-                const markerId = m.id ? `marker-${m.id}` : `marker-${m.pointId}`;
+                const markerId = m.id ?? `marker-${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
                     draggable: true,
@@ -233,7 +244,7 @@ export default function MapComponent({
                     marker
                 };
             } else if(m.type === "radius") {
-                const radiusId = m.id ? `radius-${m.id}` : `radius-${m.pointId}`;
+                const radiusId = m.id ?? `radius-${m.pointId}`;
 
                 let radius = Number(m.radius ?? 500);
 
