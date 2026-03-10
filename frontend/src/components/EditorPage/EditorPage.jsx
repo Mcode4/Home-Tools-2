@@ -347,7 +347,8 @@ export default function EditorPage() {
             "icon", "state",
             "radius", "county",
             "owner_id", "country",
-            "city",
+            "city", "endLng",
+            "endLat", "length"
         ];
         for(const key of Object.keys(obj)) {
             if(!allowedKeys.includes(key)) {
@@ -395,7 +396,7 @@ export default function EditorPage() {
     };
 
     const addCanvasObjects = (obj) => {
-        validatePoint(obj);
+        if (!validatePoint(obj)) return;
         if(obj.propertyId) {
             console.log("PROPERTIES CHANGE HITT")
             if(pinnedProperties[obj.id]) {
@@ -954,6 +955,17 @@ export default function EditorPage() {
                             >
                                 <img src="/icons/radius.svg" alt="Radius" />
                                 <p>Radius</p>
+                            </div>
+
+                            <div 
+                                className={`menu-item-2 ${
+                                    canvasSelect.name === "line" &&
+                                    canvasSelect.type === "line" ? "selected" : ""
+                                }`}
+                                onClick={()=> selectCanvasAddon(null, "line", "line", {size: "6"})}
+                            >
+                                <img src="/icons/line.svg" alt="Radius" />
+                                <p>Line</p>
                             </div>
                         </div>
 

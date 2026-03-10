@@ -13,7 +13,6 @@ export default function MapComponent({
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
     const [isLoaded, setIsLoaded] = useState(false);
-    const [cursorState, setCursorState] = useState("grab");
     const canvasObjectsRef = useRef({});
 
     useEffect(()=> {
@@ -113,9 +112,12 @@ export default function MapComponent({
             if (obj.centerMarker) obj.centerMarker.remove();
             if (obj.handleMarker) obj.handleMarker.remove();
             if (obj.labelMarker) obj.labelMarker.remove();
+            if (obj.startMarker) obj.startMarker.remove();
+            if (obj.endMarker) obj.endMarker.remove();
             if (obj.fillLayer && map.getLayer(obj.fillLayer)) map.removeLayer(obj.fillLayer);
             if (obj.outlineLayer && map.getLayer(obj.outlineLayer)) map.removeLayer(obj.outlineLayer);
             if (obj.spokeLayer && map.getLayer(obj.spokeLayer)) map.removeLayer(obj.spokeLayer);
+            if (obj.lineLayer && map.getLayer(obj.lineLayer)) map.removeLayer(obj.lineLayer);
             if (obj.sourceId && map.getSource(obj.sourceId)) map.removeSource(obj.sourceId);
         });
         canvasObjectsRef.current = {};
@@ -635,6 +637,104 @@ export default function MapComponent({
                     spokeLayer: `${radiusId}-spoke`,
                     radius: radius
                 };
+            } else if(canvasTool.type === "line") {
+                const lineId = `temp-line-${Date.now()}`;
+                let distance = 500;
+
+                let { x, y } = lngLatToMercator(lng, lat);
+                const endPos = mercatorToLngLat(x + distance, y);
+                console.log(`POINT 1: X: ${x}, Y:${y} ENDPOS:`, endPos)
+
+                map.addSource(lineId, {
+                    type: "geojson",
+                    data: createLineData(lng, lat, endPos.lng, endPos.lat)
+                });
+
+                map.addLayer({
+                    id: `${lineId}-line`,
+                    type: "line",
+                    source: lineId,
+                    paint: {"line-color": "#E24A4A", "line-width": 2}
+                });
+
+                const startMarker = new maplibregl.Marker({ draggable: true, color: "red" })
+                    .setLngLat([lng, lat])
+                    .addTo(map);
+
+                const endMarker = new maplibregl.Marker({ draggable: true, color: "red" })
+                    .setLngLat([endPos.lng, endPos.lat])
+                    .addTo(map)
+
+                const labelDiv = document.createElement("div");
+                labelDiv.style.background = "white";
+                labelDiv.style.padding = "2px 6px";
+                labelDiv.style.borderRadius = "4px";
+                labelDiv.style.fontSize = "12px";
+                labelDiv.style.textAlign = "center";
+                labelDiv.style.pointerEvents = "none";
+
+                const updateLineLabel = () => {
+                    const a = startMarker.getLngLat();
+                    const b = endMarker.getLngLat();
+                    const dist = mercatorDistance(a.lng, a.lat, b.lng, b.lat);
+                    labelDiv.innerText = dist > 1000 ? `${(dist/1000).toFixed(2)}km` : `${Math.round(dist)}m`;
+                    let aToMercator = lngLatToMercator(a.lng, a.lat);
+                    let bToMercator = lngLatToMercator(b.lng, b.lat);
+                    let midMerc = {x: (aToMercator.x + bToMercator.x)/2, y: (aToMercator.y + bToMercator.y)/2}
+                    const mid = mercatorToLngLat(midMerc.x, midMerc.y);
+                    labelMarker.setLngLat([mid.lng, mid.lat]);
+                }
+
+                const initialDist = mercatorDistance(lng, lat, endPos.lng, endPos.lat);
+                labelDiv.innerText = `${Math.round(initialDist)}m`
+
+                let endToMercator = lngLatToMercator(endPos.lng, endPos.lat);
+                const initialMid = mercatorToLngLat((x + endToMercator.x)/2, (y + endToMercator.y)/2);
+
+                const labelMarker = new maplibregl.Marker({ element: labelDiv, anchor: "bottom" })
+                    .setLngLat([initialMid.lng, initialMid.lat])
+                    .addTo(map);
+                
+                const onDrag = () => {
+                    const a = startMarker.getLngLat();
+                    const b = endMarker.getLngLat();
+                    map.getSource(lineId).setData(createLineData(a.lng, a.lat, b.lng, b.lat));
+                    updateLineLabel();
+                }
+
+                startMarker.on("drag", onDrag);
+                endMarker.on("drag", onDrag);
+
+                const startEl = startMarker.getElement();
+                const endEl = endMarker.getElement();
+
+                startEl.style.cursor = "grab";
+                endEl.style.cursor = "grab";
+                startEl.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(lineId);
+                });
+                endEl.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    deleteCanvasObject(lineId);
+                });
+
+                createdCanvasObject({
+                    id: lineId,
+                    type: "line",
+                    name: canvasTool.name || "line",
+                    lng, lat,
+                    endLng: endPos.lng, endLat: endPos.lat,
+                    length: initialDist
+                });
+
+                canvasObjectsRef.current[lineId] = {
+                    startMarker,
+                    endMarker,
+                    labelMarker,
+                    sourceId: lineId,
+                    lineLayer: `${lineId}-line`
+                };
             }
         };
 
@@ -762,7 +862,7 @@ export default function MapComponent({
     function createLineData(aLng, aLat, bLng, bLat) {
         return {
             type: "FeatureCollection",
-            feature: [{
+            features: [{
                 type: "Feature",
                 geometry: {
                     type: "LineString",
@@ -784,8 +884,10 @@ export default function MapComponent({
         };
         
         if(obj.centerMarker) obj.centerMarker.remove();
-        if (obj.handleMarker) obj.handleMarker.remove();
-        if (obj.labelMarker) obj.labelMarker.remove();
+        if(obj.handleMarker) obj.handleMarker.remove();
+        if(obj.labelMarker) obj.labelMarker.remove();
+        if(obj.startMarker) obj.startMarker.remove();
+        if(obj.endMarker) obj.endMarker.remove();
 
         if(obj.fillLayer && map.getLayer(obj.fillLayer)) {
             map.removeLayer(obj.fillLayer);
@@ -796,6 +898,9 @@ export default function MapComponent({
         };
         if(obj.spokeLayer && map.getLayer(obj.spokeLayer)) {
             map.removeLayer(obj.spokeLayer);
+        };
+        if(obj.lineLayer && map.getLayer(obj.lineLayer)) {
+            map.removeLayer(obj.lineLayer);
         };
         if(obj.sourceId && map.getSource(obj.sourceId)) {
             map.removeSource(obj.sourceId);
