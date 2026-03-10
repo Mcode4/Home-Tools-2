@@ -28,6 +28,8 @@ export default function EditorPage() {
     const [initialized, setInitialized] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [reload, setReload] = useState(0);
+    const [history, setHistory] = useState([]);
+    const [historyIndex, setHistoryIndex] = useState(-1);
     const [err, setErr] = useState({});
 
     // MAIN DATA

@@ -279,7 +279,7 @@ export default function MapComponent({
                     .setLngLat(m.lngLat)
                     .addTo(map);
 
-                const handleLng = m.lngLat[0] + (radius / 111320); // rough meters to lng conversation
+                const handleLng = getHandleLng(m.lngLat[0], m.lngLat[1], radius);
 
                 const handleMarker = new maplibregl.Marker({
                     draggable: true,
@@ -311,8 +311,12 @@ export default function MapComponent({
 
                     const dx = handle.lng - center.lng;
                     const dy = handle.lat - center.lat;
+
+                    const cosLat = Math.cos(center.lng * Math.PI / 180);
+                    const dxMeters = dx * 111320 * cosLat;
+                    const dyMeters = dy * 111320;
                     
-                    radius = Math.sqrt(dx*dx + dy*dy) * 111320;
+                    radius = Math.sqrt(dxMeters * dxMeters + dyMeters * dyMeters);
 
                     const newCircle = createCircle(center.lng, center.lat, radius);
                     labelDiv.innerText = radius > 1000 ? 
@@ -329,7 +333,11 @@ export default function MapComponent({
                     const dx = handle.lng - center.lng;
                     const dy = handle.lat - center.lat;
                     
-                    radius = Math.sqrt(dx*dx + dy*dy) * 111320;
+                    const cosLat = Math.cos(center.lng * Math.PI / 180);
+                    const dxMeters = dx * 111320 * cosLat;
+                    const dyMeters = dy * 111320;
+                    
+                    radius = Math.sqrt(dxMeters * dxMeters + dyMeters * dyMeters);
 
                     const newCircle = createCircle(center.lng, center.lat, radius);
                     labelDiv.innerText = radius > 1000 ? 
@@ -543,7 +551,7 @@ export default function MapComponent({
                     .setLngLat([lng, lat])
                     .addTo(map);
                     
-                const handleLng = lng + (radius / 111320); // rough meters to lng conversation
+                const handleLng = getHandleLng(lng, lat, radius); // rough meters to lng conversation
 
                 const handleMarker = new maplibregl.Marker({
                     draggable: true,
@@ -688,12 +696,14 @@ export default function MapComponent({
         if(updates.radius && obj.sourceId) {
             const center = obj.centerMarker.getLngLat();
             const radius = Number(updates.radius);
-            const dx = updates.radius / 111320;
+
+            const dx = radius / 111320 * Math.cos(center.lat * Math.PI / 180);
+            
             const newCircle = createCircle(center.lng, center.lat, radius);
             obj.handleMarker.setLngLat([center.lng + dx, center.lat]);
             obj.labelMarker.setLngLat([center.lng + dx, center.lat]);
-
-            map.getSource(obj.souceId).setData(newCircle);
+            obj.radius = radius;
+            map.getSource(obj.sourceId).setData(newCircle);
         };
         if(updates.icon && updates.name) {
             const iconDiv = document.createElement("div")
@@ -730,6 +740,10 @@ export default function MapComponent({
             steps: 64,
             unit: "kilometers"
         })
+    }
+
+    function getHandleLng(centerLng, centerLat, radiusMeters) {
+        return centerLng + radiusMeters / (111320 * Math.cos(centerLat * Math.PI / 180));
     }
 
     const deleteCanvasObject = (id) => {

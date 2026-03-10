@@ -95,12 +95,12 @@ export default function ManagePointsModal({
         return true
     };
 
-    const handleRadiusChange = (value) => {
-        if(isNaN(value)) {
+    const handleRadiusChange = () => {
+        if(isNaN(radius)) {
             setErr({e: "Radius must be a number"});
             return;
         };
-        changeFunc(point.id, {radius: value});
+        changeFunc(point.id, {radius: Number(radius)});
         return true
     };
 
