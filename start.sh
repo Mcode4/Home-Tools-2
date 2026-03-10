@@ -2,7 +2,7 @@
 set -e
 
 echo "Running DB Migration..."
-python app/backend/scripts/migrate_db_to_psql.py
+python backend/scripts/migrate_db_to_psql.py
 
 echo "Starting FastAPI..."
 cd /app/backend
