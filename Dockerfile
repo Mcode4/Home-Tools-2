@@ -15,15 +15,6 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY backend ./backend
-
-COPY --from=frontend-build /frontend/build /var/www/frontend
-
-COPY /nginx/nginx.conf /etc/nginx/nginx.conf
-
 ARG ACCESS_TOKEN_EXPIRE_MINUTES
 ARG SQLITE_PATH
 ARG POSTGRES_URL
@@ -38,12 +29,22 @@ ENV SECRET_KEY=${SECRET_KEY}
 ENV ALGORITHM=${ALGORITHM}
 ENV PROJECT_ENV=${PROJECT_ENV}
 
+COPY backend ./backend
+
+WORKDIR /app/backend
+RUN pip install --no-cache-dir -r requirements.txt
+
+WORKDIR /app
+COPY --from=frontend-build /frontend/build /var/www/frontend
+
+COPY /nginx/nginx.conf /etc/nginx/nginx.conf
+
 # File Testing
 RUN pwd && ls -la
 RUN find /app -maxdepth 3 -type d
 RUN which python || true
 RUN python --version || true
-
+RUN ls -la /var/www/frontend/static/
 COPY start.sh .
 
 EXPOSE 10000
@@ -53,5 +54,6 @@ RUN pwd && ls -la
 RUN find /app -maxdepth 3 -type d
 RUN which python || true
 RUN python --version || true
+RUN ls -la /var/www/frontend/static/
 
 CMD ["sh", "start.sh"]
