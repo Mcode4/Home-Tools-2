@@ -10,7 +10,7 @@ RUN npm run build
 FROM python:3.12-slim
 
 RUN apt-get update && \
-    apt-get install -y nginx && \
+    apt-get install -y nginx curl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,21 +31,16 @@ ENV PROJECT_ENV=${PROJECT_ENV}
 
 COPY backend ./backend
 
-WORKDIR /app/backend
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies from backend folder
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
-WORKDIR /app
+# Copy frontend build output into nginx web root
 COPY --from=frontend-build /frontend/build /var/www/frontend
 
-COPY /nginx/nginx.conf /etc/nginx/nginx.conf
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
 
-# File Testing
-RUN pwd && ls -la
-RUN find /app -maxdepth 3 -type d
-RUN which python || true
-RUN python --version || true
-RUN ls -la /var/www/frontend/static/
 COPY start.sh .
+RUN chmod +x start.sh
 
 EXPOSE 10000
 
