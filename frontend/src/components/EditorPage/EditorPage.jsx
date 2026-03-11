@@ -194,6 +194,7 @@ export default function EditorPage() {
             console.log("P PINNED", p);
             const {lng, lat} = p;
             if(state?.id && p.id === state?.id) setLngLat([lng, lat]);
+            if(canvasObjects && canvasObjects[prefixedKey]) delete canvasObjects[prefixedKey];
             
             allMarkers.push({ 
                 id: prefixedKey,
@@ -214,6 +215,7 @@ export default function EditorPage() {
             console.log("P OTHER", p)
             const {lng, lat} = p;
             if(state?.id && p.id === state?.id) setLngLat([lng, lat]);
+            if(canvasObjects && canvasObjects[prefixedKey]) delete canvasObjects[prefixedKey];
             
             allMarkers.push({ 
                 id: prefixedKey,
@@ -231,6 +233,9 @@ export default function EditorPage() {
                 setPoints(prev => ({ ...prev, [prefixedKey]: p }));
             };
 
+
+            if(canvasObjects && canvasObjects[prefixedKey]) delete canvasObjects[prefixedKey];
+
             const pointObj = {
                 id: prefixedKey,
                 pointId: prev.id,
@@ -239,24 +244,39 @@ export default function EditorPage() {
                 lngLat: [p.lng, p.lat]
             };
 
-            switch(prev.type) {
+            switch(p.type) {
                 case "marker":
                     allMarkers.push(pointObj);
-                    break
+                    break;
                 case "icon":
-                    pointObj.icon = p.icon
-                    allMarkers.push(pointObj);
-                    break
+                    if(p.icon !== null) {
+                        pointObj.icon = p.icon;
+                        allMarkers.push(pointObj);
+                    } else {
+                        console.warn(`No icon detected on ${p.name}. Deleting on next save.`);
+                        setDeletedPoints(prev => [...prev, p.id]);
+                    }
+                    break;
                 case "radius":
-                    pointObj.radius = p.radius;
-                    allMarkers.push(pointObj);
-                    break
+                    if(p.radius !== null) {
+                        pointObj.radius = p.radius;
+                        allMarkers.push(pointObj);
+                    } else {
+                        console.warn(`No radius detected on ${p.name}. Deleting on next save.`);
+                        setDeletedPoints(prev => [...prev, p.id]);
+                    }
+                    break;
                 case "line":
-                    pointObj.endLng = p.endLng;
-                    pointObj.endLat = p.endLat;
-                    allMarkers.push(pointObj);
-                    break
-            }
+                    if(p.endLng !== null && p.endLat !== null) {
+                        pointObj.endLng = p.endLng;
+                        pointObj.endLat = p.endLat;
+                        allMarkers.push(pointObj);
+                    } else {
+                        console.warn(`No endLng or endLat detected on ${p.name}. Deleting on next save.`);
+                        setDeletedPoints(prev => [...prev, p.id]);
+                    }
+                    break;
+            };
         });
         
         if(Object.keys(canvasObjects ?? {}).length > 0) {
@@ -271,20 +291,35 @@ export default function EditorPage() {
                 switch(p.type) {
                     case "marker":
                         allMarkers.push(pointObj);
-                        break
+                        break;
                     case "icon":
-                        pointObj.icon = p.icon
-                        allMarkers.push(pointObj);
-                        break
+                        if(p.icon !== null) {
+                            pointObj.icon = p.icon;
+                            allMarkers.push(pointObj);
+                        } else {
+                            console.warn(`No icon detected on ${p.name}. Deleting on next save.`);
+                            setDeletedPoints(prev => [...prev, p.id]);
+                        }
+                        break;
                     case "radius":
-                        pointObj.radius = p.radius;
-                        allMarkers.push(pointObj);
-                        break
+                        if(p.radius !== null) {
+                            pointObj.radius = p.radius;
+                            allMarkers.push(pointObj);
+                        } else {
+                            console.warn(`No radius detected on ${p.name}. Deleting on next save.`);
+                            setDeletedPoints(prev => [...prev, p.id]);
+                        }
+                        break;
                     case "line":
-                        pointObj.endLng = p.endLng;
-                        pointObj.endLat = p.endLat;
-                        allMarkers.push(allMarkers);
-                        break
+                        if(p.endLng !== null && p.endLat !== null) {
+                            pointObj.endLng = p.endLng;
+                            pointObj.endLat = p.endLat;
+                            allMarkers.push(pointObj);
+                        } else {
+                            console.warn(`No endLng or endLat detected on ${p.name}. Deleting on next save.`);
+                            setDeletedPoints(prev => [...prev, p.id]);
+                        }
+                        break;
                 };
             });
         };
@@ -743,7 +778,8 @@ export default function EditorPage() {
                         Object.keys(canvasObjects ?? {}).length === 0 &&
                         deletedProperties.pinned.length === 0 &&
                         deletedProperties.other.length === 0 &&
-                        deletedPoints.length === 0
+                        deletedPoints.length === 0 &&
+                        points.length === 0
                      }
                 >Save All</button>
 

@@ -437,7 +437,34 @@ export default function MapComponent({
                 }
 
                 startMarker.on("drag", onDrag);
+                startMarker.on("dragend", ()=> {
+                    const newStart = startMarker.getLngLat();
+                    const newEnd = endMarker.getLngLat();
+                    createdCanvasObject({
+                        id: lineId,
+                        pointId: m.pointId,
+                        type: "line",
+                        lng: newStart.lng, 
+                        lat: newStart.lat,
+                        endLng: newEnd.lng, 
+                        endLat: newEnd.lat
+                    });
+                })
+
                 endMarker.on("drag", onDrag);
+                endMarker.on("dragend", ()=> {
+                    const newStart = startMarker.getLngLat();
+                    const newEnd = endMarker.getLngLat();
+                    createdCanvasObject({
+                        id: lineId,
+                        pointId: m.pointId,
+                        type: "line",
+                        lng: newStart.lng, 
+                        lat: newStart.lat,
+                        endLng: newEnd.lng, 
+                        endLat: newEnd.lat
+                    });
+                })
 
                 const startEl = startMarker.getElement();
                 const endEl = endMarker.getElement();
@@ -788,7 +815,32 @@ export default function MapComponent({
                 }
 
                 startMarker.on("drag", onDrag);
+                startMarker.on("dragend", ()=> {
+                    const newStart = startMarker.getLngLat();
+                    const newEnd = endMarker.getLngLat();
+                    createdCanvasObject({
+                        id: lineId,
+                        type: "line",
+                        lng: newStart.lng, 
+                        lat: newStart.lat,
+                        endLng: newEnd.lng, 
+                        endLat: newEnd.lat
+                    });
+                })
+
                 endMarker.on("drag", onDrag);
+                endMarker.on("dragend", ()=> {
+                    const newStart = startMarker.getLngLat();
+                    const newEnd = endMarker.getLngLat();
+                    createdCanvasObject({
+                        id: lineId,
+                        type: "line",
+                        lng: newStart.lng, 
+                        lat: newStart.lat,
+                        endLng: newEnd.lng, 
+                        endLat: newEnd.lat
+                    });
+                })
 
                 const startEl = startMarker.getElement();
                 const endEl = endMarker.getElement();
