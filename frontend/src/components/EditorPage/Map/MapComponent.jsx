@@ -2,6 +2,8 @@ import { useState, useEffect, useRef} from "react";
 import { createRoot } from "react-dom/client";
 import maplibregl from "maplibre-gl";
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { ModalButton } from "../../../context/Modal";
+import ManagePointsModal from "../../ManagePointsModal";
 import "./MapComponent.css";
 
 
@@ -13,7 +15,20 @@ export default function MapComponent({
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [propertyState, setPropertyState] = useState({});
     const canvasObjectsRef = useRef({});
+
+    useEffect(()=> {
+        const closeMenu = () => {
+            hideContextMenu();
+        }
+
+        document.addEventListener("click", closeMenu);
+
+        return () => {
+            document.removeEventListener("click", hideContextMenu);
+        }
+    }, [])
 
     useEffect(()=> {
         if(mapInstance.current || !mapRef.current || isLoaded) return;
@@ -139,7 +154,11 @@ export default function MapComponent({
 
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(markerId);
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: markerId
+                    })
                 });
 
                 marker.on("dragstart", ()=> setCursor("grabbing"));
@@ -189,7 +208,11 @@ export default function MapComponent({
 
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(markerId);
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: markerId
+                    })
                 });
 
                 marker.on("dragstart", ()=> setCursor("grabbing"));
@@ -225,7 +248,11 @@ export default function MapComponent({
 
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(markerId);
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: markerId
+                    })
                 });
 
                 marker.on("dragstart", ()=> setCursor("grabbing"));
@@ -299,6 +326,7 @@ export default function MapComponent({
                 labelDiv.style.borderRadius = "4px";
                 labelDiv.style.fontSize = "12px";
                 labelDiv.style.textAlign = "center";
+                labelDiv.style.pointerEvents = "none";
                 labelDiv.innerText = radius < 1000 ? `${radius}m` : `${(radius/1000).toFixed(2)}km`;
 
                 const labelMarker = new maplibregl.Marker({
@@ -336,8 +364,12 @@ export default function MapComponent({
 
                 centerEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(radiusId);
-                })
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: radiusId
+                    })
+                });
 
                 centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
                 centerMarker.on("dragend", ()=> {
@@ -473,11 +505,19 @@ export default function MapComponent({
                 endEl.style.cursor = "grab";
                 startEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(lineId);
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: lineId
+                    })
                 });
                 endEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(lineId);
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: lineId
+                    })
                 });
 
                 canvasObjectsRef.current[lineId] = {
@@ -541,7 +581,11 @@ export default function MapComponent({
 
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(markerId);
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: markerId
+                    })
                 });
 
                 marker.on("dragstart", ()=> setCursor("grabbing"));
@@ -578,15 +622,65 @@ export default function MapComponent({
                     .setLngLat([lng, lat])
                     .addTo(map);
 
+                const popup = new maplibregl.Popup({
+                    offset: 25,
+                    closeOnClick: true
+                });
+
                 const el = marker.getElement();
                 el.style.cursor = "cell";
 
-                el.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    deleteCanvasObject(markerId);
+                el.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+
+                    const html = `
+                        <div class="map-popup">
+                            <strong>${canvasTool.name || "Point"} Menu</strong>
+                            <div class="pop-actions">
+                                ${propertyState[markerId] ? (
+                                    `
+                                    <button id="config-property">Configure Property</button>
+                                    <button id="render-property">Render Editor</button>
+                                    `
+                                ) : (
+                                    `
+                                    <button id="add-property">Add Property</button>
+                                    `
+                                )}
+                                
+                            </div>
+                        </div>
+                    `;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(marker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
                 });
 
-                marker.on("dragstart", ()=> setCursor("grabbing"));
+                popup.on("open", ()=> {
+                    document.getElementById("add-property")
+                        ?.addEventListener("click", ()=> {
+                            console.log("Add property");
+                        });
+                })
+
+                el.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: markerId
+                    })
+                });
+
+                marker.on("dragstart", ()=> {
+                    setCursor("grabbing");
+                    popup.remove();
+                });
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
                     const newLngLat = marker.getLngLat();
@@ -664,6 +758,7 @@ export default function MapComponent({
                 labelDiv.style.borderRadius = "4px";
                 labelDiv.style.fontSize = "12px";
                 labelDiv.style.textAlign = "center";
+                labelDiv.style.pointerEvents = "none";
                 labelDiv.innerText = radius < 1000 ? `${radius}m` : `${(radius/1000).toFixed(2)}km`;
 
                 const labelMarker = new maplibregl.Marker({
@@ -701,8 +796,12 @@ export default function MapComponent({
 
                 centerEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(radiusId);
-                })
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: radiusId
+                    })
+                });
 
                 centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
                 centerMarker.on("dragend", ()=> {
@@ -849,11 +948,19 @@ export default function MapComponent({
                 endEl.style.cursor = "grab";
                 startEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(lineId);
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: lineId
+                    })
                 });
                 endEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    deleteCanvasObject(lineId);
+                    showContextMenu({
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        id: lineId
+                    })
                 });
 
                 createdCanvasObject({
@@ -936,6 +1043,26 @@ export default function MapComponent({
         if(!map) return;
         map.getCanvas().style.cursor = cursor;
     };
+
+    function showContextMenu({x, y, id}) {
+        const menu = document.getElementById("marker-context");
+        if(!menu) return;
+
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+        menu.classList.remove("hidden");
+
+        document.getElementById("marker-delete-action").onclick = () => {
+            deleteCanvasObject(id);
+            hideContextMenu();
+        }
+    }
+
+    function hideContextMenu() {
+        const menu = document.getElementById("marker-context");
+        // console.log("HIT SHOWCONTEXT", menu)
+        if(menu) menu.classList.add("hidden")
+    }
 
     const getBaseCursor = () => canvasTool?.type ? "crosshair" : "grab";
 
@@ -1048,10 +1175,24 @@ export default function MapComponent({
     }
 
     return (
+        <>
+        <div id="marker-context" className="marker-context hidden">
+            <ModalButton
+                itemText="Edit"
+                modalComponent={
+                <ManagePointsModal 
+                    addFunc={createdCanvasObject}
+                    deleteFunc={deleteCanvasObject}
+                    changeFunc={(id, updates)=> updateObject = {id, updates}}
+                />}
+            />
+            <button id="marker-delete-action">Delete</button>
+        </div>
         <div
             id="map-container"
             className=""
             ref={mapRef}
         />
+        </>
     )
 }

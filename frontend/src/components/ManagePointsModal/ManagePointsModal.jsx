@@ -28,6 +28,7 @@ export default function ManagePointsModal({
     const [icon, setIcon] = useState(null);
     const [radius, setRadius] = useState(null);
     const [type, setType] = useState(null);
+    const [length, setLength] = useState(null);
     const [err, setErr] = useState({});
     const [initialState, setInitialState] = useState({});
     const dispatch = useDispatch();
@@ -49,7 +50,10 @@ export default function ManagePointsModal({
             } else if(point?.type === "radius") {
                 setRadius(point?.radius);
                 setInitialState(prev => ({...prev, radius: point?.radius}));
-            };
+            } else if(point?.type === "line") {
+                setLength(point?.length)
+                setInitialState(prev => ({...prev, length: point?.length}));
+            } 
         };
 
         console.log("POINT MODAL POINT:", point, "ISSAVED:", isSaved);
@@ -144,6 +148,31 @@ export default function ManagePointsModal({
                     onChange={(e)=> setIcon(e.target.value)}
                 />
                 </div>
+            )}
+
+            {point?.type === "line" && (
+                <>
+                <div className="form-group">
+                <label htmlFor="point-icon">Add Length To:</label>
+                <select
+                    disabled
+                >
+                    <option value="length-mid">Middle</option>
+                    <option value="length-mid">Start</option>
+                    <option value="length-mid">End</option>
+                </select>
+                </div>
+                <div className="form-group">
+                <label htmlFor="point-icon">Length:</label>
+                <input 
+                    type="text" 
+                    name="point-icon" 
+                    id="point-icon"
+                    value={length}
+                    onChange={(e)=> setLength(e.target.value)}
+                />
+                </div>
+                </>
             )}
 
             {point?.type === "radius" && (
