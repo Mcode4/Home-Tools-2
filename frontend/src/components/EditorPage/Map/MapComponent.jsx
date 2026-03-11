@@ -375,9 +375,8 @@ export default function MapComponent({
                     spokeLayer: `${radiusId}-spoke`,
                     radius
                 };
-            } else if(canvasTool.type === "line") {
+            } else if(m.type === "line") {
                 const lineId = m.id ?? `line-${m.pointId}`;
-                let distance = m.distance;
 
                 map.addSource(lineId, {
                     type: "geojson",

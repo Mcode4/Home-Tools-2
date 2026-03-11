@@ -116,7 +116,7 @@ export default function EditorPage() {
             if(parsed && Date.now() > parsed?.expires) {
                 localStorage.removeItem("pinnedProperties");
             }
-            else if(parsed) {
+            else if(parsed?.data) {
                 console.log("PARSED PINNED", parsed)
                 Object.values(parsed.data).forEach(p => validatePoint(p));
                 setPinnedProperties(parsed.data);
@@ -127,7 +127,7 @@ export default function EditorPage() {
             if(parsed && Date.now() > parsed?.expires) {
                 localStorage.removeItem("otherProperties");
             }
-            else if(parsed) {
+            else if(parsed?.data) {
                 console.log("PARSED OTHER", parsed)
                 Object.values(parsed.data).forEach(p => validatePoint(p));
                 setOtherProperties(parsed.data);
@@ -138,7 +138,7 @@ export default function EditorPage() {
             if(parsed && Date.now() > parsed?.expires) {
                 localStorage.removeItem("points");
             }
-            else if(parsed) {
+            else if(parsed?.data) {
                 console.log("PARSED points", parsed)
                 Object.values(parsed.data).forEach(p => validatePoint(p));
                 setPoints(parsed.data);
@@ -149,7 +149,7 @@ export default function EditorPage() {
             if(parsed && Date.now() > parsed?.expires) {
                 localStorage.removeItem("canvasObjects");
             }
-            else if(parsed) {
+            else if(parsed?.data) {
                 console.log("PARSED CANVAS OBJS", parsed)
                 Object.values(parsed.data).forEach(p => validatePoint(p));
                 setCanvasObjects(parsed.data);
@@ -254,7 +254,7 @@ export default function EditorPage() {
                 case "line":
                     pointObj.endLng = p.endLng;
                     pointObj.endLat = p.endLat;
-                    allMarkers.push(allMarkers);
+                    allMarkers.push(pointObj);
                     break
             }
         });
