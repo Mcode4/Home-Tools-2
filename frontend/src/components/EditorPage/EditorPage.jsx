@@ -573,6 +573,7 @@ export default function EditorPage() {
                                 createProp[`prop-${p.id}`].name = createProp[`prop-${p.id}`].name
                                     .split("(Unsaved)")[1]
                                     .trim();
+                                setOtherProperties(prev => ({...prev, [`prop-${p.id}`]: createProp[`prop-${p.id}`]}));
                             }
                             const edit = dispatch(thunkEditProperty(p.id, createProp[`prop-${p.id}`]));
                             delete createProp[`prop-${p.id}`];
@@ -585,6 +586,7 @@ export default function EditorPage() {
                         Object.values(createProp).map(p=> {
                             if(p.name.includes("(Unsaved)")) {
                                 p.name = p.name.split("(Unsaved)")[1].trim();
+                                setPinnedProperties(prev => ({...prev, p}))
                             }
                             return dispatch(thunkCreateProperty(p))
                         })
@@ -616,6 +618,7 @@ export default function EditorPage() {
                                 createProp[`prop-${p.id}`].name = createProp[`prop-${p.id}`].name
                                     .split("(Unsaved)")[1]
                                     .trim();
+                                setOtherProperties(prev => ({...prev, [`prop-${p.id}`]: createProp[`prop-${p.id}`]}));
                             }
                             const edit = dispatch(thunkEditProperty(p.id, createProp[`prop-${p.id}`]));
                             delete createProp[`prop-${p.id}`];
@@ -628,6 +631,7 @@ export default function EditorPage() {
                         Object.values(createProp).map(p => {
                             if(p.name.includes("(Unsaved)")) {
                                 p.name = p.name.split("(Unsaved)")[1].trim();
+                                setOtherProperties(prev => ({...prev, p}))
                             }
                             return dispatch(thunkCreateProperty(p));
                         })
@@ -655,13 +659,14 @@ export default function EditorPage() {
                 console.log("SAVE OTHER PROP DATA", createPoint);
                 await Promise.all(
                     pointStore.data.map(p => {
-                        console.log("P IN MAP", p)
-                        console.log("POINT IN MAP", createPoint)
+                        console.log("EDIT POINT P IN MAP", p)
+                        console.log("EDIT POINT IN MAP", createPoint)
                         if(createPoint[`${p.type}-${p.id}`]) {
                             if(createPoint[`${p.type}-${p.id}`].name.includes("(Unsaved)")) {
                                 createPoint[`${p.type}-${p.id}`].name = createPoint[`${p.type}-${p.id}`].name
                                     .split("(Unsaved)")[1]
                                     .trim();
+                                setPoints(prev => ({...prev, [`${p.type}-${p.id}`]: createPoint[`${p.type}-${p.id}`]}));
                             }
                             const edit = dispatch(thunkEditPoint(p.id, createPoint[`${p.type}-${p.id}`]));
                             delete createPoint[`${p.type}-${p.id}`];
@@ -673,8 +678,10 @@ export default function EditorPage() {
                 if(Object.keys(createPoint).length) {
                     await Promise.all(
                         Object.values(createPoint).map(p => {
+                            console.log("CREATE POINTS PASSED, P:", p)
                             if(p.name.includes("(Unsaved)")) {
                                 p.name = p.name.split("(Unsaved)")[1].trim();
+                                setPoints(prev => ({...prev, p}));
                             }
                             return dispatch(thunkCreatePoint(p));
                         })
@@ -704,8 +711,8 @@ export default function EditorPage() {
                 if(Object.keys(createPoint).length) {
                     await Promise.all(
                         Object.values(createPoint).map(p => {
-                            if(p.name.includes("(Unsaved)")) {
-                                p.name = p.name.split("(Unsaved)")[1].trim();
+                            if(["marker", "icon", "radius", "line"].includes(p.type)) {
+                                setPoints(prev => ({...prev, p}));
                             }
                             return dispatch(thunkCreatePoint(p));
                         })
@@ -849,9 +856,9 @@ export default function EditorPage() {
                             <div className={`${menuSelects[0] ? "" : "hidden"}`}>
                             {Object.values(pinnedProperties).map((p, i) => (
                             <div className="menu-item-1 user-select-none" key={`props-${i}`}>
-                                <p>{p.name}</p>
+                                <p>{p?.name}</p>
                                 <div className="menu-item-1-actions user-select-none">
-                                    <button onClick={()=> setLngLat([p.lng, p.lat])}>
+                                    <button onClick={()=> setLngLat([p?.lng, p?.lat])}>
                                         <img src="/icons/location.svg" alt="Manage" />
                                     </button>
                                     <ModalButton 
@@ -882,9 +889,9 @@ export default function EditorPage() {
                             <div className={`${menuSelects[1] ? "" : "hidden"}`}>
                             {Object.values(otherProperties).map((p, i) => (
                                 <div className="menu-item-1 user-select-none" key={`props-${i}`}>
-                                    <p>{p.name}</p>
+                                    <p>{p?.name}</p>
                                     <div className="menu-item-1-actions user-select-none">
-                                        <button onClick={()=> setLngLat([p.lng, p.lat])}>
+                                        <button onClick={()=> setLngLat([p?.lng, p?.lat])}>
                                             <img src="/icons/location.svg" alt="Manage" />
                                         </button>
                                         <ModalButton 
@@ -914,9 +921,9 @@ export default function EditorPage() {
                             <div className={`${menuSelects[2] ? "" : "hidden"}`}>
                                 {Object.values(points).map((p, i) => (
                                 <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
-                                    <p>{p.name}</p>
+                                    <p>{p?.name}</p>
                                     <div className="menu-item-1-actions user-select-none">
-                                        <button onClick={()=> setLngLat([p.lng, p.lat])}>
+                                        <button onClick={()=> setLngLat([p?.lng, p?.lat])}>
                                             <img src="/icons/location.svg" alt="Manage" />
                                         </button>
                                         <ModalButton 
@@ -946,9 +953,9 @@ export default function EditorPage() {
                             <div className={`${menuSelects[3] ? "" : "hidden"}`}>
                                 {Object.values(canvasObjects)?.map((p, i) => (
                                 <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
-                                    <p>{p.name}</p>
+                                    <p>{p?.name}</p>
                                     <div className="menu-item-1-actions user-select-none">
-                                        <button onClick={()=> setLngLat([p.lng, p.lat])}>
+                                        <button onClick={()=> setLngLat([p?.lng, p?.lat])}>
                                             <img src="/icons/location.svg" alt="Go to" />
                                         </button>
                                         <ModalButton 
