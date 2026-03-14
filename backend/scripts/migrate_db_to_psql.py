@@ -24,7 +24,7 @@ def run_migration():
         pq_cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS teams (
-                id INTEGER PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 name TEXT,
                 rules TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -35,7 +35,7 @@ def run_migration():
         pq_cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 name TEXT,
@@ -50,7 +50,7 @@ def run_migration():
         pq_cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS notifications (
-                id INTEGER PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 sender_id INTEGER NOT NULL,
                 recipient_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
@@ -75,7 +75,7 @@ def run_migration():
         pq_cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS home_groups (
-                id INTEGER PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 type TEXT NOT NULL,
                 pinned INTEGER DEFAULT 0,
@@ -87,7 +87,7 @@ def run_migration():
         pq_cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS property (
-                id INTEGER PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 owner_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 address TEXT,
@@ -115,7 +115,7 @@ def run_migration():
         pq_cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS images (
-                id INTEGER PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 owner_id INTEGER NOT NULL,
                 property_id INTEGER,
                 default_filename TEXT NOT NULL,
@@ -137,7 +137,7 @@ def run_migration():
         pq_cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS floors (
-                id INTEGER PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 owner_id INTEGER NOT NULL,
                 property_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
@@ -156,7 +156,7 @@ def run_migration():
         pq_cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS saved_types (
-                id INTEGER PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 type TEXT NOT NULL,
                 extra_info jsonb
@@ -166,13 +166,15 @@ def run_migration():
         pq_cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS points (
-                id INTEGER PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 owner_id INTEGER NOT NULL,
                 type TEXT NOT NULL,
                 name TEXT NOT NULL,
                 icon TEXT,
                 lng REAL NOT NULL,
                 lat REAL NOT NULL,
+                endLng REAL,
+                endLat REAL,
                 radius REAL
             );
         """

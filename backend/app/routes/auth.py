@@ -80,9 +80,12 @@ def _register_prod(user: User):
         )
         conn.commit()
         conn.close()
-    except PostgresError:
+    except PostgresError as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail="User already exists")
+        if str(e).startswith('duplicate key value violates unique constraint'):
+            raise HTTPException(status_code=500, detail=f"User already exist")
+        
+        raise HTTPException(status_code=500, detail=f"Server error please try again")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     return ResponseModel(True, "User created")
