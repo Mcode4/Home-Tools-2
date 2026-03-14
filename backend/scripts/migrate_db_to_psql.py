@@ -6,7 +6,8 @@ from pathlib import Path
 from app.db.db import get_db
 from app.utils.postgres_utils import get_pg_db
 
-env_path = Path(__file__).resolve().parents[2] / ".env"
+# env_path = Path(__file__).resolve().parents[2] / ".env"
+env_path = Path(__file__).resolve().parents[1] / ".env"
 
 load_dotenv(env_path)
 

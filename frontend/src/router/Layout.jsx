@@ -14,6 +14,10 @@ export default function Layout() {
         dispatch(sessions()).then(()=> setIsLoaded(true));
     }, []);
 
+    useEffect(()=> {
+        console.log("IS LOADED CHANGED", isLoaded);
+    }, [isLoaded])
+
     return (
             <ModalProvider>
                 <Navbar isLoaded={isLoaded} />

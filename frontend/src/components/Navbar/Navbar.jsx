@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useEffect, useRef } from "react";
 import { thunkLogout } from "../../redux/session";
+import { Link } from "react-router-dom";
 import { ModalButton } from "../../context/Modal";
 import LoginForm from "../LoginForm/LoginForm";
 import SignupForm from "../SignupForm/SignupForm";
@@ -55,9 +56,9 @@ export default function Navbar({ isLoaded }) {
 
     return (
         <div id="navbar">
-            <a href="/">
+            <Link to="/">
                 <h1>Home Tools</h1>
-            </a>
+            </Link>
             {!user ? (
                 <div className="nav-actions">
                     {/* <ModalButton

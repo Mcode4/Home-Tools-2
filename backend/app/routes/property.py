@@ -13,7 +13,8 @@ from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 from app.utils.image_utils import delete_image
 
-env_path = Path(__file__).resolve().parents[3] / ".env"
+# env_path = Path(__file__).resolve().parents[3] / ".env"
+env_path = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(env_path)
 
 PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
