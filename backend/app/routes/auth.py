@@ -13,9 +13,8 @@ from app.models.response_model import ResponseModel
 from app.utils.jwt import create_access_token, decode_access_token
 
 # env_path = Path(__file__).resolve().parents[3] / ".env"
-env_path = Path(__file__).resolve().parents[2] / ".env"
 
-load_dotenv(env_path)
+# load_dotenv(env_path)
 
 PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
 
@@ -131,13 +130,22 @@ def _login_prod(user: User, response: Response):
     if not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token({"user_id": db_user["id"]})
+    # response.set_cookie(
+    #     key="access_token",
+    #     value=access_token,
+    #     httponly=True,
+    #     max_age=60*60,
+    #     samesite="none",
+    #     secure=True,
+    #     path="/"
+    # )
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
         max_age=60*60,
-        samesite="none",
-        secure=True,
+        samesite="lax",
+        secure=False,
         path="/"
     )
     user_obj = {}

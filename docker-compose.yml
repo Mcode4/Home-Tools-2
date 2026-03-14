@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: strongpassword
       POSTGRES_DB: appdb
     volumes:
-      - ./postgres:/var/lib/postgresql/data
+      - ./postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
@@ -23,7 +23,8 @@ services:
     depends_on:
       - db
     environment:
-      - PROJECT_ENV="development"
+      - PROJECT_ENV=production
+      - POSTGRES_URL=postgresql://appuser:strongpassword@db:5432/appdb
       - SECRET_KEY=supersecretkey123
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=60

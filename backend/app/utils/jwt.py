@@ -5,11 +5,10 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 # env_path = Path(__file__).resolve().parents[3] / ".env"
-env_path = Path(__file__).resolve().parents[2] / ".env"
-# print("Looking for .env at:", env_path)
-# print("Exists:", env_path.exists())
+# # print("Looking for .env at:", env_path)
+# # print("Exists:", env_path.exists())
 
-load_dotenv(env_path)
+# load_dotenv(env_path)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME_IN_PRODUCTION!..")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")

@@ -5,14 +5,16 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 # env_path = Path(__file__).resolve().parents[3] / ".env"
-env_path = Path(__file__).resolve().parents[2] / ".env"
 
-load_dotenv(env_path)
+# load_dotenv(env_path)
 
-PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
-SCHEMA = os.getenv("SCHEMA", "public")
+# PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
+# SCHEMA = os.getenv("SCHEMA", "public")
 
 def get_pg_db():
+    url = os.environ.get("POSTGRES_URL")
+    if not url:
+        raise RuntimeError("POSTGRES_URL not set")
     return psycopg2.connect(
         os.environ["POSTGRES_URL"],
         cursor_factory=RealDictCursor
