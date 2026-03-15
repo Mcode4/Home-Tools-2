@@ -1,6 +1,3 @@
-
-
-
 export const handleSearchAddress = async (addr) => {
     if(addr.trim().length < 3) return;
     const errors = {}
@@ -11,7 +8,7 @@ export const handleSearchAddress = async (addr) => {
 
     try {
         const nominatimSearch = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${addr}&format=json&addressdetails=1&limit=5&extratags=1&featuretype=settlement&countrycodes=us`,
+            `https://nominatim.openstreetmap.org/search?q=${addr}&format=json&addressdetails=1&limit=5&extratags=1&featuretype=settlement`,
             { signal: controller.signal }
         );
 
@@ -36,6 +33,7 @@ export const handleSearchAddress = async (addr) => {
         suggestions = formatted;
     } catch(err) {
         if (err.name !== "AbortError") {
+            abortCtrl();
             errors.client = String(err);
             throw new Error(err);
         };
@@ -48,6 +46,35 @@ export const handleSearchAddress = async (addr) => {
         throw new Error("No suggestions");
     };
 };
+
+export const reverseLookupAddress = async (lng, lat) => {
+    const errors = {}
+    
+    const controller = new AbortController();
+    const abortCtrl = () => controller.abort();
+
+    try {
+        const nominatimSearch = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=geocodejson`,
+            { signal: controller.signal }
+        );
+
+        const result = await nominatimSearch.json();
+        console.log("REVERSE SEARCH RESULT", result);
+
+        const formatted = formatPlace(result);
+        console.log("FORMATTED RESULT", formatted);
+        
+        abortCtrl();
+        return formatted ?? null;
+    } catch(err) {
+        if (err.name !== "AbortError") {
+            abortCtrl();
+            errors.client = String(err);
+            throw new Error(err);
+        };
+    }
+}
 
 const formatPlace = (place) => {
     if(!place) return null;

@@ -67,7 +67,7 @@ def _get_floors_pid_dev(property_id: int, current_user = Depends(get_current_use
 
 
 # Create floor
-@router.post("/")
+@router.post("")
 def add_floor(floor: Floor, current_user = Depends(get_current_user)):
     if PROJECT_ENV == "production":
         return _add_floor_prod(floor, current_user)

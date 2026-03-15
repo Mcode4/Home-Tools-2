@@ -75,7 +75,6 @@ def init_db():
             lng REAL NOT NULL,
             group_id INTEGER,
             details TEXT,
-            pinned INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (owner_id) REFERENCES users(id)

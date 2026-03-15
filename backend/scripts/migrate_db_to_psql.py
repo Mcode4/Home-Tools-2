@@ -100,7 +100,6 @@ def run_migration():
                 lng REAL NOT NULL,
                 group_id INTEGER,
                 details jsonb,
-                pinned INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (owner_id) REFERENCES users(id)

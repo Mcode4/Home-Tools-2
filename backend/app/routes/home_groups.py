@@ -21,7 +21,7 @@ router = APIRouter(prefix="/groups", tags=["HomeGroups"])
 
 
 # Get All Groups By User ID
-@router.get("/")
+@router.get("")
 def get_home_group(current_user = Depends(get_current_user)):
     if PROJECT_ENV == "production":
         return
@@ -30,7 +30,7 @@ def get_home_group(current_user = Depends(get_current_user)):
     
 
 # Create Home Group
-@router.post("/")
+@router.post("")
 def create_home_group(group: HomeGroup, current_user = Depends(get_current_user)):
     if PROJECT_ENV == "production":
         return

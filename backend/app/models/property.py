@@ -13,4 +13,3 @@ class Property(BaseModel):
     lat: float
     lng: float
     details: Optional[Dict[str, Any]] = None
-    pinned: bool = False

@@ -18,28 +18,27 @@ from app.utils.image_utils import delete_image
 
 PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
 
-router = APIRouter(prefix="/property", tags=["Property"], redirect_slashes=False)
+router = APIRouter(prefix="/property", tags=["Property"])
 
 # GET METHODS - ALL, BY ID
 @router.get("/all")
 def all_properties(current_user = Depends(get_current_user)):
     if PROJECT_ENV == "production":
-        properties = _get_properties_prod(current_user)
+        return _get_properties_prod(current_user)
     if PROJECT_ENV == "development":
-        properties = _get_properties_dev(current_user)
+        return _get_properties_dev(current_user)
+    
+    
+def _get_properties_prod(current_user = Depends(get_current_user)):
+    conn = get_pg_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM property WHERE owner_id=%s", (current_user["id"],))
+    properties = cursor.fetchall()
+    conn.close()
     if not properties:
-        return ResponseModel(False, "User properties not found")
-    pinned_results = []
-    for row in properties["pinned"]:
-        p = dict(row)
-        if p.get("details"):
-            try:
-                p["details"] = json.loads(p["details"])
-            except:
-                pass
-        pinned_results.append(p)
+        raise HTTPException(status_code=404, detail="User properties not found")
     results = []
-    for row in properties["others"]:
+    for row in properties:
         p = dict(row)
         if p.get("details"):
             try:
@@ -47,35 +46,27 @@ def all_properties(current_user = Depends(get_current_user)):
             except:
                 pass
         results.append(p)
-        # print("RESULTS", {"pinned": pinned_results, "other": results})
-    return ResponseModel(True, "", {"properties": {"pinned": pinned_results, "other": results}})
-
-    
-    
-def _get_properties_prod(current_user = Depends(get_current_user)):
-    conn = get_pg_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM property WHERE owner_id=%s AND pinned=1", (current_user["id"],))
-    pinned = cursor.fetchall()
-    cursor.execute("SELECT * FROM property WHERE owner_id=%s AND pinned=0", (current_user["id"],))
-    properties = cursor.fetchall()
-    conn.close()
-    if not (pinned or properties):
-        raise HTTPException(status_code=404, detail="User properties not found")
-    return {"pinned": pinned, "others": properties}
+    return ResponseModel(True, "", {"properties": results})
 
 
 def _get_properties_dev(current_user = Depends(get_current_user)):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM property WHERE owner_id=? AND pinned=1", (current_user["id"],))
-    pinned = cursor.fetchall()
-    cursor.execute("SELECT * FROM property WHERE owner_id=? AND pinned=0", (current_user["id"],))
+    cursor.execute("SELECT * FROM property WHERE owner_id=?", (current_user["id"],))
     properties = cursor.fetchall()
     conn.close()
-    if not (pinned or properties):
+    if not properties:
         raise HTTPException(status_code=404, detail="User properties not found")
-    return {"pinned": pinned, "others": properties}
+    results = []
+    for row in properties:
+        p = dict(row)
+        if p.get("details"):
+            try:
+                p["details"] = json.loads(p["details"])
+            except:
+                pass
+        results.append(p)
+    return ResponseModel(True, "", {"properties": results})
 
 
 @router.get("/{id}")
@@ -116,7 +107,7 @@ def _get_prop_dev(id: int, current_user = Depends(get_current_user)):
 
 
 # CREATE PROPERTY
-@router.post("/")
+@router.post("")
 def create_property(property: Property, current_user = Depends(get_current_user)):
     print("PROJECT ENV:", PROJECT_ENV)
     print("CURRENT USER:", current_user)
@@ -127,7 +118,6 @@ def create_property(property: Property, current_user = Depends(get_current_user)
     
 
 def _add_prop_prod(property: Property, current_user = Depends(get_current_user)):
-   
     conn = get_pg_db()
     cursor = conn.cursor()
     try:
@@ -139,6 +129,7 @@ def _add_prop_prod(property: Property, current_user = Depends(get_current_user))
             INSERT INTO property
             (name, address, city, county, state, country, zip, owner_id, lat, lng, details)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING *
         """,
         (
             property.name, property.address, property.city, property.county, property.state,
@@ -158,7 +149,7 @@ def _add_prop_prod(property: Property, current_user = Depends(get_current_user))
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail={{"property": property}, str(e)})
 
 
 def _add_prop_dev(property: Property, current_user = Depends(get_current_user)):
@@ -221,7 +212,7 @@ def _edit_prop_prod(id: int, property: Property, current_user = Depends(get_curr
         cursor.execute(
         """
         UPDATE property
-        SET name=%s, address=%s, city=%s, county=%s, state=%s, zip=%s, lat=%s, lng=%s, pinned=%s, details=%s
+        SET name=%s, address=%s, city=%s, county=%s, state=%s, zip=%s, lat=%s, lng=%s, details=%s
         WHERE id=%a
         """,
         (
@@ -233,7 +224,6 @@ def _edit_prop_prod(id: int, property: Property, current_user = Depends(get_curr
             property.zip,
             property.lat,
             property.lng,
-            property.pinned,
             property.details,
             id,
         )
@@ -265,7 +255,7 @@ def _edit_prop_dev(id: int, property: Property, current_user = Depends(get_curre
         cursor.execute(
         """
         UPDATE property
-        SET name=?, address=?, city=?, county=?, state=?, zip=?, lat=?, lng=?, pinned=?, details=?
+        SET name=?, address=?, city=?, county=?, state=?, zip=?, lat=?, lng=?, details=?
         WHERE id=?
         """,
         (
@@ -277,7 +267,6 @@ def _edit_prop_dev(id: int, property: Property, current_user = Depends(get_curre
             property.zip,
             property.lat,
             property.lng,
-            property.pinned,
             property.details,
             id,
         )

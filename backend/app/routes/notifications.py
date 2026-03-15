@@ -21,7 +21,7 @@ router = APIRouter(prefix="/types", tags=["SavedTypes"])
 
 
 # Get Notifications By User
-@router.get("/")
+@router.get("")
 def get_notifications(current_user = Depends(get_current_user)):
     if PROJECT_ENV == "production":
         return
@@ -30,7 +30,7 @@ def get_notifications(current_user = Depends(get_current_user)):
 
 
 # Post Notification
-@router.post("/")
+@router.post("")
 def post_notification(notification: Notification, current_user = Depends(get_current_user)):
     if PROJECT_ENV == "production":
         return

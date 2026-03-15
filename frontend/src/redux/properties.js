@@ -5,9 +5,9 @@ const LOAD_PROPERTIES = 'properties/loadProperties';
 const EDIT_PROPERTY = 'properties/editProperty';
 const REMOVE_PROPERTY = 'properties/removeProperty';
 
-const createProperty = (pinned, property) => ({
+const createProperty = (property) => ({
     type: CREATE_PROPERTY,
-    payload: {pinned, property}
+    payload: property
 })
 
 const loadProperties = (properties) => ({
@@ -40,22 +40,6 @@ export const thunkGetAllProperties = () => async(dispatch) => {
     return check.data;
 }
 
-// Get Property By ID
-// export const thunkGetPropertyAtId = (id) => async(dispatch) => {
-//     const res = await fetch(`/api/property/${id}`, {
-//         method: "GET",
-//         credentials: "include"
-//     });
-//     const data = await res.json();
-//     if(res.ok) {
-//         console.log("RES OK", data);
-//     } else {
-//         console.log("RES ERROR", data);
-//     };
-
-//     return data
-// }
-
 
 // Create Property
 export const thunkCreateProperty = (propObj) => async(dispatch) => {
@@ -67,11 +51,7 @@ export const thunkCreateProperty = (propObj) => async(dispatch) => {
     });
     const check = await checkAndReturnRes(res);
     if(check.ok) {
-        let pin = false
-        if(propObj.pinned) {
-            pin = true
-        }
-        await dispatch(createProperty(pin, check.data.data.property))
+        await dispatch(createProperty(check.data.data.property))
     }
 
     return check.data;
@@ -110,31 +90,20 @@ export const thunkDeleteProperty = (id) => async(dispatch) => {
 }
 
 
-const initialState = {pinned: [], other: []} // {properties: {properties: [], sharedProperties: [for teams]} }
+const initialState = {data: []};
 
 export default function propertiesReducer(state=initialState, action) {
     switch(action.type) {
         case CREATE_PROPERTY:
-            if(action.payload.pinned) {
-                return {...state, pinned: [...state.pinned, action.payload.property]}
-            }
-            return {...state, other: [...state.other, action.payload.property]}
+            return {...state, data: [...state.data, action.payload]}
         case LOAD_PROPERTIES:
-            return {
-                ...state,
-                pinned: action.payload.pinned,
-                other: action.payload.other
-            }
+            return {...state, data: action.payload}
         case EDIT_PROPERTY:
             return {...state,
-                pinned: state.pinned.map(p => p.id === action.payload.id ? action.payload.property : p),
-                other: state.other.map(p => p.id === action.payload.id ? action.payload.property : p)
+                data: state.data.map(p => p.id === action.payload.id ? action.payload.property : p)
             }
         case REMOVE_PROPERTY:
-            return {...state,
-                pinned: state.pinned.filter(p => p.id !== action.payload),
-                other: state.other.filter(p => p.id !== action.payload)
-            }
+            return {...state, data: state.data.filter(p => p.id !== action.payload)}
         default:
             return state
     }

@@ -3,17 +3,18 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { thunkGetAllProperties, thunkDeleteProperty } from "../../redux/properties";
 import { ModalButton, ModalItem } from "../../context/Modal";
-import CreatePropertyForm from "../CreatePropertyForm/CreatePropertyForm";
+import PropertyForm from "../PropertyForm";
 import "./DashboardPage.css"
 
 export default function DashboardPage() {
-    const data = useSelector(store => store.properties);
+    const properties = useSelector(store => store.properties);
     const [images, setImages] = useState(null);
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
     useEffect(()=> {
         dispatch(thunkGetAllProperties());
+        console.log("dispatch ran")
     }, [dispatch]);
 
     const handleDelete = async(e, id) => {
@@ -29,37 +30,15 @@ export default function DashboardPage() {
     return (
         <div id="home-page">
             <ModalButton
-                modalComponent={<CreatePropertyForm />}
+                modalComponent={<PropertyForm />}
                 itemText={"Create New Property"} 
             />
 
-            {data?.pinned.length > 0 && (
-                <>
-                <h2>Pinned Properties</h2>
-                <span className="property-sections">
-                {data.pinned.map(prop => (
-                    <div className="property">
-                        <div className="click-area">
-                            <img src="" alt="property-image" />
-                        </div>
-
-                        <p>{prop.name}</p>
-
-                        <div className="property-actions">
-                            <button>Map</button>
-                            <button>Edit</button>
-                            <button>Delete</button>
-                        </div>
-                    </div>
-                ))}
-                </span>
-                </>
-            )}
-            {data?.other.length > 0 && (
+            {properties?.data.length > 0 ? (
                 <>
                 <h2>Properties</h2>
                 <span className="property-sections">
-                {data.other.map(prop => (
+                {properties?.data.map(prop => (
                     <div className="property">
                         <div className="click-area">
                             <img src="" alt="property-image" />
@@ -72,7 +51,7 @@ export default function DashboardPage() {
                                 state: { id: prop.id}
                             })}>Map</button>
                             <ModalButton
-                                modalComponent={<CreatePropertyForm id={prop.id} />}
+                                modalComponent={<PropertyForm id={prop.id} />}
                                 itemText={"Edit"} 
                             />
                             <button onClick={(e)=> handleDelete(e, prop.id)}>Delete</button>
@@ -81,12 +60,11 @@ export default function DashboardPage() {
                 ))}
                 </span>
                 </>
-            )}
-            {!data?.pinned.length && !data?.other.length && (
+            ) : (
                 <p>
                     No properties available. <br/> 
                     <ModalItem
-                        modalComponent={<CreatePropertyForm />}
+                        modalComponent={<PropertyForm />}
                         itemText={"Make your first"} 
                     />
                 </p>

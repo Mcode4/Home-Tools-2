@@ -53,7 +53,7 @@ def _img_by_id_dev(id: int, current_user:int = Depends(get_current_user)):
 
 
 # Upload Images
-@router.post("/")
+@router.post("")
 def add_image(image: Image, file: UploadFile = File(...), current_user = Depends(get_current_user)):
     if PROJECT_ENV == "production":
         return _add_img_prod(image, file, current_user)

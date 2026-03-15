@@ -3,9 +3,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { useModal } from "../../context/Modal";
 import { thunkCreateProperty, thunkEditProperty } from "../../redux/properties";
 import { handleSearchAddress } from "../../functions/search/search";
-import "./CreatePropertyForm.css";
+import "./PropertyForm.css";
 
-export default function CreatePropertyForm({id}) {
+export default function PropertyForm({id}) {
     const properties = useSelector(store => store.properties);
     const dispatch = useDispatch();
     const { closeModal } = useModal();
@@ -20,7 +20,7 @@ export default function CreatePropertyForm({id}) {
     const [lng, setLng] = useState(null);
     const [groupActive, setGroupActive] = useState(null);
     const [group, setGroup] = useState(null);
-    const [pinned, setPinned] = useState(false);
+    // const [pinned, setPinned] = useState(false);
     const [err, setErr] = useState({});
     const [searchAddress, setSearchAddress] = useState("")
     const [suggestions, setSuggestions] = useState([]);
@@ -30,11 +30,9 @@ export default function CreatePropertyForm({id}) {
 
     useEffect(()=> {
         if(!id) return;
-        if(!properties.other || !properties.pinned) return;
+        if(!properties.data) return;
 
-        const property =
-            properties.pinned.find(p => p.id === id) ||
-            properties.other.find(p => p.id === id);
+        const property = properties.data.find(p => p.id === id);
 
         if(!property) {
             console.log("No properties found with id:", id)
@@ -59,16 +57,16 @@ export default function CreatePropertyForm({id}) {
         setDisplayAddress(savedAddress);
         setSearchAddress(savedAddress);
 
-        if(property.pinned || property.group) {
-            active.current = true;
-            setPinned(property.pinned);
-            if(property.group) {
-                setGroupActive(true);
-                setGroup(property.group);
-            };
-        };
+        // if(property.pinned || property.group) {
+        //     active.current = true;
+        //     setPinned(property.pinned);
+        //     if(property.group) {
+        //         setGroupActive(true);
+        //         setGroup(property.group);
+        //     };
+        // };
 
-    }, [])
+    }, [id]);
 
     useEffect(()=> {
         console.log("ACTIVE", active.current);
@@ -127,31 +125,31 @@ export default function CreatePropertyForm({id}) {
 
         if(!lng || !lat) return;
 
-        try {
-            const prop = {
-                name,
-                lat,
-                lng,
-                address,
-                city,
-                county,
-                state,
-                country,
-                zip
-            };
+        const prop = {
+            name,
+            lat,
+            lng,
+            address,
+            city,
+            county,
+            state,
+            country,
+            zip
+        };
 
+        try {
             if(active.current) {
-                prop["pinned"] = pinned;
+                // prop["pinned"] = pinned;
                 // Group logic later
             }
-            let res
-            console.log("BEFORE RETURN", prop)
-            if (id) {
-                res = await dispatch(thunkEditProperty(id, prop))
-            } else {
-                res = await dispatch(thunkCreateProperty(prop));
-            }
-            console.log("RESSS CREATE FORM", res);
+            console.log("BEFORE RETURN", prop);
+
+            const res = id
+                ? await dispatch(thunkEditProperty(id, prop))
+                : await dispatch(thunkCreateProperty(prop));
+
+            console.log("AFTER RETURN", res);
+            
             if(res.success) {
                 closeModal();
                 console.log("Success", res)
@@ -159,6 +157,7 @@ export default function CreatePropertyForm({id}) {
                 console.log("FAILED", res);
                 setErr({server: res.detail})
             }
+            
         } catch(err) {
             setErr({server: err})
         }
@@ -239,7 +238,7 @@ export default function CreatePropertyForm({id}) {
                             <></>
                         )}
                     </li>
-                    <li>
+                    {/* <li>
                         <input 
                             type="checkbox" 
                             name="pinned" 
@@ -248,7 +247,7 @@ export default function CreatePropertyForm({id}) {
                             onChange={(e)=> setPinned(e.target.checked)} 
                         />
                         Pinned
-                    </li>
+                    </li> */}
                 </ul>
             </details>
             {err.client && (<p>{err.client}</p>)}

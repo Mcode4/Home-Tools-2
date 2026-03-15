@@ -140,7 +140,7 @@ export default function MapComponent({
         markers.map((m, i) => {
             console.log("MARKER AT INDEX:", i, "MARKER:", m)
             if(m.propertyId) {
-                const markerId = `prop-${m.propertyId}`;
+                const markerId = m.id ?? `prop-${m.propertyId}`;
                 const marker = new maplibregl.Marker({
                     color: "red",
                     draggable: true
@@ -169,7 +169,6 @@ export default function MapComponent({
                     createdCanvasObject({
                         id: markerId,
                         propertyId: m.propertyId,
-                        pinned: m.pinned,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat
                     });

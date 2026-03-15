@@ -44,7 +44,7 @@ def _all_points_prod(current_user = Depends(get_current_user)):
 
 
 # Add Point
-@router.post("/")
+@router.post("")
 def add_point(point: Point, current_user = Depends(get_current_user)):
     if PROJECT_ENV == "development":
         return _add_p_dev(point, current_user)
