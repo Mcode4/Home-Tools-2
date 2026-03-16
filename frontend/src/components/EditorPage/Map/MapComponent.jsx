@@ -10,7 +10,7 @@ import "./MapComponent.css";
 export default function MapComponent({ 
     layer, lngLat, markers, canvasTool,
     createdCanvasObject, deletedCanvasObject,
-    updateObject
+    updateObject, onPointChange
 }) {
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
@@ -375,7 +375,9 @@ export default function MapComponent({
                     map.getCanvas().style.cursor = getBaseCursor();
                     const newLngLat = centerMarker.getLngLat()
                     createdCanvasObject({
-                        pointId: radiusId,
+                        id: radiusId,
+                        pointId: m.pointId,
+                        type: m.type,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat,
                         radius: radius
@@ -808,6 +810,7 @@ export default function MapComponent({
                     const newLngLat = centerMarker.getLngLat()
                     createdCanvasObject({
                         id: radiusId,
+                        type: "radius",
                         lng: newLngLat.lng,
                         lat: newLngLat.lat,
                         radius: radius
@@ -831,7 +834,6 @@ export default function MapComponent({
                 createdCanvasObject({
                     id: radiusId,
                     type: "radius",
-                    name: "radius",
                     lng: lng,
                     lat: lat,
                     radius: radius
@@ -1182,7 +1184,7 @@ export default function MapComponent({
                 <ManagePointsModal 
                     addFunc={createdCanvasObject}
                     deleteFunc={deleteCanvasObject}
-                    changeFunc={(id, updates)=> updateObject = {id, updates}}
+                    changeFunc={onPointChange}
                 />}
             />
             <button id="marker-delete-action">Delete</button>

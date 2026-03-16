@@ -143,7 +143,8 @@ export default function EditorPage() {
                 localStorage.removeItem("deletedProperties")
             }
             else if (parsed?.data) {
-                deletedProperties([...parsed?.data]);
+                console.log("PARSED DELETED PROPS", parsed);
+                setDeletedProperties([...parsed?.data]);
             }
 
             stored = localStorage.getItem("deletedPoints");
@@ -152,7 +153,8 @@ export default function EditorPage() {
                 localStorage.removeItem("deletedPoints")
             }
             else if (parsed?.data) {
-                deletedPoints([...parsed?.data]);
+                console.log("PARSED DELETED POINTS", parsed);
+                setDeletedPoints([parsed?.data]);
             }
 
             setInitialized(true);
@@ -182,10 +184,12 @@ export default function EditorPage() {
         }
         
         const allMarkers = [];
+        const seenInStore = new Set();
 
         propertyStore?.data.forEach(prev => {
             const prefixedKey = `prop-${prev.id}`; 
             const p = properties[prefixedKey] ?? {...prev, propertyId: prev.id, id: prefixedKey};
+            seenInStore.add(prefixedKey);
 
             if (!properties[prefixedKey]) {
                 setProperties(prev => ({ ...prev, [prefixedKey]: p }));
@@ -194,7 +198,6 @@ export default function EditorPage() {
             console.log("PROPERTIES", p);
             const {lng, lat} = p;
             if(state?.id && p.id === state?.id) setLngLat([lng, lat]);
-            if(canvasObjects && canvasObjects[prefixedKey]) delete canvasObjects[prefixedKey];
             
             allMarkers.push({ 
                 id: prefixedKey,
@@ -206,13 +209,14 @@ export default function EditorPage() {
         pointStore?.data.forEach(prev => {
             const prefixedKey = `${prev.type}-${prev.id}`;
             const p = points[prefixedKey] ?? {...prev, pointId: prev.id, id: prefixedKey};
+            seenInStore.add(prefixedKey);
 
             if (!points[prefixedKey]) {
                 setPoints(prev => ({ ...prev, [prefixedKey]: p }));
             };
 
-
-            if(canvasObjects && canvasObjects[prefixedKey]) delete canvasObjects[prefixedKey];
+            if(canvasObjects && canvasObjects[prefixedKey]) 
+                setCanvasObjects(prev => { const copy = {...prev}; delete copy[prefixedKey]; return copy });
 
             const pointObj = {
                 id: prefixedKey,
@@ -258,50 +262,52 @@ export default function EditorPage() {
         });
         
         if(Object.keys(canvasObjects ?? {}).length > 0) {
-            Object.values(canvasObjects).forEach(p => {
-                const pointObj = {
-                    id: p.id,
-                    type: p.type,
-                    name: p.name,
-                    lngLat: [p.lng, p.lat]
-                }
+            Object.values(canvasObjects)
+                .filter(p => !seenInStore.has(p))
+                .forEach(p => {
+                    const pointObj = {
+                        id: p.id,
+                        type: p.type,
+                        name: p.name,
+                        lngLat: [p.lng, p.lat]
+                    }
 
-                switch(p.type) {
-                    case "marker":
-                        allMarkers.push(pointObj);
-                        break;
-                    case "icon":
-                        if(p.icon !== null) {
-                            pointObj.icon = p.icon;
+                    switch(p.type) {
+                        case "marker":
                             allMarkers.push(pointObj);
-                        } else {
-                            console.warn(`No icon detected on ${p.name}. Deleting on next save.`);
-                            setDeletedPoints(prev => [...prev, p.id]);
-                        }
-                        break;
-                    case "radius":
-                        if(p.radius !== null) {
-                            pointObj.radius = p.radius;
-                            allMarkers.push(pointObj);
-                        } else {
-                            console.warn(`No radius detected on ${p.name}. Deleting on next save.`);
-                            setDeletedPoints(prev => [...prev, p.id]);
-                        }
-                        break;
-                    case "line":
-                        if((p.endLng !== null || p.endlng  !== null) && 
-                            (p.endLat !== null || p.endlat  !== null)
-                        ) {
-                            pointObj.endLng = p.endLng ?? p.endlng;
-                            pointObj.endLat = p.endLat ?? p.endlat;
-                            allMarkers.push(pointObj);
-                        } else {
-                            console.warn(`No endLng or endLat detected on ${p.name}. Deleting on next save.`);
-                            setDeletedPoints(prev => [...prev, p.id]);
-                        }
-                        break;
-                };
-            });
+                            break;
+                        case "icon":
+                            if(p.icon !== null) {
+                                pointObj.icon = p.icon;
+                                allMarkers.push(pointObj);
+                            } else {
+                                console.warn(`No icon detected on ${p.name}. Deleting on next save.`);
+                                setDeletedPoints(prev => [...prev, p.id]);
+                            }
+                            break;
+                        case "radius":
+                            if(p.radius !== null) {
+                                pointObj.radius = p.radius;
+                                allMarkers.push(pointObj);
+                            } else {
+                                console.warn(`No radius detected on ${p.name}. Deleting on next save.`);
+                                setDeletedPoints(prev => [...prev, p.id]);
+                            }
+                            break;
+                        case "line":
+                            if((p.endLng !== null || p.endlng  !== null) && 
+                                (p.endLat !== null || p.endlat  !== null)
+                            ) {
+                                pointObj.endLng = p.endLng ?? p.endlng;
+                                pointObj.endLat = p.endLat ?? p.endlat;
+                                allMarkers.push(pointObj);
+                            } else {
+                                console.warn(`No endLng or endLat detected on ${p.name}. Deleting on next save.`);
+                                setDeletedPoints(prev => [...prev, p.id]);
+                            }
+                            break;
+                    };
+                });
         };
         
         setInitialized(false);
@@ -540,7 +546,7 @@ export default function EditorPage() {
     const formatProperty = async (point) => {
         console.log("FORMAT PROPERTY", point);
         if(!point.name) return false;
-        if(!point.lngLat || (!point.lng && !point.lat)) return false;
+        if(!point.lngLat && (!point.lng && !point.lat)) return false;
 
         const pointObj = {
             name: point.name,
@@ -577,14 +583,20 @@ export default function EditorPage() {
 
     const formatPoint = (point) => {
         console.log("FORMAT POINT", point);
-        if(!point.name) return false;
-        if(!point.lngLat || (!point.lng && !point.lat)) return false;
+        if(!point.name) {
+            console.error("No name for formatted point", point);
+            return false;
+        }
+        if(!point.lngLat && (!point.lng && !point.lat)) {
+            console.error("No lng and lat for formatted point", point);
+            return false;
+        }
 
         const pointObj = {
             type: point.type,
             name: point.name,
-            lng: point.lngLat[0] ?? point.lng,
-            lat: point.lngLat[1] ?? point.lat
+            lng: point.lng ?? point.lngLat[0],
+            lat:  point.lat ?? point.lngLat[1]
         }
 
         if(point.name.includes("(Unsaved)")) {
@@ -639,14 +651,13 @@ export default function EditorPage() {
         if(parsed?.data) {
             try {
                 const createProp = {...parsed?.data};
-                console.log("SAVE PINNED PROP DATA", createProp);
+                console.log("SAVED PROPERTY DATA", createProp);
                 await Promise.all(
                     propertyStore.data.map(async (p) => {
                         if(createProp[`prop-${p.id}`]) {
                             const newProp = await formatProperty(createProp[`prop-${p.id}`]); // Async returns promise unfilled
                             console.log("FORMAT PROPERTY COMPLETE", newProp);
                             if(newProp) {
-                                setProperties(prev => ({...prev, [`prop-${p.id}`]: newProp}));
                                 const edit = dispatch(thunkEditProperty(p.id, newProp));
                                 delete createProp[`prop-${p.id}`];
                                 return edit;
@@ -666,9 +677,9 @@ export default function EditorPage() {
                         })
                     );
                 }
-                if(deletedProperties.pinned.length > 0) {
+                if(deletedProperties.length > 0) {
                     await Promise.all(
-                        deletedProperties.pinned.map(id => { 
+                        deletedProperties.forEach(id => { 
                             return dispatch(thunkDeleteProperty(id))
                         })
                     );
@@ -692,7 +703,6 @@ export default function EditorPage() {
                         if(createPoint[`${p.type}-${p.id}`]) {
                             const newPoint = formatPoint(createPoint[`${p.type}-${p.id}`]);
                             if(newPoint) {
-                                setPoints(prev => ({...prev, [`${p.type}-${p.id}`]: newPoint}));
                                 const edit = dispatch(thunkEditPoint(p.id, newPoint));
                                 delete createPoint[`${p.type}-${p.id}`];
                                 return edit;
@@ -708,7 +718,6 @@ export default function EditorPage() {
                             console.log("CREATE POINTS PASSED, P:", p)
                             if(p.name.includes("(Unsaved)")) {
                                 p.name = p.name.split("(Unsaved)")[1].trim();
-                                setPoints(prev => ({...prev, p}));
                             }
                             return dispatch(thunkCreatePoint(p));
                         })
@@ -716,6 +725,7 @@ export default function EditorPage() {
                 };
                 console.log("SAVED CREATE POINTS PASSED, CURRENT:", createPoint)
                 if(deletedPoints.length > 0) {
+                    console.log("DELETING POINTS:", deletedPoints);
                     await Promise.all(
                         deletedPoints.map(id => {
                             return dispatch(thunkDeletePoint(id));
@@ -740,10 +750,6 @@ export default function EditorPage() {
                         Object.values(createPoint).map(p => {
                             if(["marker", "icon", "radius", "line"].includes(p.type)) {
                                 return dispatch(thunkCreatePoint(p))
-                                    .then(res => {
-                                        console.log("POINT RES:", res);
-                                        res.data?? setPoints(prev => ({...prev, [res.data.id]: res.data}));
-                                    });
                             }
                             return Promise.resolve();
                         })
@@ -756,6 +762,8 @@ export default function EditorPage() {
             };
         };
 
+        setProperties({});
+        setPoints({});
         setCanvasObjects({});
         setDeletedPoints([]);
         setDeletedProperties([]);
@@ -770,6 +778,8 @@ export default function EditorPage() {
     return (<>
     {loaded && (
     <div id="editor" className="user-select-none">
+        <div className={`loading-mask ${saving ? "active" : ""}`} />
+
         <div id="editor-top">
             <div className="editor-search" ref={searchRef}>
                 <input 
@@ -1163,6 +1173,7 @@ export default function EditorPage() {
                 createdCanvasObject={addCanvasObjects}
                 deletedCanvasObject={deleteCanvasObjects}
                 updateObject={pointChange}
+                onPointChange={signalPointUpdate}
             />             
         </div>
     </div>

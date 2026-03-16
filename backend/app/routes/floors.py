@@ -14,7 +14,7 @@ from app.models.response_model import ResponseModel
 
 # env_path = Path(__file__).resolve().parents[3] / ".env"
 # load_dotenv(env_path)
-
+load_dotenv()
 PROJECT_ENV = os.environ.get("PROJECT_ENV", "development")
 
 router = APIRouter(prefix="/floors", tags=["Floors"])

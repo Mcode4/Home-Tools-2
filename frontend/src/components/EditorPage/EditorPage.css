@@ -19,6 +19,28 @@
     /* visibility: hidden; */
 }
 
+.loading-mask {
+    position: fixed;
+    background-color: rgba(255, 255, 255, 0.55);
+
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    
+    cursor: wait;
+    z-index: 999999;
+
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.loading-mask.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 /* Main Elements */
 #editor {
     display: flex;

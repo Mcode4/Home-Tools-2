@@ -15,8 +15,8 @@ from app.utils.image_utils import delete_image
 
 # env_path = Path(__file__).resolve().parents[3] / ".env"
 # load_dotenv(env_path)
-
-PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
+load_dotenv()
+PROJECT_ENV = os.environ.get("PROJECT_ENV", "development")
 
 router = APIRouter(prefix="/property", tags=["Property"])
 
@@ -149,7 +149,7 @@ def _add_prop_prod(property: Property, current_user = Depends(get_current_user))
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=400, detail={{"property": property}, str(e)})
+        raise HTTPException(status_code=400, detail={f'property: {property}, {str(e)}'})
 
 
 def _add_prop_dev(property: Property, current_user = Depends(get_current_user)):

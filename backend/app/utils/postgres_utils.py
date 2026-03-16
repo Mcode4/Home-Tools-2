@@ -7,12 +7,14 @@ from pathlib import Path
 # env_path = Path(__file__).resolve().parents[3] / ".env"
 
 # load_dotenv(env_path)
-
-# PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
+load_dotenv()
+PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
 # SCHEMA = os.getenv("SCHEMA", "public")
 
+print("PROJECT ENV - PSQL", PROJECT_ENV)
 def get_pg_db():
     url = os.environ.get("POSTGRES_URL")
+    print("PSQL URL", url)
     if not url:
         raise RuntimeError("POSTGRES_URL not set")
     return psycopg2.connect(

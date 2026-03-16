@@ -9,7 +9,6 @@ import SignupForm from "../SignupForm/SignupForm";
 import "./Navbar.css";
 
 export default function Navbar({ isLoaded }) {
-    useSelector(store => console.log("STORE DATA", store))
     const user = useSelector((store)=> store.session.user);
     const navigate = useNavigate();
     const location = useLocation();

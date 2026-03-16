@@ -15,8 +15,11 @@ from app.utils.jwt import create_access_token, decode_access_token
 # env_path = Path(__file__).resolve().parents[3] / ".env"
 
 # load_dotenv(env_path)
+load_dotenv()
 
-PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
+PROJECT_ENV = os.environ.get("PROJECT_ENV", "development")
+
+print("PROJECT ENV - AUTH", PROJECT_ENV)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

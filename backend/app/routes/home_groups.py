@@ -14,8 +14,8 @@ from app.routes.auth import get_current_user
 
 # env_path = Path(__file__).resolve().parents[3] / ".env"
 # load_dotenv(env_path)
-
-PROJECT_ENV = os.getenv("PROJECT_ENV", "development")
+load_dotenv()
+PROJECT_ENV = os.environ.get("PROJECT_ENV", "development")
 
 router = APIRouter(prefix="/groups", tags=["HomeGroups"])
 
