@@ -249,9 +249,12 @@ export default function EditorPage() {
                     }
                     break;
                 case "line":
-                    if(p.endLng !== null && p.endLat !== null) {
-                        pointObj.endLng = p.endLng;
-                        pointObj.endLat = p.endLat;
+                    if (
+                        (p.endLng && p.endLat) ||
+                        (p.endlng && p.endlat)
+                    ) {
+                        pointObj.endLng = p.endlng ?? p.endLng;
+                        pointObj.endLat = p.endlat ?? p.endLat;
                         allMarkers.push(pointObj);
                     } else {
                         console.warn(`No endLng or endLat detected on ${p.name}. Deleting on next save.`);
@@ -295,11 +298,12 @@ export default function EditorPage() {
                             }
                             break;
                         case "line":
-                            if((p.endLng !== null || p.endlng  !== null) && 
-                                (p.endLat !== null || p.endlat  !== null)
+                            if (
+                                (p.endLng && p.endLat) ||
+                                (p.endlng && p.endlat)
                             ) {
-                                pointObj.endLng = p.endLng ?? p.endlng;
-                                pointObj.endLat = p.endLat ?? p.endlat;
+                                pointObj.endLng = p.endlng ?? p.endLng;
+                                pointObj.endLat = p.endlat ?? p.endLat;
                                 allMarkers.push(pointObj);
                             } else {
                                 console.warn(`No endLng or endLat detected on ${p.name}. Deleting on next save.`);
