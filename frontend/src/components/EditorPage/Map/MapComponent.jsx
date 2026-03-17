@@ -146,9 +146,9 @@ export default function MapComponent({
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: markerId,
                         type: m.type,
                         name: m.name ?? "New " + m.type,
@@ -161,9 +161,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: marker.getLngLat(),
                         id: markerId,
                         name: m.name
@@ -209,9 +208,9 @@ export default function MapComponent({
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: markerId,
                         type: m.type,
                         name: m.name ?? "New " + m.type,
@@ -224,9 +223,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: marker.getLngLat(),
                         id: markerId,
                         name: m.name
@@ -276,9 +274,9 @@ export default function MapComponent({
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: markerId,
                         type: m.type,
                         name: m.name ?? "New " + m.type,
@@ -291,9 +289,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: marker.getLngLat(),
                         id: markerId,
                         name: m.name
@@ -409,9 +406,9 @@ export default function MapComponent({
                 centerEl.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: radius,
                         type: m.type,
                         name: m.name ?? "New " + m.type,
@@ -424,9 +421,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: centerMarker.getLngLat(),
                         id: radiusId,
                         name: m.name
@@ -572,9 +568,9 @@ export default function MapComponent({
                 startEl.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: lineId,
                         type: m.type,
                         name: m.name ?? "New " + m.type,
@@ -585,9 +581,9 @@ export default function MapComponent({
                 endEl.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: lineId,
                         type: m.type,
                         name: m.name ?? "New " + m.type,
@@ -600,9 +596,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: startMarker.getLngLat(),
                         id: lineId,
                         name: m.name
@@ -613,9 +608,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: endMarker.getLngLat(),
                         id: lineId,
                         name: m.name
@@ -680,9 +674,9 @@ export default function MapComponent({
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: markerId,
                         type: canvasTool.type,
                         name: canvasTool.name ?? "New " + canvasTool.type,
@@ -695,9 +689,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: marker.getLngLat(),
                         id: markerId,
                         name: canvasTool.name ?? "New " + canvasTool.type
@@ -753,9 +746,9 @@ export default function MapComponent({
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: markerId,
                         type: canvasTool.type,
                         name: canvasTool.name ?? "New " + canvasTool.type,
@@ -768,9 +761,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: marker.getLngLat(),
                         id: markerId,
                         name: canvasTool.name ?? "New " + canvasTool.type
@@ -899,9 +891,9 @@ export default function MapComponent({
                 centerEl.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: radius,
                         type: canvasTool.type,
                         name: canvasTool.name ?? "New " + canvasTool.type,
@@ -914,9 +906,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: centerMarker.getLngLat(),
                         id: radiusId,
                         name: canvasTool.name
@@ -1071,9 +1062,9 @@ export default function MapComponent({
                 startEl.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: lineId,
                         type: canvasTool.type,
                         name: canvasTool.name ?? "New " + canvasTool.type,
@@ -1084,9 +1075,9 @@ export default function MapComponent({
                 endEl.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-                    if(rightPopupContext) setRightPopupContext(null);
 
                     setLeftPopupContext({
+                        activeTime: Date.now(),
                         id: lineId,
                         type: canvasTool.type,
                         name: canvasTool.name ?? "New " + canvasTool.type,
@@ -1099,9 +1090,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: startMarker.getLngLat(),
                         id: lineId,
                         name: canvasTool.name
@@ -1112,9 +1102,8 @@ export default function MapComponent({
                     e.stopPropagation();
                     console.log("CONTEXT POPUP CLICKED")
 
-                    if(leftPopupContext) setLeftPopupContext(null);
-
                     setRightPopupContext({
+                        activeTime: Date.now(),
                         lngLat: endMarker.getLngLat(),
                         id: lineId,
                         name: canvasTool.name
@@ -1212,6 +1201,14 @@ export default function MapComponent({
         }
     }, [deleteSignal]);
 
+    useEffect(()=> {
+        if(leftPopupContext && rightPopupContext) {
+            if(leftPopupContext.activeTime > rightPopupContext.activeTime)
+                setRightPopupContext(null);
+            else setLeftPopupContext(null);
+        }
+    }, [leftPopupContext, rightPopupContext]);
+
     const templateElements = (id=null) => {
         const labelDiv = document.createElement("div");
         labelDiv.style.background = "white";
@@ -1237,33 +1234,9 @@ export default function MapComponent({
             </div>
         );
 
-        let leftPopup;
-
-        if(id) {
-            leftPopup = `
-            <div class="map-popup">
-                <strong>${canvasTool.name || "Point"} Menu</strong>
-                <div class="pop-actions">
-                    ${propertyState[id] ? (
-                        `
-                        <button id="config-property">Configure Property</button>
-                        <button id="render-property">Render Editor</button>
-                        `
-                    ) : (
-                        `
-                        <button id="add-property">Add Property</button>
-                        `
-                    )}
-                    
-                </div>
-            </div>
-            `;
-        }
-
         return {
             labelDiv,
             iconDiv,
-            leftPopup,
         }
     }
 
