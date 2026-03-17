@@ -163,9 +163,10 @@ export default function MapComponent({
 
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: marker.getLngLat(),
                         id: markerId
                     })
                 });
@@ -177,7 +178,10 @@ export default function MapComponent({
                         });
                 })
 
-                marker.on("dragstart", ()=> setCursor("grabbing"));
+                marker.on("dragstart", ()=> {
+                    setCursor("grabbing");
+                    setPopupContext(null);
+                });
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
                     const newLngLat = marker.getLngLat();
@@ -206,19 +210,50 @@ export default function MapComponent({
                     .setLngLat(m.lngLat)
                     .addTo(map);
 
+                const popup = new maplibregl.Popup({
+                    offset: 25,
+                    closeOnClick: true
+                });
+
                 const el = marker.getElement();
                 el.style.cursor = "cell";
 
+                el.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(markerId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(marker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: marker.getLngLat(),
                         id: markerId
                     })
                 });
 
-                marker.on("dragstart", ()=> setCursor("grabbing"));
+                popup.on("open", ()=> {
+                    document.getElementById("add-property")
+                        ?.addEventListener("click", ()=> {
+                            console.log("Add property");
+                        });
+                })
+
+                marker.on("dragstart", ()=> {
+                    setCursor("grabbing");
+                    popup.remove();
+                    setPopupContext(null);
+                });
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
                     const newLngLat = marker.getLngLat();
@@ -246,19 +281,50 @@ export default function MapComponent({
                     .setLngLat(m.lngLat)
                     .addTo(map);
 
+                const popup = new maplibregl.Popup({
+                    offset: 25,
+                    closeOnClick: true
+                });
+
                 const el = marker.getElement();
                 el.style.cursor = "cell";
 
+                el.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(markerId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(marker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: marker.getLngLat(),
                         id: markerId
                     })
                 });
 
-                marker.on("dragstart", ()=> setCursor("grabbing"));
+                popup.on("open", ()=> {
+                    document.getElementById("add-property")
+                        ?.addEventListener("click", ()=> {
+                            console.log("Add property");
+                        });
+                })
+
+                marker.on("dragstart", ()=> {
+                    setCursor("grabbing");
+                    popup.remove();
+                    setPopupContext(null);
+                });
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
                     const newLngLat = marker.getLngLat();
@@ -334,6 +400,11 @@ export default function MapComponent({
                     .setLngLat([handleMarker.getLngLat().lng, handleMarker.getLngLat().lat])
                     .addTo(map)
 
+                const popup = new maplibregl.Popup({
+                    offset: 25,
+                    closeOnClick: true
+                });
+
                 handleMarker.on("drag", ()=> {
                     const center = centerMarker.getLngLat();
                     const handle = handleMarker.getLngLat();
@@ -360,16 +431,41 @@ export default function MapComponent({
                 centerEl.style.cursor = "cell";
                 handleEl.style.cursor = "grab";
 
+                centerEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(radiusId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(centerMarker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
                 centerEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: centerMarker.getLngLat(),
                         id: radiusId
                     })
                 });
 
-                centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
+                popup.on("open", ()=> {
+                    document.getElementById("add-property")
+                        ?.addEventListener("click", ()=> {
+                            console.log("Add property");
+                        });
+                })
+
+                centerMarker.on("dragstart", ()=> {
+                    map.getCanvas().style.cursor = "grabbing";
+                    setPopupContext(null);
+                });
                 centerMarker.on("dragend", ()=> {
                     map.getCanvas().style.cursor = getBaseCursor();
                     const newLngLat = centerMarker.getLngLat()
@@ -495,26 +591,73 @@ export default function MapComponent({
                     });
                 })
 
+                const popup = new maplibregl.Popup({
+                    offset: 25,
+                    closeOnClick: true
+                });
+
                 const startEl = startMarker.getElement();
                 const endEl = endMarker.getElement();
 
                 startEl.style.cursor = "grab";
                 endEl.style.cursor = "grab";
+
+                startEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(lineId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(startMarker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
+                endEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(lineId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(endMarker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
                 startEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: startMarker.getLngLat(),
                         id: lineId
                     })
                 });
                 endEl.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                   e.preventDefault();
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: endMarker.getLngLat(),
                         id: lineId
                     })
+                });
+
+                startMarker.on("dragstart", ()=> {
+                    setCursor("grabbing");
+                    popup.remove();
+                    setPopupContext(null);
+                });
+                endMarker.on("dragstart", ()=> {
+                    setCursor("grabbing");
+                    popup.remove();
+                    setPopupContext(null);
                 });
 
                 canvasObjectsRef.current[lineId] = {
@@ -548,7 +691,7 @@ export default function MapComponent({
             if(canvasTool.type === "icon") {
                 const tempEls = templateElements();
                 const iconDiv = tempEls.iconDiv;
-
+                
                 const markerId = `temp-marker-${Date.now()}`;
 
                 const marker = new maplibregl.Marker({
@@ -558,20 +701,50 @@ export default function MapComponent({
                     .setLngLat([lng, lat])
                     .addTo(map);
 
-                const el = marker.getElement();
+                const popup = new maplibregl.Popup({
+                    offset: 25,
+                    closeOnClick: true
+                });
 
+                const el = marker.getElement();
                 el.style.cursor = "cell";
+
+                el.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(markerId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(marker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
 
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: marker.getLngLat(),
                         id: markerId
                     })
                 });
 
-                marker.on("dragstart", ()=> setCursor("grabbing"));
+                popup.on("open", ()=> {
+                    document.getElementById("add-property")
+                        ?.addEventListener("click", ()=> {
+                            console.log("Add property");
+                        });
+                })
+
+                marker.on("dragstart", ()=> {
+                    setCursor("grabbing");
+                    popup.remove();
+                    setPopupContext(null);
+                });
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
                     const newLngLat = marker.getLngLat();
@@ -647,6 +820,7 @@ export default function MapComponent({
                 marker.on("dragstart", ()=> {
                     setCursor("grabbing");
                     popup.remove();
+                    setPopupContext(null);
                 });
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
@@ -731,6 +905,11 @@ export default function MapComponent({
                     .setLngLat([handleMarker.getLngLat().lng, handleMarker.getLngLat().lat])
                     .addTo(map)
 
+                const popup = new maplibregl.Popup({
+                    offset: 25,
+                    closeOnClick: true
+                });
+
                 handleMarker.on("drag", ()=> {
                     const center = centerMarker.getLngLat();
                     const handle = handleMarker.getLngLat();
@@ -757,16 +936,41 @@ export default function MapComponent({
                 centerEl.style.cursor = "cell";
                 handleEl.style.cursor = "grab";
 
+                centerEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(radiusId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(centerMarker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
                 centerEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: centerMarker.getLngLat(),
                         id: radiusId
                     })
                 });
 
-                centerMarker.on("dragstart", ()=> map.getCanvas().style.cursor = "grabbing");
+                popup.on("open", ()=> {
+                    document.getElementById("add-property")
+                        ?.addEventListener("click", ()=> {
+                            console.log("Add property");
+                        });
+                })
+
+                centerMarker.on("dragstart", ()=> {
+                    map.getCanvas().style.cursor = "grabbing";
+                    setPopupContext(null);
+                });
                 centerMarker.on("dragend", ()=> {
                     map.getCanvas().style.cursor = getBaseCursor();
                     const newLngLat = centerMarker.getLngLat()
@@ -901,26 +1105,73 @@ export default function MapComponent({
                     });
                 })
 
+                const popup = new maplibregl.Popup({
+                    offset: 25,
+                    closeOnClick: true
+                });
+
                 const startEl = startMarker.getElement();
                 const endEl = endMarker.getElement();
 
                 startEl.style.cursor = "grab";
                 endEl.style.cursor = "grab";
+
+                startEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(lineId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(startMarker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
+                endEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(lineId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(endMarker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
                 startEl.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: startMarker.getLngLat(),
                         id: lineId
                     })
                 });
                 endEl.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
+                   e.preventDefault();
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: endMarker.getLngLat(),
                         id: lineId
                     })
+                });
+
+                startMarker.on("dragstart", ()=> {
+                    setCursor("grabbing");
+                    popup.remove();
+                    setPopupContext(null);
+                });
+                endMarker.on("dragstart", ()=> {
+                    setCursor("grabbing");
+                    popup.remove();
+                    setPopupContext(null);
                 });
 
                 createdCanvasObject({
