@@ -728,6 +728,23 @@ export default function EditorPage() {
         };
     };
 
+    const getMetadata = (id) => {
+        const split = id.split("-");
+        console.log("SPLIT ID:", split)
+
+        switch(split[0]) {
+            case "temp":
+                return canvasObjects[id] ?? null;
+            case "prop":
+                return properties[id] ?? null;
+            case "icon":
+            case "marker":
+            case "radius":
+            case "line":
+                return points[id] ?? null;
+        };
+    }
+
     function signalPointUpdate(id, changesObj) {
         console.log("ICON CHANGED SIGNAL 2: EDITOR")
         return setPointChange({id: id, updates: changesObj});
@@ -1375,6 +1392,7 @@ export default function EditorPage() {
                 updateObject={pointChange}
                 onPointChange={signalPointUpdate}
                 deleteSignal={pointDelete}
+                getMetadata={getMetadata}
             />             
         </div>
     </div>

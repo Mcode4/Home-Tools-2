@@ -11,7 +11,8 @@ import "./MapComponent.css";
 export default function MapComponent({ 
     layer, lngLat, markers, canvasTool,
     createdCanvasObject, deletedCanvasObject,
-    updateObject, onPointChange, deleteSignal
+    updateObject, onPointChange, deleteSignal,
+    getMetadata
 }) {
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
@@ -1246,28 +1247,6 @@ export default function MapComponent({
         map.getCanvas().style.cursor = cursor;
     };
 
-    function showContextMenu({x, y, id}) {
-        const menu = document.getElementById("marker-context");
-        if(!menu) return;
-
-        menu.style.left = `${x}px`;
-        menu.style.top = `${y}px`;
-        menu.classList.remove("hidden");
-
-        const obj = canvasObjectsRef.current[id];
-        setContextPoint(obj ? {...obj, id} : {id});
-
-        document.getElementById("marker-delete-action").onclick = () => {
-            deleteCanvasObject(id);
-            hideContextMenu();
-        }
-    }
-
-    function hideContextMenu() {
-        const menu = document.getElementById("marker-context");
-        if(menu) menu.classList.add("hidden");
-    }
-
     const getBaseCursor = () => canvasTool?.type ? "crosshair" : "grab";
 
     const EARTH_R = 6378137;
@@ -1412,7 +1391,7 @@ export default function MapComponent({
                         itemText="Edit"
                         modalComponent={
                         <ManagePointsModal 
-                            point={contextPoint}
+                            point={getMetadata(rightPopupContext.id)}
                             addFunc={createdCanvasObject}
                             deleteFunc={deleteCanvasObject}
                             changeFunc={onPointChange}

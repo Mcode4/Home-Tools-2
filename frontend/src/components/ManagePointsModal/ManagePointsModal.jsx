@@ -35,8 +35,14 @@ export default function ManagePointsModal({
     const { closeModal } = useModal();
 
     useEffect(()=> {
+        console.log("MANAGE POINTS HIT", {point, isSaved, addFunc, deleteFunc, changeFunc})
+        let newName = name;
+        if(name.includes("(Unsaved)")) {
+            newName = name.split("(Unsaved)")[1].trim();
+            setName(newName);
+        }
         setInitialState({
-            name,
+            name: newName,
             location
         });
 
@@ -108,7 +114,7 @@ export default function ManagePointsModal({
         return true
     };
 
-    return (
+    return point ? (
         <form onSubmit={handleAdd}>
             <div className="form-group">
                 <label htmlFor="point-name">Name:</label>
@@ -198,5 +204,10 @@ export default function ManagePointsModal({
                 onClick={handleDelete}
             >Delete</button>
         </form>
+    ) : (
+        <>
+        <h3>404</h3>
+        <p>Point not found.</p>
+        </>
     )
 }
