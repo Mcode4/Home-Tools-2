@@ -228,6 +228,7 @@ export default function EditorPage() {
             
             allMarkers.push({ 
                 id: prefixedKey,
+                name: p.name,
                 propertyId: prev.id,
                 lngLat: [lng, lat] 
             });
