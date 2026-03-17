@@ -4,6 +4,7 @@ import maplibregl from "maplibre-gl";
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { ModalButton } from "../../../context/Modal";
 import ManagePointsModal from "../../ManagePointsModal";
+import MapLibrePopup from "./MapLibrePopup";
 import "./MapComponent.css";
 
 
@@ -17,6 +18,7 @@ export default function MapComponent({
     const [isLoaded, setIsLoaded] = useState(false);
     const [propertyState, setPropertyState] = useState({});
     const [contextPoint, setContextPoint] = useState(null);
+    const [popupContext, setPopupContext] = useState(null);
     const canvasObjectsRef = useRef({});
 
     useEffect(()=> {
@@ -137,9 +139,27 @@ export default function MapComponent({
                     .setLngLat(m.lngLat)
                     .addTo(map);
 
-                const el = marker.getElement();
+                const popup = new maplibregl.Popup({
+                    offset: 25,
+                    closeOnClick: true
+                });
 
+                const el = marker.getElement();
                 el.style.cursor = "cell";
+
+                el.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("CLICK");
+                    const tempEls = templateElements(markerId);
+                    const html = tempEls.leftPopup;
+
+                    console.log("HTML", html)
+
+                    popup
+                        .setLngLat(marker.getLngLat())
+                        .setHTML(html)
+                        .addTo(map);
+                });
 
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
@@ -149,6 +169,13 @@ export default function MapComponent({
                         id: markerId
                     })
                 });
+
+                popup.on("open", ()=> {
+                    document.getElementById("add-property")
+                        ?.addEventListener("click", ()=> {
+                            console.log("Add property");
+                        });
+                })
 
                 marker.on("dragstart", ()=> setCursor("grabbing"));
                 marker.on("dragend", ()=> {
@@ -589,25 +616,8 @@ export default function MapComponent({
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
                     console.log("CLICK");
-
-                    const html = `
-                        <div class="map-popup">
-                            <strong>${canvasTool.name || "Point"} Menu</strong>
-                            <div class="pop-actions">
-                                ${propertyState[markerId] ? (
-                                    `
-                                    <button id="config-property">Configure Property</button>
-                                    <button id="render-property">Render Editor</button>
-                                    `
-                                ) : (
-                                    `
-                                    <button id="add-property">Add Property</button>
-                                    `
-                                )}
-                                
-                            </div>
-                        </div>
-                    `;
+                    const tempEls = templateElements(markerId);
+                    const html = tempEls.leftPopup;
 
                     console.log("HTML", html)
 
@@ -617,21 +627,22 @@ export default function MapComponent({
                         .addTo(map);
                 });
 
+                el.addEventListener("contextmenu", (e)=> {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log("CONTEXT POPUP CLICKED")
+                    setPopupContext({
+                        lngLat: marker.getLngLat(),
+                        id: markerId
+                    })
+                });
+
                 popup.on("open", ()=> {
                     document.getElementById("add-property")
                         ?.addEventListener("click", ()=> {
                             console.log("Add property");
                         });
                 })
-
-                el.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    showContextMenu({
-                        x: e.clientX, 
-                        y: e.clientY, 
-                        id: markerId
-                    })
-                });
 
                 marker.on("dragstart", ()=> {
                     setCursor("grabbing");
@@ -993,7 +1004,7 @@ export default function MapComponent({
         }
     }, [deleteSignal])
 
-    const templateElements = () => {
+    const templateElements = (id=null) => {
         const labelDiv = document.createElement("div");
         labelDiv.style.background = "white";
         labelDiv.style.padding = "2px 6px";
@@ -1005,7 +1016,7 @@ export default function MapComponent({
         const iconDiv = document.createElement("div");
         // iconDiv.innerHTML = canvasTool.icon
         // iconDiv.style.fontSize = "28px"
-        const root = createRoot(iconDiv);
+        let root = createRoot(iconDiv);
         root.render(
             <div 
                 className="canvasMarker"
@@ -1018,9 +1029,33 @@ export default function MapComponent({
             </div>
         );
 
+        let leftPopup;
+
+        if(id) {
+            leftPopup = `
+            <div class="map-popup">
+                <strong>${canvasTool.name || "Point"} Menu</strong>
+                <div class="pop-actions">
+                    ${propertyState[id] ? (
+                        `
+                        <button id="config-property">Configure Property</button>
+                        <button id="render-property">Render Editor</button>
+                        `
+                    ) : (
+                        `
+                        <button id="add-property">Add Property</button>
+                        `
+                    )}
+                    
+                </div>
+            </div>
+            `;
+        }
+
         return {
             labelDiv,
-            iconDiv
+            iconDiv,
+            leftPopup,
         }
     }
 
@@ -1163,7 +1198,7 @@ export default function MapComponent({
 
     return (
         <>
-        <div id="marker-context" className="marker-context hidden">
+        {/* <div id="marker-context" className="marker-context hidden">
             <ModalButton
                 itemText="Edit"
                 modalComponent={
@@ -1175,7 +1210,29 @@ export default function MapComponent({
                 />}
             />
             <button id="marker-delete-action">Delete</button>
-        </div>
+        </div> */}
+
+        {popupContext && (
+            <MapLibrePopup
+                map={mapInstance.current ?? null}
+                lngLat={popupContext.lngLat}
+                onClose={()=> setPopupContext(null)}
+            >
+                <ModalButton
+                    itemText="Edit"
+                    modalComponent={
+                    <ManagePointsModal 
+                        point={contextPoint}
+                        addFunc={createdCanvasObject}
+                        deleteFunc={deleteCanvasObject}
+                        changeFunc={onPointChange}
+                    />}
+                />
+                <button 
+                    onClick={()=> {deleteCanvasObject(popupContext.id); setPopupContext(null)}
+                }>Delete</button>
+            </MapLibrePopup>
+        )}
         <div
             id="map-container"
             className=""
