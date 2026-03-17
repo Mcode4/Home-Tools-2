@@ -1026,7 +1026,7 @@ export default function EditorPage() {
                 <button
                     className="user-select-none"
                     onClick={handleSaveAll}
-                    disabled={history.length <= 0 && historyIndex <= 0}
+                    disabled={historyIndex <= 0}
                 >Save All</button>
 
                 <button 
