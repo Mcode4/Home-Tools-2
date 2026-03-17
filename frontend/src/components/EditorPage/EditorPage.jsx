@@ -50,6 +50,8 @@ export default function EditorPage() {
     const [layer, setLayer] = useState("osm-layer");
     const [canvasSelect, setCanvasSelect] = useState({icon: null, name: null, type: null});
     const [pointChange, setPointChange] = useState({});
+    const [pointDelete, setPointDelete] = useState({});
+    const [contextPoint, setContextPoint] = useState(null);
 
     // SEARCH
     const [search, setSearch] = useState("");
@@ -99,6 +101,15 @@ export default function EditorPage() {
     useEffect(()=> {
         console.log("INITIALIZED CHANGED", initialized);
     }, [initialized]);
+    
+    // EVENT LISTENERS
+    useEffect(()=> {
+        const closeMenu = () => {
+            hideContextMenu();
+        }
+        document.addEventListener("click", closeMenu);
+        return () => document.removeEventListener("click", closeMenu);
+    }, [])
 
     // LOADING USESTATES
     useEffect(()=> {
@@ -564,6 +575,45 @@ export default function EditorPage() {
         });
     };
 
+    const showPointContextMenu = (x, y, id) => {
+        showDefaultHoverContext(false);
+        const menu = document.getElementById("marker-context");
+        if(!menu) return;
+
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+        menu.classList.remove("hidden");
+
+        const obj =
+            Object.values(properties).find(p => p.id === id) ||
+            Object.values(points).find(p => p.id === id) ||
+            Object.values(canvasObjects).find(p => p.id === id);
+        
+        setContextPoint(obj ? {...obj, id} : {id})
+
+        document.getElementById("marker-delete-action").onclick = () => {
+            signalPointDelete(id);
+            hideContextMenu();
+        }
+    }
+
+    function hideContextMenu() {
+        const menu = document.getElementById("marker-context");
+        if(menu) menu.classList.add("hidden");
+    }
+
+    const showDefaultHoverContext = (visible, x=null, y=null) => {
+        const hoverEl = document.getElementById("hover-element");
+        if(!hoverEl) return;
+
+        if(!visible) hoverEl.classList.toggle("hidden", true);
+        else if(x && y) {
+            hoverEl.classList.toggle("hidden", false);
+            hoverEl.style.left = `${x}px`;
+            hoverEl.style.top = `${y}px`;
+        }
+    }
+
     const selectCanvasAddon = (icon, name, type="icon") => {
         if(canvasSelect.icon === icon && canvasSelect.name === name) {
             setCanvasSelect({icon: null, name: null, type: null});
@@ -680,6 +730,10 @@ export default function EditorPage() {
     function signalPointUpdate(id, changesObj) {
         console.log("ICON CHANGED SIGNAL 2: EDITOR")
         return setPointChange({id: id, updates: changesObj});
+    }
+
+    function signalPointDelete(id) {
+        return setPointDelete({id})
     }
 
     const formatProperty = async (point) => {
@@ -1040,22 +1094,16 @@ export default function EditorPage() {
                             <div className={`${menuSelects[1] ? "" : "hidden"}`}>
                             {Object.values(properties).map((p, i) => (
                                 <div className="menu-item-1 user-select-none" key={`props-${i}`}>
-                                    <p>{p?.name}</p>
-                                    <div className="menu-item-1-actions user-select-none">
-                                        <button onClick={()=> setLngLat([p?.lng, p?.lat])}>
-                                            <img src="/icons/location.svg" alt="Manage" />
-                                        </button>
-                                        <ModalButton 
-                                            itemText={<img src="/icons/setting.svg" alt="Manage" />}
-                                            modalComponent={<ManagePointsModal 
-                                               point={p}
-                                               isSaved={true}
-                                               addFunc={addCanvasObjects}
-                                               deleteFunc={deleteCanvasObjects}
-                                               changeFunc={signalPointUpdate}
-                                            />}
-                                        />
-                                    </div>
+                                    <p
+                                        className="point-menu-button"
+                                        onMouseDown={()=> setLngLat([p?.lng, p?.lat])}
+                                        onMouseEnter={(e)=> showDefaultHoverContext(true, e.clientX, e.clientY)}
+                                        onMouseLeave={()=> showDefaultHoverContext(false)}
+                                        onContextMenu={(e)=> {
+                                            e.preventDefault();
+                                            showPointContextMenu(e.clientX, e.clientY, p.id);
+                                        }}
+                                    >{p?.name}</p>
                                 </div>
                             ))}
                             </div>
@@ -1072,22 +1120,16 @@ export default function EditorPage() {
                             <div className={`${menuSelects[2] ? "" : "hidden"}`}>
                                 {Object.values(points).map((p, i) => (
                                 <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
-                                    <p>{p?.name}</p>
-                                    <div className="menu-item-1-actions user-select-none">
-                                        <button onClick={()=> setLngLat([p?.lng, p?.lat])}>
-                                            <img src="/icons/location.svg" alt="Manage" />
-                                        </button>
-                                        <ModalButton 
-                                            itemText={<img src="/icons/setting.svg" alt="Manage" />}
-                                            modalComponent={<ManagePointsModal 
-                                               point={p}
-                                               isSaved={true}
-                                               addFunc={addCanvasObjects}
-                                               deleteFunc={deleteCanvasObjects}
-                                               changeFunc={signalPointUpdate}
-                                            />}
-                                        />
-                                    </div>
+                                    <p
+                                        className="point-menu-button"
+                                        onMouseDown={()=> setLngLat([p?.lng, p?.lat])}
+                                        onMouseEnter={(e)=> showDefaultHoverContext(true, e.clientX, e.clientY)}
+                                        onMouseLeave={()=> showDefaultHoverContext(false)}
+                                        onContextMenu={(e)=> {
+                                            e.preventDefault();
+                                            showPointContextMenu(e.clientX, e.clientY, p.id);
+                                        }}
+                                    >{p?.name}</p>
                                 </div>
                                 ))}
                             </div>
@@ -1104,22 +1146,16 @@ export default function EditorPage() {
                             <div className={`${menuSelects[3] ? "" : "hidden"}`}>
                                 {Object.values(canvasObjects)?.map((p, i) => (
                                 <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
-                                    <p>{p?.name}</p>
-                                    <div className="menu-item-1-actions user-select-none">
-                                        <button onClick={()=> setLngLat([p?.lng, p?.lat])}>
-                                            <img src="/icons/location.svg" alt="Go to" />
-                                        </button>
-                                        <ModalButton 
-                                            itemText={<img src="/icons/setting.svg" alt="Manage" />}
-                                            modalComponent={<ManagePointsModal 
-                                               point={p}
-                                               isSaved={false}
-                                               addFunc={addCanvasObjects}
-                                               deleteFunc={deleteCanvasObjects}
-                                               changeFunc={signalPointUpdate}
-                                            />}
-                                        />
-                                    </div>
+                                    <p
+                                        className="point-menu-button"
+                                        onMouseDown={()=> setLngLat([p?.lng, p?.lat])}
+                                        onMouseEnter={(e)=> showDefaultHoverContext(true, e.clientX, e.clientY)}
+                                        onMouseLeave={()=> showDefaultHoverContext(false)}
+                                        onContextMenu={(e)=> {
+                                            e.preventDefault();
+                                            showPointContextMenu(e.clientX, e.clientY, p.id);
+                                        }}
+                                    >{p?.name}</p>
                                 </div>
                                 ))}
                             </div>
@@ -1309,6 +1345,25 @@ export default function EditorPage() {
                 </div>
             </span>
 
+            <div id="marker-context" className="marker-context hidden">
+                <ModalButton
+                    itemText="Edit"
+                    modalComponent={
+                    <ManagePointsModal 
+                        point={contextPoint}
+                        isSaved={contextPoint?.propertyId || contextPoint?.pointId}
+                        addFunc={addCanvasObjects}
+                        deleteFunc={deleteCanvasObjects}
+                        changeFunc={signalPointUpdate}
+                    />}
+                />
+                <button id="marker-delete-action">Delete</button>
+            </div>
+
+            <div id="hover-element" className="hover-element hidden">
+                <p>Left-Click to Go To | Right Click to Edit/Delete</p>
+            </div>
+
             <MapComponent 
                 layer={layer} 
                 lngLat={lngLat} 
@@ -1318,6 +1373,7 @@ export default function EditorPage() {
                 deletedCanvasObject={deleteCanvasObjects}
                 updateObject={pointChange}
                 onPointChange={signalPointUpdate}
+                deleteSignal={pointDelete}
             />             
         </div>
     </div>

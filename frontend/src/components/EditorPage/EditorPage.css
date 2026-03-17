@@ -41,6 +41,32 @@
     pointer-events: auto;
 }
 
+.marker-context {
+    position: absolute;
+    background: white;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    z-index: 9999;
+}
+
+.marker-context button {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.hover-element {
+    position: absolute;
+    background: white;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    z-index: 9999;
+}
+
 /* Main Elements */
 #editor {
     display: flex;
@@ -246,38 +272,25 @@
 .menu-item-1 {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px;
     box-sizing: border-box;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.menu-item-1 p {
+.point-menu-button {
     margin: 0;
+    padding: 15px;
+    width: 100%;
     box-sizing: border-box;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.menu-item-1-actions {
-    display: flex;
-    gap: 5px;
-    margin-left: auto;
-}
-
-.menu-item-1-actions button {
-    border: none;
-    background: none;
-    padding: 5px;
-    border-radius: 5px;
-}
-
-.menu-item-1-actions button:hover {
+.point-menu-button:hover {
+    background: #eee;
     cursor: pointer;
-    background: #ccc;
 }
 
 .menu-item-2-container {

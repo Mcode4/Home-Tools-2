@@ -10,7 +10,7 @@ import "./MapComponent.css";
 export default function MapComponent({ 
     layer, lngLat, markers, canvasTool,
     createdCanvasObject, deletedCanvasObject,
-    updateObject, onPointChange
+    updateObject, onPointChange, deleteSignal
 }) {
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
@@ -18,18 +18,6 @@ export default function MapComponent({
     const [propertyState, setPropertyState] = useState({});
     const [contextPoint, setContextPoint] = useState(null);
     const canvasObjectsRef = useRef({});
-
-    useEffect(()=> {
-        const closeMenu = () => {
-            hideContextMenu();
-        }
-
-        document.addEventListener("click", closeMenu);
-
-        return () => {
-            document.removeEventListener("click", hideContextMenu);
-        }
-    }, [])
 
     useEffect(()=> {
         if(mapInstance.current || !mapRef.current || isLoaded) return;
@@ -998,6 +986,12 @@ export default function MapComponent({
             console.log("EL", el)
         };
     }, [updateObject]);
+
+    useEffect(()=> {
+        if(deleteSignal?.id) {
+            deleteCanvasObject(deleteSignal?.id);
+        }
+    }, [deleteSignal])
 
     const templateElements = () => {
         const labelDiv = document.createElement("div");

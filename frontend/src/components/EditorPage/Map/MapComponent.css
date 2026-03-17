@@ -2,20 +2,3 @@
     position: absolute;
     inset: 0;
 }
-
-.marker-context {
-    position: absolute;
-    background: white;
-    padding: 4px;
-    display: flex;
-    flex-direction: column;
-    z-index: 9999;
-}
-
-.marker-context button {
-    background: none;
-    border: none;
-    text-align: left;
-    padding: 6px 12px;
-    cursor: pointer;
-}
