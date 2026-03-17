@@ -72,6 +72,12 @@
 
     
 /* Editor Top */
+.editor-controls {
+    grid-column: 1;
+    display: flex;
+    gap: 10px;
+}
+
 .editor-search {
     grid-column: 2;
     display: flex;
@@ -83,8 +89,7 @@
     align-items: center;
 }
 
-
-.editor-controls {
+.editor-controls-2 {
     grid-column: 3;
     margin-left: auto;
     display: flex;

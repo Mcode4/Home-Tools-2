@@ -16,6 +16,7 @@ export default function MapComponent({
     const mapInstance = useRef(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [propertyState, setPropertyState] = useState({});
+    const [contextPoint, setContextPoint] = useState(null);
     const canvasObjectsRef = useRef({});
 
     useEffect(()=> {
@@ -178,21 +179,9 @@ export default function MapComponent({
                     marker
                 };
             } else if(m.type === "icon") {
-                console.log("MARKER AT ICON", m)
-                const iconDiv = document.createElement("div");
-                const root = createRoot(iconDiv);
-                root.render(
-                        <div 
-                            className="canvasMarker"
-                            style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
-                            <div 
-                                className="canvasMarkerIcon"
-                                style={{fontSize: "28px"}}
-                            >{m.icon}</div>
-                            <p className="canvasMarkerName">{m.name}</p>
-                        </div>
-                    );
-
+                console.log("MARKER AT ICON", m);
+                const tempEls = templateElements();
+                const iconDiv = tempEls.iconDiv;
                 const markerId = m.id ?? `icon-${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
@@ -319,13 +308,8 @@ export default function MapComponent({
                     .setLngLat([handlePos.lng, handlePos.lat])
                     .addTo(map);
 
-                const labelDiv = document.createElement("div");
-                labelDiv.style.background = "white";
-                labelDiv.style.padding = "2px 6px";
-                labelDiv.style.borderRadius = "4px";
-                labelDiv.style.fontSize = "12px";
-                labelDiv.style.textAlign = "center";
-                labelDiv.style.pointerEvents = "none";
+                const tempEls = templateElements();
+                const labelDiv = tempEls.labelDiv;
                 labelDiv.innerText = radius < 1000 ? `${radius}m` : `${(radius/1000).toFixed(2)}km`;
 
                 const labelMarker = new maplibregl.Marker({
@@ -431,13 +415,8 @@ export default function MapComponent({
                     .setLngLat([m.endLng, m.endLat])
                     .addTo(map);
 
-                const labelDiv = document.createElement("div");
-                labelDiv.style.background = "white";
-                labelDiv.style.padding = "2px 6px";
-                labelDiv.style.borderRadius = "4px";
-                labelDiv.style.fontSize = "12px";
-                labelDiv.style.textAlign = "center";
-                labelDiv.style.pointerEvents = "none";
+                const tempEls = templateElements();
+                const labelDiv = tempEls.labelDiv;
 
                 const updateLineLabel = () => {
                     const a = startMarker.getLngLat();
@@ -452,7 +431,9 @@ export default function MapComponent({
                 }
 
                 const initialDist = mercatorDistance(m.lngLat[0], m.lngLat[1], m.endLng, m.endLat);
-                labelDiv.innerText = `${Math.round(initialDist)}m`;
+                labelDiv.innerText = initialDist > 1000 
+                ? `${(initialDist / 1000).toFixed(2)}km`
+                : `${Math.round(initialDist)}m`;
 
                 let startToMercator = lngLatToMercator(m.lngLat[0], m.lngLat[1]);
                 let endToMercator = lngLatToMercator(m.endLng, m.endLat);
@@ -550,22 +531,8 @@ export default function MapComponent({
             const {lng, lat} = e.lngLat;
 
             if(canvasTool.type === "icon") {
-                const iconDiv = document.createElement("div")
-                // iconDiv.innerHTML = canvasTool.icon
-                // iconDiv.style.fontSize = "28px"
-
-                const root = createRoot(iconDiv);
-            root.render(
-                    <div 
-                        className="canvasMarker"
-                        style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
-                        <div 
-                            className="canvasMarkerIcon"
-                            style={{fontSize: "28px"}}
-                        >{canvasTool.icon}</div>
-                        <p className="canvasMarkerName">{canvasTool.name}</p>
-                    </div>
-                );
+                const tempEls = templateElements();
+                const iconDiv = tempEls.iconDiv;
 
                 const markerId = `temp-marker-${Date.now()}`;
 
@@ -753,13 +720,9 @@ export default function MapComponent({
                     .setLngLat([handlePos.lng, handlePos.lat])
                     .addTo(map);
 
-                const labelDiv = document.createElement("div");
-                labelDiv.style.background = "white";
-                labelDiv.style.padding = "2px 6px";
-                labelDiv.style.borderRadius = "4px";
-                labelDiv.style.fontSize = "12px";
-                labelDiv.style.textAlign = "center";
-                labelDiv.style.pointerEvents = "none";
+                    const tempEls = templateElements();
+
+                const labelDiv = tempEls.labelDiv
                 labelDiv.innerText = radius < 1000 ? `${radius}m` : `${(radius/1000).toFixed(2)}km`;
 
                 const labelMarker = new maplibregl.Marker({
@@ -877,13 +840,8 @@ export default function MapComponent({
                     .setLngLat([endPos.lng, endPos.lat])
                     .addTo(map)
 
-                const labelDiv = document.createElement("div");
-                labelDiv.style.background = "white";
-                labelDiv.style.padding = "2px 6px";
-                labelDiv.style.borderRadius = "4px";
-                labelDiv.style.fontSize = "12px";
-                labelDiv.style.textAlign = "center";
-                labelDiv.style.pointerEvents = "none";
+                const tempEls = templateElements();
+                const labelDiv = tempEls.labelDiv
 
                 const updateLineLabel = () => {
                     const a = startMarker.getLngLat();
@@ -898,7 +856,9 @@ export default function MapComponent({
                 }
 
                 const initialDist = mercatorDistance(lng, lat, endPos.lng, endPos.lat);
-                labelDiv.innerText = `${Math.round(initialDist)}m`
+                labelDiv.innerText = initialDist > 1000 
+                ? `${(initialDist / 1000).toFixed(2)}km`
+                : `${Math.round(initialDist)}m`;
 
                 let endToMercator = lngLatToMercator(endPos.lng, endPos.lat);
                 const initialMid = mercatorToLngLat((x + endToMercator.x)/2, (y + endToMercator.y)/2);
@@ -1037,7 +997,38 @@ export default function MapComponent({
 
             console.log("EL", el)
         };
-    }, [updateObject])
+    }, [updateObject]);
+
+    const templateElements = () => {
+        const labelDiv = document.createElement("div");
+        labelDiv.style.background = "white";
+        labelDiv.style.padding = "2px 6px";
+        labelDiv.style.borderRadius = "4px";
+        labelDiv.style.fontSize = "12px";
+        labelDiv.style.textAlign = "center";
+        labelDiv.style.pointerEvents = "none";
+
+        const iconDiv = document.createElement("div");
+        // iconDiv.innerHTML = canvasTool.icon
+        // iconDiv.style.fontSize = "28px"
+        const root = createRoot(iconDiv);
+        root.render(
+            <div 
+                className="canvasMarker"
+                style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
+                <div 
+                    className="canvasMarkerIcon"
+                    style={{fontSize: "28px"}}
+                >{canvasTool.icon}</div>
+                <p className="canvasMarkerName">{canvasTool.name}</p>
+            </div>
+        );
+
+        return {
+            labelDiv,
+            iconDiv
+        }
+    }
 
     const setCursor = (cursor) => {
         const map = mapInstance.current;
@@ -1053,6 +1044,9 @@ export default function MapComponent({
         menu.style.top = `${y}px`;
         menu.classList.remove("hidden");
 
+        const obj = canvasObjectsRef.current[id];
+        setContextPoint(obj ? {...obj, id} : {id});
+
         document.getElementById("marker-delete-action").onclick = () => {
             deleteCanvasObject(id);
             hideContextMenu();
@@ -1061,8 +1055,7 @@ export default function MapComponent({
 
     function hideContextMenu() {
         const menu = document.getElementById("marker-context");
-        // console.log("HIT SHOWCONTEXT", menu)
-        if(menu) menu.classList.add("hidden")
+        if(menu) menu.classList.add("hidden");
     }
 
     const getBaseCursor = () => canvasTool?.type ? "crosshair" : "grab";
@@ -1157,7 +1150,6 @@ export default function MapComponent({
         if(obj.fillLayer && map.getLayer(obj.fillLayer)) {
             map.removeLayer(obj.fillLayer);
         };
-
         if(obj.outlineLayer && map.getLayer(obj.outlineLayer)) {
             map.removeLayer(obj.outlineLayer);
         };
@@ -1182,6 +1174,7 @@ export default function MapComponent({
                 itemText="Edit"
                 modalComponent={
                 <ManagePointsModal 
+                    point={contextPoint}
                     addFunc={createdCanvasObject}
                     deleteFunc={deleteCanvasObject}
                     changeFunc={onPointChange}
