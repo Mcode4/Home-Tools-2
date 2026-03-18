@@ -197,15 +197,22 @@ export default function RenderComponent({ activeTool }) {
         const stage = e.target.getStage();
         stage.stopDrag();
 
-        const pointer = stage.getStage().getPointerPosition();
+        const pointer = stage.getPointerPosition();
         const worldX = (pointer.x - positionRef.current.x) / scaleRef.current;
         const worldY = (pointer.y - positionRef.current.y) / scaleRef.current;
 
         setLines(prev => {
             const lastLine = prev[prev.length-1];
-            lastLine.points[2] = worldX;
-            lastLine.points[3] = worldY;
-            return [...prev.slice(0, prev.length-1), lastLine];
+            const updatedLine = {
+                ...lastLine,
+                points: [
+                    lastLine.points[0],
+                    lastLine.points[1],
+                    worldX,
+                    worldY
+                ]
+            }
+            return [...prev.slice(0, prev.length-1), updatedLine];
         });
     }
 
@@ -256,7 +263,7 @@ export default function RenderComponent({ activeTool }) {
                         {lines.length > 0 && lines.map(line => (
                             <Line
                                 key={`line-${line.id}`}
-                                points={line.points.map(p => p * scaleRef.current)}
+                                points={line.points}
                                 stroke={line.color}
                                 strokeWidth={line.width}
                                 draggable={line.draggable}
@@ -266,7 +273,7 @@ export default function RenderComponent({ activeTool }) {
                                     setLines(prev => 
                                         prev.map(l =>
                                             l.id === line.id
-                                            ? line
+                                            ? {...l, points: [...l.points.map(p => p%1 === 1 ? p+dx : p+dy)]}
                                             : l
                                         )
                                     )
