@@ -14,6 +14,12 @@ export default function RenderPage() {
     const [initialized, setInitialized] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [reload, setReload] = useState(false);
+
+    const [tool, setTool] = useState(null);
+    const [toolSettings, setToolSettings] = useState({
+        line: {type: "line", width: 2, color: "#000", draggable: true}
+    })
+
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
@@ -45,6 +51,14 @@ export default function RenderPage() {
         setLoaded(true);
     }, [initialized]);
 
+    function selectTool(toolName) {
+        if(tool?.type === toolName) {
+            setTool(null);
+        } else {
+            setTool(toolSettings[toolName]);
+        }
+    }
+
     return loaded ? (
         <div id="render-page">
             <div id="render-top">
@@ -68,7 +82,14 @@ export default function RenderPage() {
                 </div>
 
                 <div id="render-screen">
-                    <RenderComponent />
+                    <span className="render-toolbar tool-line">
+                        <button
+                            onClick={()=> selectTool("line")}
+                        >Line</button>
+                    </span>
+                    <RenderComponent 
+                        activeTool={tool}
+                    />
                 </div>
             </div>
         </div>

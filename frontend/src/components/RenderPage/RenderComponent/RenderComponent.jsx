@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Stage, Layer, Rect, Line } from "react-konva";
 import "./RenderComponent.css";
 
-export default function RenderComponent() {
+export default function RenderComponent({ activeTool }) {
     const containerRef = useRef(null);
 
     const [size, setSize] = useState({width: 0, height: 0});
@@ -11,15 +11,26 @@ export default function RenderComponent() {
     const [baseplateSize, setBaseplateSize] = useState({width: 800, height: 600});
 
     const [gridActive, setGridActive] = useState(true);
-    const [gridPixelSize, setGridPixelSize] = useState(81);
+    const [gridPixelSize, setGridPixelSize] = useState(50);
     const [gridStroke, setgridStroke] = useState(1);
     const [gridColor, setGridColor] = useState("#ccc")
 
+    const [lines, setLines] = useState([]);
+
     const scaleRef = useRef(1);
     const positionRef = useRef({x: 0, y: 0});
+    const drawingRef = useRef(false);
 
     const MIN_SCALE = 0.5;
     const MAX_SCALE = 3;
+
+    useEffect(()=> {
+        console.log("TOOL CHANGED", activeTool);
+    }, [activeTool]);
+
+    useEffect(()=> {
+        console.log("LINES CHANGED", lines);
+    }, [lines]);
 
     useEffect(()=> {
         const updateSize = () => {
@@ -36,62 +47,6 @@ export default function RenderComponent() {
         resizeObserver.observe(containerRef.current);
         return () => resizeObserver.disconnect();
     }, []);
-
-    const getWorldPos = (e) => {
-        const pointer = e.target.getStage().getPointerPosition();
-        const scale = scaleRef.current;
-        const pos = positionRef.current;
-
-        return {
-            x: (pointer.x - pos.x) / scale,
-            y: (pointer.y - pos.y) / scale 
-        }
-    }
-
-    const handleWheel = (e) => {
-        e.evt.preventDefault();
-
-        const scaleBy = 1.05;
-        const oldScale = scaleRef.current;
-        const oldPos = positionRef.current;
-
-        const stage = e.target.getStage();
-        stage.stopDrag();
-
-        // CONVERT TO WOLRD COORD
-        const pointer = stage.getPointerPosition();
-        const mousePointTo = {
-            x: (pointer.x - oldPos.x) / oldScale,
-            y: (pointer.y - oldPos.y) / oldScale 
-        }
-
-        // ZOOM IN / ZOOM OUT
-        let newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
-        newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
-
-        // NEW BASEPLATE POSTION
-        let newPos = {
-            x: pointer.x - mousePointTo.x * newScale,
-            y: pointer.y - mousePointTo.y * newScale
-        }
-        // newPos = clampPosition(newPos, newScale);
-
-        // UPDATES
-        scaleRef.current = newScale;
-        positionRef.current = newPos;
-        setScale(newScale);
-        setPosition(newPos);
-    }
-
-    const clampPosition = (pos, scaleVal = scale) => {
-        const contentWidth = baseplateSize.width * scaleVal;
-        const contentHeight = baseplateSize.height * scaleVal;
-
-        return { 
-            x: Math.min(0, Math.max(size.width - contentWidth, pos.x)),
-            y: Math.min(0, Math.max(size.height - contentHeight, pos.y))
-        }
-    }
 
     const Grid = ({ width, height, gridSize, scale }) => {
         const lines = [];
@@ -157,6 +112,108 @@ export default function RenderComponent() {
         return <>{lines}</>
     }
 
+    const getWorldPos = (e) => {
+        const pointer = e.target.getStage().getPointerPosition();
+        const scale = scaleRef.current;
+        const pos = positionRef.current;
+
+        return {
+            x: (pointer.x - pos.x) / scale,
+            y: (pointer.y - pos.y) / scale 
+        }
+    }
+
+    const handleWheel = (e) => {
+        e.evt.preventDefault();
+
+        const scaleBy = 1.05;
+        const oldScale = scaleRef.current;
+        const oldPos = positionRef.current;
+
+        const stage = e.target.getStage();
+        stage.stopDrag();
+
+        // CONVERT TO WOLRD COORD
+        const pointer = stage.getPointerPosition();
+        const mousePointTo = {
+            x: (pointer.x - oldPos.x) / oldScale,
+            y: (pointer.y - oldPos.y) / oldScale 
+        }
+
+        // ZOOM IN / ZOOM OUT
+        let newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
+        newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+
+        // NEW BASEPLATE POSTION
+        let newPos = {
+            x: pointer.x - mousePointTo.x * newScale,
+            y: pointer.y - mousePointTo.y * newScale
+        }
+        // newPos = clampPosition(newPos, newScale);
+
+        // UPDATES
+        scaleRef.current = newScale;
+        positionRef.current = newPos;
+        setScale(newScale);
+        setPosition(newPos);
+    }
+
+    const clampPosition = (pos, scaleVal = scale) => {
+        const contentWidth = baseplateSize.width * scaleVal;
+        const contentHeight = baseplateSize.height * scaleVal;
+
+        return { 
+            x: Math.min(0, Math.max(size.width - contentWidth, pos.x)),
+            y: Math.min(0, Math.max(size.height - contentHeight, pos.y))
+        }
+    }
+
+    const handleMouseDown = (e) => {
+        if(!activeTool || activeTool.type !== "line") return;
+
+        const stage = e.target.getStage();
+        stage.stopDrag();
+
+        const pointer = stage.getPointerPosition();
+        const worldX = (pointer.x - positionRef.current.x) / scaleRef.current;
+        const worldY = (pointer.y - positionRef.current.y) / scaleRef.current;
+        
+        drawingRef.current = true;
+        setLines(prev => [
+            ...prev,
+            {
+                id: Date.now().toString(),
+                points: [worldX, worldY, worldX, worldY],
+                color: activeTool.color ?? "#000",
+                width: activeTool.width ?? 2,
+                draggable: activeTool.draggable ?? false
+            }
+        ]);
+    }
+
+    const handleMouseMove = (e) => {
+        if(!drawingRef.current) return;
+
+        const stage = e.target.getStage();
+        stage.stopDrag();
+
+        const pointer = stage.getStage().getPointerPosition();
+        const worldX = (pointer.x - positionRef.current.x) / scaleRef.current;
+        const worldY = (pointer.y - positionRef.current.y) / scaleRef.current;
+
+        setLines(prev => {
+            const lastLine = prev[prev.length-1];
+            lastLine.points[2] = worldX;
+            lastLine.points[3] = worldY;
+            return [...prev.slice(0, prev.length-1), lastLine];
+        });
+    }
+
+    const handleMouseUp = (e) => {
+        if(!drawingRef.current) return;
+        drawingRef.current = false;
+    }
+
     return (
         <div id="render-component" ref={containerRef}>
             {size.width > 0 && (
@@ -174,6 +231,9 @@ export default function RenderComponent() {
                         positionRef.current = newPos;
                         setPosition(newPos);
                     }}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
                 >
                     <Layer>
                         <Rect
@@ -193,6 +253,26 @@ export default function RenderComponent() {
                             scale={scaleRef.current}
                         />
                         )}
+                        {lines.length > 0 && lines.map(line => (
+                            <Line
+                                key={`line-${line.id}`}
+                                points={line.points.map(p => p * scaleRef.current)}
+                                stroke={line.color}
+                                strokeWidth={line.width}
+                                draggable={line.draggable}
+                                onDragEnd={(e)=> {
+                                    const dx = e.target.x() / scaleRef.current;
+                                    const dy = e.target.y() / scaleRef.current;
+                                    setLines(prev => 
+                                        prev.map(l =>
+                                            l.id === line.id
+                                            ? line
+                                            : l
+                                        )
+                                    )
+                                }}
+                            />
+                        ))}
                         <Rect
                             x={50}
                             y={50}
@@ -200,7 +280,6 @@ export default function RenderComponent() {
                             height={100}
                             fill="lightblue"
                             draggable
-                            // onDragStart={(e)=> e.cancelBubble = true}
                         />
                     </Layer>
                 </Stage>
