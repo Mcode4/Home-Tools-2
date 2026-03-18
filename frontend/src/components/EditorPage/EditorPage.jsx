@@ -17,8 +17,9 @@ import { handleSearchAddress, reverseLookupAddress } from "../../functions/searc
 
 import MapComponent from "./Map";
 import "./EditorPage.css";
-import { ModalButton } from "../../context/Modal";
+import { ModalButton, ModalItem } from "../../context/Modal";
 import ManagePointsModal from "../ManagePointsModal";
+import { NavigateModal } from "../PopupModals";
 
 export default function EditorPage() {
     // LOADING AND STATE
@@ -1070,13 +1071,19 @@ export default function EditorPage() {
                     >
                         <img src="/icons/design.svg" alt="Draw" />
                     </li>
-                    <li
+                    {/* <li
                         id="menu-render-page"
                         className="user-select-none"
                         onClick={(e)=> selectMenu(e, "render-page")}
                     >
                         <img src="/icons/home.svg" alt="Render Page" />
-                    </li>
+                    </li> */}
+                    <ModalItem 
+                        itemText={(<img src="/icons/home.svg" alt="Render Page" />)}
+                        modalComponent={<NavigateModal
+                            to={"render"}
+                        />}
+                    />
                     <li 
                         id="menu-exports"
                         className="user-select-none"

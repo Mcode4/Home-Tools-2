@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
 import { thunkGetAllProperties } from "../../redux/properties";
@@ -18,8 +18,8 @@ export default function RenderHomePage() {
     const [loaded, setLoaded] = useState(false);
     const [reload, setReload] = useState(false);
 
-    let tempProps = ["ftttt", "meart", "wwwkl", "tinke", "uyjtw", "oppeww", "huyner", "opution", "oppurtune", "poerth", "goooooooooodd"]
-    let tempProjs = ["kyuth", "opoyth", "hynmui", "oasert", "osert", "vexxer", "lkiyht", "mlkathyu"]
+    // let tempProps = ["ftttt", "meart", "wwwkl", "tinke", "uyjtw", "oppeww", "huyner", "opution", "oppurtune", "poerth", "goooooooooodd"]
+    // let tempProjs = ["kyuth", "opoyth", "hynmui", "oasert", "osert", "vexxer", "lkiyht", "mlkathyu"]
 
     // SEARCHING and SORTING
     const [search, setSearch] = useState("");
@@ -29,6 +29,7 @@ export default function RenderHomePage() {
 
     // ETC
     const navigate = useNavigate();
+    const dispatch = useDispatch();
 
     // TESTING
     useEffect(()=> {
@@ -48,18 +49,29 @@ export default function RenderHomePage() {
     }, [search]);
 
     useEffect(()=> {
-        setProjects([...tempProjs, ...tempProps, ...tempProjs])
-        setProperties([...tempProps, ...tempProjs, ...tempProps])
+        const initialData = async () => {
+            await dispatch(thunkGetAllProperties());
+            setInitialized(true);
+        }
+        initialData()
+        // setProjects([...tempProjs, ...tempProps, ...tempProjs])
     }, [reload]);
 
     useEffect(()=> {
-        if(!initialized && !propertyStore.data.length) return;
+        console.log("INITIALISED REACHED INIT:", initialized,"DATA:", propertyStore)
+        if(!initialized) return;
+
+        if(!propertyStore.data.length > 0) {
+            setLoaded(true);
+            return;
+        }
+        console.log("INITIALISED REACHED, DATA:", propertyStore)
 
         const allProperties = [];
-        const allProjects = [];
         propertyStore.data.forEach(prev => {
-            console.log("PROPERTIES PASSING", prev);
+            allProperties.push(prev);
         })
+        setProperties(allProperties);
     }, [initialized]);
 
     
@@ -142,8 +154,11 @@ export default function RenderHomePage() {
                     {(view === "properties" || view === "both") && (
                         <div className="render-main-opt-container">
                             <div className="render-main-opt-title">Properties</div>
-                            {projects?.length > 0 ? projects.map(p => (
-                                <div className="render-main-opts">{p}</div>
+                            {properties?.length > 0 ? properties.map(p => (
+                                <button 
+                                    className="render-main-opts"
+                                    onClick={()=> navigate(`/render/${p.id}`)}
+                                >{p?.name}</button>
                             )) : (
                                 <div className="render-main-opts">No properties made.</div>
                             )}
