@@ -13,7 +13,7 @@ export default function Navbar({ isLoaded }) {
     const navigate = useNavigate();
     const location = useLocation();
     const startLocations = useRef(new Set(["/", "", "/login", "/signup"]));
-    const disabledLocations = useRef(new Set(["editor"]))
+    const disabledLocations = useRef(new Set(["editor", "render"]))
     const dispatch = useDispatch();
     
 

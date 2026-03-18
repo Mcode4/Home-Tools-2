@@ -55,7 +55,7 @@ export const reverseLookupAddress = async (lng, lat) => {
 
     try {
         const nominatimSearch = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=geocodejson`,
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
             { signal: controller.signal }
         );
 
@@ -76,7 +76,7 @@ export const reverseLookupAddress = async (lng, lat) => {
     }
 }
 
-const formatPlace = (place) => {
+export const formatPlace = (place) => {
     if(!place) return null;
     const a = place.address || {};
 

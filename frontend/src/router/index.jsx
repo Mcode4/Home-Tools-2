@@ -5,6 +5,8 @@ import LoginFormPage from "../components/LoginFormPage/LoginFormPage";
 import SignupFormPage from "../components/SignupFormPage";
 import DashboardPage from "../components/DashboardPage";
 import EditorPage from "../components/EditorPage/EditorPage";
+import RenderHomePage from "../components/RenderHomePage";
+import RenderPage from "../components/RenderPage";
 
 export const router = createBrowserRouter([
     {
@@ -31,6 +33,14 @@ export const router = createBrowserRouter([
             {
                 path: '/editor',
                 element: <EditorPage />
+            },
+            {
+                path: '/render',
+                element: <RenderHomePage />
+            },
+            {
+                path: '/render/*',
+                element: <RenderPage />
             },
             {
                 path: "*",

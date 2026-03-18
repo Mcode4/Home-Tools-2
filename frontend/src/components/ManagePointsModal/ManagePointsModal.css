@@ -1,0 +1,23 @@
+.fit-loading-mask {
+    position: relative;
+    background-color: rgba(255, 255, 255, 0.9);
+    left: 0;
+    top: 0;
+
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    
+    cursor: wait;
+    z-index: 999999;
+
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.fit-loading-mask.active {
+    opacity: 1;
+    pointer-events: auto;
+}

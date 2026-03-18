@@ -1,0 +1,81 @@
+
+/* Main Elements */
+#render-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    border: 1px solid red;
+}
+
+#render-top {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+
+    padding: 10px 20px;
+    border-bottom: 1px solid black;
+    gap: 10px;
+
+    position: relative;
+    z-index: 50;
+}
+
+#render-main {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid blue;
+}
+
+
+/* Top Section */
+.render-top-title {
+    grid-column: 2;
+    height: 25px;
+}
+
+.render-top-actions {}
+
+
+/* Main Section */
+#assets-menu {
+    display: flex;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+
+    height: 100%;
+    width: 200px;
+
+    background: rgba(255, 255, 255, 0.9);
+}
+
+#properties-menu {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    height: 100%;
+    width: 200px;
+
+    background: rgba(255, 255, 255, 0.9);
+}
+
+#render-screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    height: 100%;
+    width: 100%;
+    
+    overflow: hidden;
+    background: gray;
+}

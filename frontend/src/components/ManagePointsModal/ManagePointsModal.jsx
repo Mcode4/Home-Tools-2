@@ -13,6 +13,7 @@ import {
     thunkEditPoint,
     thunkDeletePoint
 } from "../../redux/points";
+import { reverseLookupAddress } from "../../functions/search/search";
 import { useModal } from "../../context/Modal";
 import "./ManagePointsModal.css"
 
@@ -31,6 +32,7 @@ export default function ManagePointsModal({
     const [length, setLength] = useState(null);
     const [err, setErr] = useState({});
     const [initialState, setInitialState] = useState({});
+    const [loaded, setLoaded] = useState(false);
     const dispatch = useDispatch();
     const { closeModal } = useModal();
 
@@ -62,6 +64,16 @@ export default function ManagePointsModal({
             } 
         };
 
+        if(point?.location) {
+            setInitialState(prev => ({...prev, location: point?.location}))
+            setLoaded(true)
+        } else {
+            reverseLookupAddress(point?.lng, point?.lat)
+                .then(data => "data to db")
+                .then(setLoaded(true))
+                .catch(e => setErr({e}))
+        }
+
         console.log("POINT MODAL POINT:", point, "ISSAVED:", isSaved);
     }, []);
 
@@ -73,7 +85,7 @@ export default function ManagePointsModal({
             ...point,
             name,
             type,
-            // location,
+            location,
             icon,
             radius
         };
@@ -115,7 +127,10 @@ export default function ManagePointsModal({
     };
 
     return point ? (
-        <form onSubmit={handleAdd}>
+        <form 
+            onSubmit={handleAdd}
+            className={!loaded ? "hidden" : ""}
+        >
             <div className="form-group">
                 <label htmlFor="point-name">Name:</label>
                 <input 
