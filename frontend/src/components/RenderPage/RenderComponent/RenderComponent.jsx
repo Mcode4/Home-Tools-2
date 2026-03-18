@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Stage, Layer, Rect } from "react-konva";
+import { Stage, Layer, Rect, Line } from "react-konva";
 import "./RenderComponent.css";
 
 export default function RenderComponent() {
@@ -9,6 +9,11 @@ export default function RenderComponent() {
     const [scale, setScale] = useState(1);
     const [position, setPosition] = useState({x: 0, y: 0});
     const [baseplateSize, setBaseplateSize] = useState({width: 800, height: 600});
+
+    const [gridActive, setGridActive] = useState(true);
+    const [gridPixelSize, setGridPixelSize] = useState(81);
+    const [gridStroke, setgridStroke] = useState(1);
+    const [gridColor, setGridColor] = useState("#ccc")
 
     const scaleRef = useRef(1);
     const positionRef = useRef({x: 0, y: 0});
@@ -88,6 +93,70 @@ export default function RenderComponent() {
         }
     }
 
+    const Grid = ({ width, height, gridSize, scale }) => {
+        const lines = [];
+        const strokeWidth = 1 / scale;
+
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        lines.push(
+            <Line
+                key={`grid-x${centerX}`}
+                points={[centerX, 0, centerX, height]}
+                stroke={gridColor}
+                strokeWidth={strokeWidth*2}
+            />
+        )
+
+        lines.push(
+            <Line
+                key={`grid-y${centerY}`}
+                points={[ 0, centerY, width, centerY]}
+                stroke={gridColor}
+                strokeWidth={strokeWidth*2}
+            />
+        )
+
+        for(let i=1; i<(width/gridSize)/2; i++) {
+            const plusX = centerX + (gridSize * i);
+            const minusX = centerX - (gridSize * i);
+            lines.push(
+                <Line
+                    key={`grid-x${plusX}`}
+                    points={[plusX, 0, plusX, height]}
+                    stroke={gridColor}
+                    strokeWidth={strokeWidth}
+                />,
+                <Line
+                    key={`grid-x${minusX}`}
+                    points={[minusX, 0, minusX, height]}
+                    stroke={gridColor}
+                    strokeWidth={strokeWidth}
+                />
+            );
+        }
+        for(let i=1; i<(height/gridSize)/2; i++) {
+            const plusY = centerY + (gridSize*i);
+            const minusY = centerY - (gridSize*i);
+            lines.push(
+                <Line
+                    key={`grid-y${plusY}`}
+                    points={[ 0, plusY, width, plusY]}
+                    stroke={gridColor}
+                    strokeWidth={strokeWidth}
+                />,
+                <Line
+                    key={`grid-y${minusY}`}
+                    points={[ 0, minusY, width, minusY]}
+                    stroke={gridColor}
+                    strokeWidth={strokeWidth}
+                />
+            )
+        }
+        return <>{lines}</>
+    }
+
     return (
         <div id="render-component" ref={containerRef}>
             {size.width > 0 && (
@@ -98,17 +167,10 @@ export default function RenderComponent() {
                     scaleY={scale}
                     draggable
                     onWheel={handleWheel}
-                    onDragMove={(e) => {
-                        positionRef.current = {
-                            x: e.target.x(),
-                            y: e.target.y()
-                        }
-                    }}
+                    onDragMove={(e) => positionRef.current = e.target.position()}
                     onDragEnd={(e)=> {
-                        const newPos = clampPosition(
-                            { x: e.target.x(), y: e.target.y() },
-                            scaleRef.current
-                        );
+                        const stage = e.target
+                        const newPos = clampPosition(stage.position(), stage.scaleX());
                         positionRef.current = newPos;
                         setPosition(newPos);
                     }}
@@ -120,9 +182,17 @@ export default function RenderComponent() {
                             width={baseplateSize.width}
                             height={baseplateSize.height}
                             fill="#ddd"
-                            stroke="black"
+                            stroke={gridColor}
                             strokeWidth={2}
                         />
+                        {gridActive && (
+                        <Grid
+                            width={baseplateSize.width}
+                            height={baseplateSize.height}
+                            gridSize={gridPixelSize}
+                            scale={scaleRef.current}
+                        />
+                        )}
                         <Rect
                             x={50}
                             y={50}
