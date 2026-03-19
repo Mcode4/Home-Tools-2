@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Stage, Layer, Rect, Line } from "react-konva";
 import "./RenderComponent.css";
+import { useActionData } from "react-router-dom";
 
 export default function RenderComponent({ activeTool }) {
     const containerRef = useRef(null);
@@ -26,6 +27,9 @@ export default function RenderComponent({ activeTool }) {
 
     useEffect(()=> {
         console.log("TOOL CHANGED", activeTool);
+        if(activeTool?.type === "clear") {
+            setLines([]);
+        }
     }, [activeTool]);
 
     useEffect(()=> {
@@ -168,16 +172,24 @@ export default function RenderComponent({ activeTool }) {
         }
     }
 
+    const snap = (value, gridSize) => {
+        return Math.round(value/gridSize) * gridSize;
+    }
+
     const handleMouseDown = (e) => {
-        if(!activeTool || activeTool.type !== "line") return;
+        if(!activeTool || activeTool?.type !== "line") return;
 
         const stage = e.target.getStage();
         stage.stopDrag();
 
-        const pointer = stage.getPointerPosition();
-        const worldX = (pointer.x - positionRef.current.x) / scaleRef.current;
-        const worldY = (pointer.y - positionRef.current.y) / scaleRef.current;
+        // const pointer = stage.getPointerPosition();
+        // const worldX = (pointer.x - positionRef.current.x) / scaleRef.current;
+        // const worldY = (pointer.y - positionRef.current.y) / scaleRef.current;
         
+        const point = stage.getRelativePointerPosition();
+        const worldX = activeTool?.snap ? snap(point.x, gridPixelSize) : point.x; 
+        const worldY = activeTool?.snap ? snap(point.y, gridPixelSize) : point.y;
+
         drawingRef.current = true;
         setLines(prev => [
             ...prev,
@@ -197,9 +209,9 @@ export default function RenderComponent({ activeTool }) {
         const stage = e.target.getStage();
         stage.stopDrag();
 
-        const pointer = stage.getPointerPosition();
-        const worldX = (pointer.x - positionRef.current.x) / scaleRef.current;
-        const worldY = (pointer.y - positionRef.current.y) / scaleRef.current;
+        const point = stage.getRelativePointerPosition();
+        const worldX = point.x; 
+        const worldY = point.y;
 
         setLines(prev => {
             const lastLine = prev[prev.length-1];
@@ -219,6 +231,21 @@ export default function RenderComponent({ activeTool }) {
     const handleMouseUp = (e) => {
         if(!drawingRef.current) return;
         drawingRef.current = false;
+        if(activeTool?.snap) {
+            setLines(prev => {
+                const lastLine = prev[prev.length-1];
+                const updatedLine = {
+                    ...lastLine,
+                    points: [
+                        lastLine.points[0],
+                        lastLine.points[1],
+                        snap(lastLine.points[2], gridPixelSize),
+                        snap(lastLine.points[3], gridPixelSize)
+                    ]
+                }
+                return [...prev.slice(0, prev.length-1), updatedLine];
+            });
+        }
     }
 
     return (
@@ -273,7 +300,7 @@ export default function RenderComponent({ activeTool }) {
                                     setLines(prev => 
                                         prev.map(l =>
                                             l.id === line.id
-                                            ? {...l, points: [...l.points.map(p => p%1 === 1 ? p+dx : p+dy)]}
+                                            ? {...l, points: l.points.map((p, i) => i%2 === 0 ? p+dx : p+dy)}
                                             : l
                                         )
                                     )

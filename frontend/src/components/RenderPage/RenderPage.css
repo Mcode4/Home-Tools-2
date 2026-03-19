@@ -1,3 +1,12 @@
+/* Local Variable */
+.active {
+    background: #ddd !important;
+}
+
+.render-tools button.active:hover {
+    background: #ccc !important;
+    cursor: pointer;
+}
 
 /* Main Elements */
 #render-page {
@@ -83,15 +92,58 @@
 
 /* Render Screen Elements */
 .render-toolbar {
-    position: relative;
+    position: absolute;
     background-color: rgba(255, 255, 255, 0.9);
     align-self: center;
-    top: 36px;
+    top: 10px;
     left: auto;
     right: auto;
 
-    height: 50px;
+    height: fit-content;
     width: 300px;
     display: flex;
+    flex-direction: column;
     z-index: 1;
+
+    padding: 5px;
+}
+
+.render-tools {
+    display: flex;
+    height: 45px;
+}
+
+.render-tools button {
+    border: none;
+    background: none;
+    padding: 10px;
+} 
+
+.render-tools button:hover {
+    background: #ccc;
+    cursor: pointer;
+}
+
+#render-tool-settings {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    justify-self: center;
+    overflow-x: auto;
+}
+
+.input-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 5px;
+}
+
+.input-container p {
+    display: flex;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid black;
+    border-radius: 5px;
+    width: fit-content;
 }
