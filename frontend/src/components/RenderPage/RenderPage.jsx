@@ -18,7 +18,8 @@ export default function RenderPage() {
     const [tool, setTool] = useState(null);
     const toolSettingsRef = useRef({
         line: {type: "line", width: 2, color: "#000", draggable: true, snap: false},
-        clear: {type: "clear"}
+        clear: {type: "clear"},
+        handle: {type: "handle", width: 1, color: "#000", snap: true}
     })
 
     const navigate = useNavigate();
@@ -59,8 +60,10 @@ export default function RenderPage() {
         if(tool?.type === toolName) {
             setTool(null);
         } else {
-            el = document.getElementById(`${toolName}-tool`);
-            el.classList.add("active");
+            if(!["clear"].includes(toolName)) {
+                el = document.getElementById(`${toolName}-tool`);
+                el.classList.add("active");
+            }
             setTool(toolSettingsRef.current[toolName]);
         }
     }
@@ -68,7 +71,7 @@ export default function RenderPage() {
     function handleToolChange(type, change) {
         console.log("HANDLE TOOL CHANGE HIT");
         if(
-            ["line"].includes(type) &&
+            ["line", "handle"].includes(type) &&
             ["width", "color", "draggable", "snap"].includes(Object.keys(change)[0])
         ) {
             console.log("SETTING TOOL CHANGE", {type, change});
@@ -105,6 +108,10 @@ export default function RenderPage() {
                     <div className="render-toolbar">
                         <span className="render-tools">
                             <button
+                                id="handle-tool"
+                                onClick={()=> selectTool("handle")}
+                            >Handle</button>
+                            <button
                                 id="line-tool"
                                 onClick={()=> selectTool("line")}
                             >Line</button>
@@ -113,7 +120,7 @@ export default function RenderPage() {
                                 onClick={()=> selectTool("clear")}
                             >Clear</button>
                         </span>
-                        {["line"].includes(tool?.type) && (
+                        {["line", "handle"].includes(tool?.type) && (
                             <span id="render-tool-settings" >
                                 <div className="input-container">
                                     <input 
@@ -128,13 +135,22 @@ export default function RenderPage() {
                                     <input 
                                         type="range" 
                                         id="tool-size-setting"
-                                        min={0.7}
-                                        max={9}
+                                        min={
+                                            tool?.type === "line"
+                                                ? 0.7
+                                                : 0.5
+                                        }
+                                        max={
+                                            tool?.type === "line"
+                                                ? 9
+                                                : 6
+                                        }
                                         step={0.1}
                                         value={tool.width}
                                         onChange={(e)=> handleToolChange(tool.type, {width: e.target.value})}
                                     />
                                 </div>
+                                {tool?.type === "line" && (
                                 <div className="input-container">
                                     <label htmlFor="tool-size-setting">Draggable:</label>
                                     <input 
@@ -144,6 +160,7 @@ export default function RenderPage() {
                                         onChange={(e)=> handleToolChange(tool.type, {draggable: e.target.checked})}
                                     />
                                 </div>
+                                )}
                                 
                                 <div className="input-container">
                                     <label htmlFor="tool-size-setting">Snap to grid:</label>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Stage, Layer, Rect, Line } from "react-konva";
+import { Stage, Layer, Rect, Line, Circle } from "react-konva";
 import "./RenderComponent.css";
 import { useActionData } from "react-router-dom";
 
@@ -17,6 +17,7 @@ export default function RenderComponent({ activeTool }) {
     const [gridColor, setGridColor] = useState("#ccc")
 
     const [lines, setLines] = useState([]);
+    const [handleEnds, setHandleEnds] = useState([]);
 
     const scaleRef = useRef(1);
     const positionRef = useRef({x: 0, y: 0});
@@ -27,14 +28,30 @@ export default function RenderComponent({ activeTool }) {
 
     useEffect(()=> {
         console.log("TOOL CHANGED", activeTool);
+        if(activeTool?.type === "handle") {
+            const newHandles = lines?.map(line => ({
+                start: [line.points[0], line.points[1]],
+                end: [line.points[2], line.points[3]],
+                lineColor: line.color
+            }))
+            setHandleEnds(newHandles);
+        } else {
+            setHandleEnds([]);
+        }
+
         if(activeTool?.type === "clear") {
             setLines([]);
         }
-    }, [activeTool]);
+        
+    }, [activeTool?.type, lines]);
 
     useEffect(()=> {
         console.log("LINES CHANGED", lines);
     }, [lines]);
+
+    useEffect(()=> {
+        console.log("HANDLE ENDS CHANGED", handleEnds);
+    }, [handleEnds]);
 
     useEffect(()=> {
         const updateSize = () => {
@@ -248,6 +265,31 @@ export default function RenderComponent({ activeTool }) {
         }
     }
 
+    const handleAnchorDrag = (e, id, index) => {
+        const stage = e.target.getStage();
+        const point = stage.getRelativePointerPosition();
+
+        const worldX = activeTool?.snap ? snap(point.x, gridPixelSize) : point.x;
+        const worldY = activeTool?.snap ? snap(point.y, gridPixelSize) : point.y;
+
+        setLines(prev => 
+            prev.map(line => {
+                if(line.id !== id) return line;
+
+                const newPoints = [...line.points]
+                if(index === 0) {
+                    newPoints[0] = worldX;
+                    newPoints[1] = worldY;
+                } else {
+                    newPoints[2] = worldX;
+                    newPoints[3] = worldY;
+                }
+
+                return {...line, points: newPoints}
+            })
+        );
+    }
+
     return (
         <div id="render-component" ref={containerRef}>
             {size.width > 0 && (
@@ -288,6 +330,7 @@ export default function RenderComponent({ activeTool }) {
                         />
                         )}
                         {lines.length > 0 && lines.map(line => (
+                            <>
                             <Line
                                 key={`line-${line.id}`}
                                 points={line.points}
@@ -304,8 +347,38 @@ export default function RenderComponent({ activeTool }) {
                                             : l
                                         )
                                     )
+                                    e.target.position({x: 0, y: 0})
                                 }}
                             />
+                            {handleEnds?.length > 0 && handleEnds?.map(({start, end, lineColor}, i) => (
+                                <>
+                                <Circle
+                                    key={`hstart-${i}`}
+                                    x={start[0]}
+                                    y={start[1]}
+                                    radius={8/scaleRef.current}
+                                    fill={activeTool?.color}
+                                    stroke={lineColor}
+                                    strokeWidth={activeTool?.width}
+                                    draggable
+                                    onDragMove={(e)=> handleAnchorDrag(e, line.id, 0)}
+                                />
+
+                                <Circle
+                                    key={`hend-${i}`}
+                                    x={end[0]}
+                                    y={end[1]}
+                                    radius={8/scaleRef.current}
+                                    fill={activeTool?.color}
+                                    stroke={lineColor}
+                                    strokeWidth={activeTool?.width}
+                                    draggable
+                                    onDragMove={(e)=> handleAnchorDrag(e, line.id, 1)}
+                                />
+                                </>
+                            ))}
+                            </>
+                            
                         ))}
                         <Rect
                             x={50}
