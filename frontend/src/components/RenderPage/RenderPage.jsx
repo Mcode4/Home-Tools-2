@@ -21,7 +21,7 @@ export default function RenderPage() {
         clear: {type: "clear"},
         handle: {type: "handle", width: 1, color: "#000", snap: true},
         eraser: {type: "eraser", radius: 10},
-        text: {type: "text", width: 8, color: "#000"}
+        text: {type: "text", width: 16, color: "#000"}
     })
 
     const navigate = useNavigate();
@@ -83,7 +83,7 @@ export default function RenderPage() {
             setTool(toolSettingsRef.current[type]);
         }
         else if(type === "eraser" && Object.keys(change)[0] === "radius") {
-            toolSettingsRef.current.eraser = {type: "eraser", radius: change.radius}
+            toolSettingsRef.current.eraser = {type: "eraser", radius: Number(change.radius)}
             setTool(toolSettingsRef.current.eraser);
         }
     }
@@ -153,11 +153,15 @@ export default function RenderPage() {
                                         min={
                                             tool?.type === "line"
                                                 ? 0.7
+                                            : tool?.type === "text"
+                                                ? 12
                                                 : 0.5
                                         }
                                         max={
                                             tool?.type === "line"
                                                 ? 9
+                                            : tool?.type === "text"
+                                                ? 40
                                                 : 6
                                         }
                                         step={0.1}
@@ -196,9 +200,9 @@ export default function RenderPage() {
                                     <input 
                                         type="range" 
                                         id="tool-radius-setting"
-                                        min={1}
-                                        max={20}
-                                        step={0.5}
+                                        min={5}
+                                        max={50}
+                                        step={1}
                                         value={tool.radius}
                                         onChange={(e)=> handleToolChange(tool.type, {radius: e.target.value})}
                                     />

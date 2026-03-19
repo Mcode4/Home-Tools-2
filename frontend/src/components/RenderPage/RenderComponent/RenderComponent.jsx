@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Stage, Layer, Rect, Line, Circle } from "react-konva";
+import { Stage, Layer, Rect, Line, Circle, Text } from "react-konva";
 import "./RenderComponent.css";
 import { useActionData } from "react-router-dom";
 
@@ -18,6 +18,9 @@ export default function RenderComponent({ activeTool }) {
 
     const [lines, setLines] = useState([]);
     const [handleEnds, setHandleEnds] = useState([]);
+    const [cursor, setCursor] = useState({x: null, y: null, type: "crosshair"});
+    const [texts, setTexts] = useState([]);
+    const [editingText, setEditingText] = useState({});
 
     const scaleRef = useRef(1);
     const positionRef = useRef({x: 0, y: 0});
@@ -35,8 +38,10 @@ export default function RenderComponent({ activeTool }) {
                 lineColor: line.color
             }))
             setHandleEnds(newHandles);
+            setCursor(c => ({...c, type: "grab"}));
         } else {
-            setHandleEnds([]);
+            if(handleEnds.length > 0)setHandleEnds([]);
+            if(["grab", "grabbing"].includes(cursor.type))setCursor(c => ({...c, type: "crosshair"}));
         }
 
         if(activeTool?.type === "clear") {
@@ -48,6 +53,10 @@ export default function RenderComponent({ activeTool }) {
     useEffect(()=> {
         console.log("LINES CHANGED", lines);
     }, [lines]);
+
+    useEffect(()=> {
+        console.log("TEXTS CHANGED", texts);
+    }, [texts]);
 
     useEffect(()=> {
         console.log("HANDLE ENDS CHANGED", handleEnds);
@@ -194,6 +203,37 @@ export default function RenderComponent({ activeTool }) {
     }
 
     const handleMouseDown = (e) => {
+        if(activeTool?.type === "eraser") {
+            const stage = e.target.getStage();
+            const point = stage.getRelativePointerPosition();
+
+            setLines(prev =>
+                prev.filter(line =>
+                    !isPointNearLine(point.x, point.y, line, activeTool.radius)
+                )
+            );
+            setTexts(prev =>
+                prev.filter(t =>
+                    Math.hypot(point.x - t.x, point.y - t.y) > activeTool.radius
+                )
+            );
+            drawingRef.current = true;
+        } else if(activeTool?.type === "text") {
+            const stage = e.target.getStage();
+            const point = stage.getRelativePointerPosition();
+
+            setTexts(prev => [
+                ...prev,
+                {
+                    id: Date.now().toString(),
+                    x: point.x,
+                    y: point.y,
+                    text: "Double click to edit",
+                    fontSize: activeTool?.width ?? 16,
+                    color: activeTool?.color ?? "#000"
+                }
+            ])
+        }
         if(!activeTool || activeTool?.type !== "line") return;
 
         const stage = e.target.getStage();
@@ -221,12 +261,33 @@ export default function RenderComponent({ activeTool }) {
     }
 
     const handleMouseMove = (e) => {
+        const stage = e.target.getStage();
+        const point = stage.getRelativePointerPosition();
+        setCursor(c => ({...c, x: point.x, y: point.y}));
+
         if(!drawingRef.current) return;
 
-        const stage = e.target.getStage();
+        
         stage.stopDrag();
 
-        const point = stage.getRelativePointerPosition();
+        if(activeTool?.type === "eraser") {
+            const stage = e.target.getStage();
+            stage.stopDrag();
+            const point = stage.getRelativePointerPosition();
+
+            setLines(prev => 
+                prev.filter(line =>
+                    !isPointNearLine(point.x, point.y, line, activeTool.radius / scaleRef.current)
+                )
+            );
+            setTexts(prev =>
+                prev.filter(t =>
+                    Math.hypot(point.x - t.x, point.y - t.y) > activeTool.radius
+                )
+            );
+            return;
+        }
+
         const worldX = point.x; 
         const worldY = point.y;
 
@@ -248,7 +309,7 @@ export default function RenderComponent({ activeTool }) {
     const handleMouseUp = (e) => {
         if(!drawingRef.current) return;
         drawingRef.current = false;
-        if(activeTool?.snap) {
+        if(activeTool?.type === "line" && activeTool?.snap) {
             setLines(prev => {
                 const lastLine = prev[prev.length-1];
                 const updatedLine = {
@@ -290,12 +351,46 @@ export default function RenderComponent({ activeTool }) {
         );
     }
 
+    const isPointNearLine = (px, py, obj, threshold = 10) => {
+        if(obj.points) {
+            const [x1, y1, x2, y2] = obj.points;
+            const A = px - x1;
+            const B = py - y1;
+            const C = x2 - x1;
+            const D = y2 - y1;
+
+            const dot = A * C + B * D;
+            const lenSq = C * C + D * D;
+
+            let param = lenSq !== 0 ? dot / lenSq : -1;
+            let xx, yy;
+
+            if(param < 0) {
+                xx = x1;
+                yy = y1;
+            } else if(param > 1) {
+                xx = x2;
+                yy = y2;
+            } else {
+                xx = x1 + param * C;
+                yy = y1 + param * D;
+            }
+
+            const dx = px - xx;
+            const dy = py - yy;
+
+            return Math.sqrt(dx * dx + dy * dy) < threshold;
+        }
+    }
+
     return (
         <div id="render-component" ref={containerRef}>
             {size.width > 0 && (
+            <>
                 <Stage 
                     width={size.width} 
                     height={size.height}
+                    style={{cursor: cursor.type}}
                     scaleX={scale}
                     scaleY={scale}
                     draggable
@@ -388,8 +483,67 @@ export default function RenderComponent({ activeTool }) {
                             fill="lightblue"
                             draggable
                         />
+                        {texts.length > 0 && texts.map(t => (
+                            <Text
+                                key={`text-${t.id}`}
+                                x={t.x}
+                                y={t.y}
+                                text={t.text}
+                                fontSize={t.fontSize}
+                                fill={t.color}
+                                draggable
+                                onDblClick={(e) => {
+                                    const textNode = e.target;
+                                    const stage = textNode.getStage();
+                                    const absPos = textNode.getAbsolutePosition();
+
+                                    setEditingText({
+                                        id: t.id,
+                                        x: absPos.x,
+                                        y: absPos.y,
+                                        value: t.text
+                                    });
+                                }}
+                            />
+                        ))}
+                        {activeTool?.type === "eraser" && cursor?.x && (
+                            <Circle
+                                x={cursor.x}
+                                y={cursor.y}
+                                radius={activeTool.radius}
+                                stroke="rgba(255, 0, 0, 0.2)"
+                            />
+                        )}
                     </Layer>
                 </Stage>
+
+                {Object.keys(editingText ?? {}).length > 0 && (
+                <input 
+                    style={{
+                        position: "absolute",
+                        top: editingText?.y,
+                        left: editingText?.x,
+                        fontSize: "16px",
+                        border: "1px solid black",
+                        padding: "2px"
+                    }}
+                    value={editingText?.value}
+                    onChange={(e) =>
+                        setEditingText(prev => ({...prev, value: e.target.value}))
+                    }
+                    onBlur={()=> {
+                        setTexts(prev =>
+                            prev.map(t =>
+                                t.id === editingText.id
+                                    ? {...t, text: editingText?.value}
+                                    : t
+                            )
+                        )
+                        setEditingText(null)
+                    }}
+                />
+                )}
+            </>
             )}
         </div>
     )
