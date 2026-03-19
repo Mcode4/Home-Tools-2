@@ -562,17 +562,17 @@ export default function EditorPage() {
             const menuItem = document.getElementById(`menu-item-${m}`);
             const slider = document.getElementById("menu-tools");
             if(m === val) {
-                currMenu.classList.toggle("menu-active");
-                menuItem.classList.toggle("hidden");
+                currMenu?.classList.toggle("menu-active");
+                menuItem?.classList.toggle("hidden");
 
-                if(menuItem.className.includes("hidden")) {
-                    slider.classList.toggle("closed", true);
+                if(menuItem?.className.includes("hidden")) {
+                    slider?.classList.toggle("closed", true);
                 } else {
-                    slider.classList.toggle("closed", false);
+                    slider?.classList.toggle("closed", false);
                 };
             } else {
-                currMenu.classList.toggle("menu-active", false);
-                menuItem.classList.toggle("hidden", true);
+                currMenu?.classList.toggle("menu-active", false);
+                menuItem?.classList.toggle("hidden", true);
             };
         });
     };
@@ -601,16 +601,16 @@ export default function EditorPage() {
 
     function hideContextMenu() {
         const menu = document.getElementById("marker-context");
-        if(menu) menu.classList.add("hidden");
+        if(menu) menu?.classList.add("hidden");
     }
 
     const showDefaultHoverContext = (visible, x=null, y=null) => {
         const hoverEl = document.getElementById("hover-element");
         if(!hoverEl) return;
 
-        if(!visible) hoverEl.classList.toggle("hidden", true);
+        if(!visible) hoverEl?.classList.toggle("hidden", true);
         else if(x && y) {
-            hoverEl.classList.toggle("hidden", false);
+            hoverEl?.classList.toggle("hidden", false);
             hoverEl.style.left = `${x}px`;
             hoverEl.style.top = `${y}px`;
         }

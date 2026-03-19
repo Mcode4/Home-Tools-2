@@ -212,11 +212,6 @@ export default function RenderComponent({ activeTool }) {
                     !isPointNearLine(point.x, point.y, line, activeTool.radius)
                 )
             );
-            setTexts(prev =>
-                prev.filter(t =>
-                    Math.hypot(point.x - t.x, point.y - t.y) > activeTool.radius
-                )
-            );
             drawingRef.current = true;
         } else if(activeTool?.type === "text") {
             const stage = e.target.getStage();
@@ -278,11 +273,6 @@ export default function RenderComponent({ activeTool }) {
             setLines(prev => 
                 prev.filter(line =>
                     !isPointNearLine(point.x, point.y, line, activeTool.radius / scaleRef.current)
-                )
-            );
-            setTexts(prev =>
-                prev.filter(t =>
-                    Math.hypot(point.x - t.x, point.y - t.y) > activeTool.radius
                 )
             );
             return;
