@@ -24,7 +24,7 @@ export default function RenderHomePage() {
     // SEARCHING and SORTING
     const [search, setSearch] = useState("");
     const [searchResults, setSearchResults] = useState([]);
-    const [view, setView] = useState("projects");
+    const [view, setView] = useState("both");
     const [sortUp, setSortUp] = useState(true);
 
     // ETC

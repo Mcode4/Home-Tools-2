@@ -19,7 +19,9 @@ export default function RenderPage() {
     const toolSettingsRef = useRef({
         line: {type: "line", width: 2, color: "#000", draggable: true, snap: false},
         clear: {type: "clear"},
-        handle: {type: "handle", width: 1, color: "#000", snap: true}
+        handle: {type: "handle", width: 1, color: "#000", snap: true},
+        eraser: {type: "eraser", radius: 10},
+        text: {type: "text", width: 8, color: "#000"}
     })
 
     const navigate = useNavigate();
@@ -71,7 +73,7 @@ export default function RenderPage() {
     function handleToolChange(type, change) {
         console.log("HANDLE TOOL CHANGE HIT");
         if(
-            ["line", "handle"].includes(type) &&
+            ["line", "handle", "text"].includes(type) &&
             ["width", "color", "draggable", "snap"].includes(Object.keys(change)[0])
         ) {
             console.log("SETTING TOOL CHANGE", {type, change});
@@ -79,6 +81,10 @@ export default function RenderPage() {
                 ...toolSettingsRef.current[type], ...change
             }
             setTool(toolSettingsRef.current[type]);
+        }
+        else if(type === "eraser" && Object.keys(change)[0] === "radius") {
+            toolSettingsRef.current.eraser = {type: "eraser", radius: change.radius}
+            setTool(toolSettingsRef.current.eraser);
         }
     }
 
@@ -116,12 +122,21 @@ export default function RenderPage() {
                                 onClick={()=> selectTool("line")}
                             >Line</button>
                             <button
+                                id="text-tool"
+                                onClick={()=> selectTool("text")}
+                            >Text</button>
+                            <button
+                                id="eraser-tool"
+                                onClick={()=> selectTool("eraser")}
+                            >Eraser</button>
+                            <button
                                 id="clear-tool"
                                 onClick={()=> selectTool("clear")}
                             >Clear</button>
                         </span>
-                        {["line", "handle"].includes(tool?.type) && (
-                            <span id="render-tool-settings" >
+                        <span id="render-tool-settings" >
+                            {["line", "handle", "text"].includes(tool?.type) && (
+                                <>
                                 <div className="input-container">
                                     <input 
                                         type="color" 
@@ -162,6 +177,7 @@ export default function RenderPage() {
                                 </div>
                                 )}
                                 
+                                {tool?.type !== "text" && (
                                 <div className="input-container">
                                     <label htmlFor="tool-size-setting">Snap to grid:</label>
                                     <input 
@@ -171,8 +187,27 @@ export default function RenderPage() {
                                         onChange={(e)=> handleToolChange(tool.type, {snap: e.target.checked})}
                                     />
                                 </div>
+                                )}
+                                </>
+                            )}
+                                {tool?.type === "eraser" && (
+                                <div className="input-container">
+                                    <p>{tool?.radius}</p>
+                                    <input 
+                                        type="range" 
+                                        id="tool-radius-setting"
+                                        min={1}
+                                        max={20}
+                                        step={0.5}
+                                        value={tool.radius}
+                                        onChange={(e)=> handleToolChange(tool.type, {radius: e.target.value})}
+                                    />
+                                </div>
+                                )}
                             </span>
-                        )}
+                        
+                            
+                        
                     </div>
                     <RenderComponent 
                         activeTool={tool}
