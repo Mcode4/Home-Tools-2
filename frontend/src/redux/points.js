@@ -26,7 +26,7 @@ const deletePoint = (id) => ({
 })
 
 // Get All Points
-export const thunkGetAllPoints = () => async(dispatch) => {
+export const thunkGetPoints = () => async(dispatch) => {
     const res = await fetch("/api/points/all", {
         method: "GET",
         credentials: "include"
@@ -41,13 +41,13 @@ export const thunkGetAllPoints = () => async(dispatch) => {
 // Create Point
 export const thunkCreatePoint = (pointObj) => async(dispatch) => {
     console.log("API CREATE POINT POINT OBJ:", pointObj)
-    const res = await fetch("/api/points/", {
+    const res = await fetch("/api/points", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(pointObj),
         credentials: "include"
     });
-    const check = checkAndReturnRes(res);
+    const check = await checkAndReturnRes(res);
     if(check.ok) {
         await dispatch(createPoint(check.data.data.point));
     };
@@ -63,7 +63,7 @@ export const thunkEditPoint = (id, pointObj) => async(dispatch) => {
         body: JSON.stringify(pointObj),
         credentials: "include"
     });
-    const check = checkAndReturnRes(res);
+    const check = await checkAndReturnRes(res);
     if(check.ok) {
         await dispatch(editPoint(check.data.data.point));
     };
@@ -77,7 +77,7 @@ export const thunkDeletePoint = (id) => async(dispatch) => {
         method: "DELETE",
         credentials: "include"
     });
-    const check = checkAndReturnRes(res);
+    const check = await checkAndReturnRes(res);
     if(check.ok) {
         await dispatch(deletePoint(id));
     };

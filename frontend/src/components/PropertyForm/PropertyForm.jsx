@@ -127,8 +127,8 @@ export default function PropertyForm({id}) {
 
         const prop = {
             name,
-            lat,
-            lng,
+            lat: Number(lat),
+            lng: Number(lng),
             address,
             city,
             county,
@@ -253,7 +253,7 @@ export default function PropertyForm({id}) {
             {err.client && (<p>{err.client}</p>)}
             <button 
                 type="submit"
-                disabled={!address?.length || !name?.length}
+                disabled={!lat || !lng || !name?.length}
             >Submit</button>
         </form>
         </>

@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
 import { thunkGetAllProperties } from "../../redux/properties";
-import { thunkGetAllPoints } from "../../redux/points";
+import { thunkGetPoints } from "../../redux/points";
 
 import PropertyForm from "../PropertyForm";
 import { ModalButton } from "../../context/Modal";
@@ -72,7 +72,7 @@ export default function RenderHomePage() {
             allProperties.push(prev);
         })
         setProperties(allProperties);
-    }, [initialized]);
+    }, [initialized, propertyStore?.data.length]);
 
     
     return (

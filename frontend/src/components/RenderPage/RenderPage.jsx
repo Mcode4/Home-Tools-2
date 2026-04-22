@@ -53,7 +53,7 @@ export default function RenderPage() {
         if(currProp) setProperty(currProp);
 
         setLoaded(true);
-    }, [initialized]);
+    }, [initialized, propertyStore?.data.length]);
 
     function selectTool(toolName) {
         let el = document.getElementById(`${tool?.type}-tool`);
@@ -107,7 +107,18 @@ export default function RenderPage() {
                 </div>
 
                 <div id="properties-menu">
-                    Properties Menu
+                    <h3>Properties</h3>
+                    <div className="property-list">
+                        {propertyStore.data.map(p => (
+                            <div 
+                                key={p.id} 
+                                className={`property-item ${p.id === id ? "active" : ""}`}
+                                onClick={() => navigate(`/render/${p.id}`)}
+                            >
+                                {p.name}
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 <div id="render-screen">

@@ -16,4 +16,5 @@ RUN find /backend -maxdepth 3 -type d
 RUN which python || true
 RUN python --version || true
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use shell form of CMD to allow environment variable expansion
+CMD sh -c "uvicorn main:app --host 0.0.0.0 --port ${BACKEND_INTERNAL_PORT:-8000}"

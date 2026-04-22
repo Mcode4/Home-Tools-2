@@ -1,1 +1,16 @@
-# External Integrations **Analysis Date:** 2026-04-14 ## APIs & External Services **Mapping:** - MapLibre GL - Used for interactive map rendering in `frontend/src/components/EditorPage/Map/MapComponent.jsx` - SDK/Client: `maplibre-gl` ## Data Storage **Databases:** - PostgreSQL - Used in production (via `docker-compose.yml` and `backend/requirements.txt` with `psycopg2-binary`) - Connection: `POSTGRES_URL` environment variable - Client: Raw SQL/Psycopg2 (migrations in `backend/scripts/migrate_db_to_psql.py`) - SQLite - Used for local development/initial setup in `backend/app/db/db.py` **File Storage:** - Local filesystem (Paths stored in `images` table in `backend/app/db/db.py`) **Caching:** - Not detected ## Authentication & Identity **Auth Provider:** - Custom JWT implementation - Implementation: `backend/app/utils/jwt.py` using `python-jose` and `passlib` for password hashing ## Monitoring & Observability **Error Tracking:** - Not detected **Logs:** - Standard output (FastAPI/Uvicorn logs) ## CI/CD & Deployment **Hosting:** - Dockerized deployment - CI Pipeline: Not detected ## Environment Configuration **Required env vars:** - `SECRET_KEY`: For JWT signing - `ALGORITHM`: JWT hashing algorithm - `POSTGRES_URL`: Database connection string - `PROJECT_ENV`: Environment toggle (development/production) **Secrets location:** - Managed via `docker-compose.yml` environment section and `.env` files ## Webhooks & Callbacks **Incoming:** - None detected **Outgoing:** - None detected --- *Integration audit: 2026-04-14*
+# Integrations: Home-Tools-2
+
+Documentation of internal and external service integrations.
+
+## Internal Integrations
+- **Postgres DB**: Connected via `psycopg2` using connection strings from environment variables (`POSTGRES_URL`). Used for persistent storage in production-like environments.
+- **SQLite DB**: Local file-based storage (`home_tools.db`) used for development.
+- **Adminer**: A database management tool integrated via Docker Compose to manage the Postgres instance.
+
+## External Services
+- **MapLibre GL**: Used for map rendering. Interacts with map tile providers (presumably MapLibre defaults or OpenStreetMap).
+- **TURF.js**: Used for geospatial analysis on the frontend.
+
+## API Integration (Frontend -> Backend)
+- **Proxying**: The React frontend uses a proxy configuration in `package.json` (`"proxy": "http://localhost:8000"`) to communicate with the FastAPI backend during development.
+- **RESTful Endpoints**: Standard HTTP communication (GET, POST, PATCH, DELETE) with JSON payloads.

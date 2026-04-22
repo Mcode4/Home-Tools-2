@@ -1,55 +1,17 @@
-# Testing Patterns
-**Analysis Date:** 2026-04-14
+# Testing: Home-Tools-2
 
-## Test Framework
-**Runner:**
-- Frontend: Jest (via `react-scripts test` in `frontend/package.json`).
-- Backend: Not explicitly configured. A standalone `backend/app/utils/test.py` exists but no framework (like pytest) is defined in `requirements.txt`.
+Current state of automated testing.
 
-**Assertion Library:**
-- Frontend: `@testing-library/jest-dom` and `@testing-library/react`.
+## Frontend
+- **Framework**: Jest (via `react-scripts`).
+- **Library**: `react-testing-library`.
+- **Configuration**: `frontend/src/setupTests.js` is present.
+- **Coverage**: Initial setup exists, though component-specific test density appears low.
 
-**Run Commands:**
-```bash
-cd frontend && npm test # Run frontend tests
-```
+## Backend
+- **Framework**: No explicit test framework (like pytest) configuration file (e.g., `pytest.ini` or `conftest.py`) was found in the root or `backend/`.
+- **Utility**: `backend/app/utils/test.py` exists but its usage is unclear (seems like a scratch script or manual test helper).
+- **Status**: Identified as a major gap; backend functional testing is a priority for future updates.
 
-## Test File Organization
-**Location:**
-- Frontend: `frontend/src/setupTests.js` is present. Tests are expected to be co-located or in `__tests__` directories (though none were explicitly found in the initial glob).
-- Backend: Ad-hoc testing in `backend/app/utils/test.py`.
-
-## Test Structure
-**Suite Organization:**
-Not enough test files found to determine a consistent suite pattern.
-
-## Mocking
-**Framework:**
-- Frontend: Jest's built-in mocking capabilities are available.
-
-## Fixtures and Factories
-**Test Data:**
-Not detected.
-
-## Coverage
-**Requirements:** None enforced.
-
-## Test Types
-**Unit Tests:**
-- Frontend: Component-level testing using React Testing Library.
-- Backend: Manual/Ad-hoc unit testing in `test.py`.
-
-**Integration Tests:**
-- Not explicitly detected.
-
-**E2E Tests:**
-- Not used.
-
-## Common Patterns
-**Async Testing:**
-- Frontend: Standard `async/await` with `waitFor` from React Testing Library.
-
-**Error Testing:**
-- Backend: Route handlers explicitly raise `HTTPException` which can be tested via `FastAPI.testclient`.
----
-*Testing analysis: 2026-04-14*
+## Integration / E2E
+- None implemented in the current codebase.

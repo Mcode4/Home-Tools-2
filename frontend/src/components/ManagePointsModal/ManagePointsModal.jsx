@@ -1,18 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { 
-    thunkGetAllProperties, 
-    thunkCreateProperty,
-    thunkEditProperty,
-    thunkDeleteProperty 
-} from "../../redux/properties";
-import { 
-    thunkGetAllPoints ,
-    thunkCreatePoint,
-    thunkEditPoint,
-    thunkDeletePoint
-} from "../../redux/points";
 import { reverseLookupAddress } from "../../functions/search/search";
 import { useModal } from "../../context/Modal";
 import "./ManagePointsModal.css"
@@ -20,116 +8,117 @@ import "./ManagePointsModal.css"
 export default function ManagePointsModal({
     point, 
     isSaved,
+    allPoints = [], // New prop for linking
     addFunc,
     deleteFunc,
     changeFunc
 }) {
-    const [name, setName] = useState(point?.name);
+    const [name, setName] = useState(point?.name || "");
     const [location, setLocation] = useState(null);
-    const [icon, setIcon] = useState(null);
-    const [radius, setRadius] = useState(null);
-    const [type, setType] = useState(null);
-    const [length, setLength] = useState(null);
+    const [icon, setIcon] = useState(point?.icon || "");
+    const [radius, setRadius] = useState(point?.radius || 0);
+    const [type, setType] = useState(point?.type || "marker");
+    const [length, setLength] = useState(point?.length || 0);
     const [err, setErr] = useState({});
     const [initialState, setInitialState] = useState({});
     const [loaded, setLoaded] = useState(false);
-    const dispatch = useDispatch();
+    const [unitList, setUnitList] = useState(point?.extra_info?.units?.join(", ") || ""); // For Apartments
+    const [parentId, setParentId] = useState(point?.parent_id || ""); // For Units
     const { closeModal } = useModal();
 
     useEffect(()=> {
         console.log("MANAGE POINTS HIT", {point, isSaved, addFunc, deleteFunc, changeFunc})
-        let newName = name;
-        if(name.includes("(Unsaved)")) {
-            newName = name.split("(Unsaved)")[1].trim();
+        let newName = point?.name || "";
+        if(newName.includes("(Unsaved)")) {
+            newName = newName.split("(Unsaved)")[1].trim();
             setName(newName);
         }
+        
         setInitialState({
             name: newName,
-            location
+            type: point?.type,
+            icon: point?.icon,
+            radius: point?.radius,
+            length: point?.length
         });
 
         if(point?.type) {
-            setType(point?.type);
-            setInitialState(prev => ({...prev, type: point?.type}));
-            
-            if(point?.type === "icon") {
-                setIcon(point?.icon);
-                setInitialState(prev => ({...prev, icon: point?.icon}));
-            } else if(point?.type === "radius") {
-                setRadius(point?.radius);
-                setInitialState(prev => ({...prev, radius: point?.radius}));
-            } else if(point?.type === "line") {
-                setLength(point?.length)
-                setInitialState(prev => ({...prev, length: point?.length}));
-            } 
+            setType(point.type);
+            if(point.type === "icon") setIcon(point.icon);
+            else if(point.type === "radius") setRadius(point.radius);
+            else if(point.type === "line") setLength(point.length);
         };
 
         if(point?.location) {
-            setInitialState(prev => ({...prev, location: point?.location}))
             setLoaded(true)
         } else {
             reverseLookupAddress(point?.lng, point?.lat)
-                .then(data => "data to db")
-                .then(setLoaded(true))
-                .catch(e => setErr({e}))
+                .then(data => {
+                    setLocation(data.text);
+                    setLoaded(true);
+                })
+                .catch(e => {
+                    setErr({e});
+                    setLoaded(true);
+                });
         }
 
-        console.log("POINT MODAL POINT:", point, "ISSAVED:", isSaved);
-    }, []);
+        if(point?.extra_info?.units) {
+            setUnitList(point.extra_info.units.join(", "));
+        }
+        if(point?.parent_id) {
+            setParentId(point.parent_id);
+        }
+    }, [point]);
 
-    const handleAdd = (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
         setErr({});
 
-        const newPoint = {
+        const updatedPoint = {
             ...point,
             name,
             type,
-            location,
-            icon,
-            radius
+            icon: (type === "icon" || type === "home" || type === "apartment" || type === "unit") ? icon : null,
+            radius: type === "radius" ? Number(radius) : null,
+            endLng: type === "line" ? point.endLng : null,
+            endLat: type === "line" ? point.endLat : null,
+            parent_id: type === "unit" ? (Number(parentId) || null) : null,
+            extra_info: type === "apartment" ? { units: unitList.split(",").map(u => u.trim()).filter(u => u) } : point.extra_info
         };
 
-        if(initialState.icon !== icon) handleIconChange();
-        if(initialState.radius !== radius) handleRadiusChange();
-
-        addFunc(newPoint);
+        if (isSaved) {
+            // Differentiating between field updates
+            changeFunc(point.id, {
+                name,
+                type,
+                icon: (type === "icon" || type === "home" || type === "apartment" || type === "unit") ? icon : null,
+                radius: type === "radius" ? Number(radius) : null,
+                parent_id: type === "unit" ? (Number(parentId) || null) : null,
+                extra_info: type === "apartment" ? { units: unitList.split(",").map(u => u.trim()).filter(u => u) } : point.extra_info
+            });
+        } else {
+            addFunc(updatedPoint);
+        }
+        
         closeModal();
     };
     
     const handleDelete = (e) => {
         e.preventDefault();
         setErr({});
-
         deleteFunc(point.id);
         closeModal();
     };
 
-    const handleTypeChange = (value) => {
-        if(!["radius", "marker", "icon"].includes(value)) {
-            setErr({e: "Type must be: Marker, Icon, or Radius"})
-        }
-    };
-
-    const handleIconChange = (value) => {
-        console.log("ICON CHANGE HIT")
-        changeFunc(point.id, {icon, name})
-        return true
-    };
-
-    const handleRadiusChange = () => {
-        if(isNaN(radius)) {
-            setErr({e: "Radius must be a number"});
-            return;
-        };
-        changeFunc(point.id, {radius: Number(radius)});
-        return true
+    const handleTypeChange = (newType) => {
+        setType(newType);
     };
 
     return point ? (
         <form 
-            onSubmit={handleAdd}
-            className={!loaded ? "hidden" : ""}
+            onSubmit={handleSubmit}
+            className={!loaded ? "hidden" : "manage-points-form"}
         >
             <div className="form-group">
                 <label htmlFor="point-name">Name:</label>
@@ -139,26 +128,67 @@ export default function ManagePointsModal({
                     id="point-name" 
                     value={name}
                     onChange={(e)=> setName(e.target.value)}
+                    required
                 />
             </div>
 
             <div className="form-group">
                 <label htmlFor="point-location">Location:</label>
-                <input type="text" name="point-location" id="point-location" disabled />
+                <input 
+                    type="text" 
+                    name="point-location" 
+                    id="point-location" 
+                    value={location || "Loading address..."} 
+                    disabled 
+                />
             </div>
 
-            {point?.type && (
-                <div className="form-group">
+            <div className="form-group">
                 <label htmlFor="point-type">Type:</label>
-                <select name="point-type" id="point-type" value={point?.type}>
-                    <option value="marker">Marker</option>
-                    <option value="icon">Icon</option>
+                <select 
+                    name="point-type" 
+                    id="point-type" 
+                    value={type}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                >
+                    <option value="point">Point</option>
+                    <option value="home">Home</option>
+                    <option value="apartment">Apartment</option>
+                    <option value="unit">Unit</option>
                     <option value="radius">Radius</option>
+                    <option value="line">Line</option>
                 </select>
+            </div>
+
+            {type === "apartment" && (
+                <div className="form-group">
+                    <label htmlFor="apartment-units">Units / Room Numbers (comma-separated):</label>
+                    <textarea 
+                        id="apartment-units"
+                        value={unitList}
+                        onChange={(e) => setUnitList(e.target.value)}
+                        placeholder="e.g. 101, 102, 201"
+                    />
                 </div>
             )}
 
-            {point?.type === "icon" && (
+            {type === "unit" && (
+                <div className="form-group">
+                    <label htmlFor="unit-parent">Connect to Head Unit:</label>
+                    <select 
+                        id="unit-parent"
+                        value={parentId}
+                        onChange={(e) => setParentId(e.target.value)}
+                    >
+                        <option value="">-- No Connection --</option>
+                        {allPoints.filter(p => (p.type === "unit" || p.type === "home") && p.id !== point.id).map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+            {type === "icon" && (
                 <div className="form-group">
                 <label htmlFor="point-icon">Icon:</label>
                 <input 
@@ -167,62 +197,55 @@ export default function ManagePointsModal({
                     id="point-icon"
                     value={icon}
                     onChange={(e)=> setIcon(e.target.value)}
+                    placeholder="e.emoji: 🏠"
                 />
                 </div>
             )}
 
-            {point?.type === "line" && (
-                <>
+            {type === "line" && (
                 <div className="form-group">
-                <label htmlFor="point-icon">Add Length To:</label>
-                <select
-                    disabled
-                >
-                    <option value="length-mid">Middle</option>
-                    <option value="length-mid">Start</option>
-                    <option value="length-mid">End</option>
-                </select>
-                </div>
-                <div className="form-group">
-                <label htmlFor="point-icon">Length:</label>
+                <label htmlFor="point-length">Length (meters):</label>
                 <input 
-                    type="text" 
-                    name="point-icon" 
-                    id="point-icon"
+                    type="number" 
+                    name="point-length" 
+                    id="point-length"
                     value={length}
                     onChange={(e)=> setLength(e.target.value)}
+                    disabled
                 />
+                <p className="hint">Length is calculated by dragging the line endpoints on the map.</p>
                 </div>
-                </>
             )}
 
-            {point?.type === "radius" && (
+            {type === "radius" && (
                 <div className="form-group">
-                <label htmlFor="point-radius">Radius:</label>
+                <label htmlFor="point-radius">Radius (meters):</label>
                 <input 
                     type="number" 
                     name="point-radius" 
                     id="point-radius" 
-                    value={Number(radius).toFixed(2)}
+                    value={radius}
                     onChange={(e)=> setRadius(e.target.value)}
+                    step="0.01"
                 />
                 </div>
             )}
 
-            {err.e && (<p>{err.e}</p>)}
+            {err.e && (<p className="error-msg">{String(err.e)}</p>)}
 
-            <button
-                type="submit"
-            >{isSaved ? "Update" : "Save point"}</button>
-            <button
-                type="button"
-                onClick={handleDelete}
-            >Delete</button>
+            <div className="modal-actions">
+                <button type="submit" className="primary-btn">
+                    {isSaved ? "Update" : "Save point"}
+                </button>
+                <button type="button" onClick={handleDelete} className="delete-btn">
+                    Delete
+                </button>
+            </div>
         </form>
     ) : (
-        <>
-        <h3>404</h3>
-        <p>Point not found.</p>
-        </>
+        <div className="error-container">
+            <h3>404</h3>
+            <p>Point not found.</p>
+        </div>
     )
 }

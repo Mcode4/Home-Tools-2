@@ -6,6 +6,7 @@ import propertiesReducer from "./properties"
 import floorsReducer from "./floors"
 import imagesReducer from "./images"
 import pointsReducer from "./points"
+import savedTypesReducer from "./savedTypes"
 
 // const rootReducer = combineReducers({
 //     session: sessionReducer,
@@ -22,6 +23,7 @@ export const reduxStore = configureStore({
         properties: propertiesReducer,
         floors: floorsReducer,
         images: imagesReducer,
-        points: pointsReducer
+        points: pointsReducer,
+        savedTypes: savedTypesReducer
     }
 })

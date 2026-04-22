@@ -1,4 +1,4 @@
-export const DEMO_BACKEND_API = 'http://127.0.0.1:8000';
+export const DEMO_BACKEND_API = process.env.NODE_ENV === 'development' ? '' : window.location.origin;
 
 export async function checkAndReturnRes(res) {
     const data = await res.json();

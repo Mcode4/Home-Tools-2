@@ -1,1 +1,30 @@
-# Technology Stack **Analysis Date:** 2026-04-14 ## Languages **Primary:** - Python 3.12 (Backend: `backend/main.py`, `backend/app/`) - JavaScript (Frontend: `frontend/src/`) - SQL (Database schemas: `backend/app/db/db.py`) **Secondary:** - HTML/CSS (Frontend: `frontend/public/index.html`, `frontend/src/index.css`) ## Runtime **Environment:** - Node.js (Frontend) - Python 3.12 (Backend) **Package Manager:** - npm (Frontend: `frontend/package.json`, `frontend/package-lock.json`) - pip (Backend: `backend/requirements.txt`) ## Frameworks **Core:** - FastAPI (Backend) - React 19 (Frontend) **Testing:** - Jest / React Testing Library (Frontend: `frontend/package.json`) **Build/Dev:** - react-scripts (Frontend) - uvicorn (Backend ASGI server) - Docker / Docker Compose (Containerization: `docker-compose.yml`) ## Key Dependencies **Critical:** - Pydantic (Backend: Data validation) - SQLAlchemy/Psycopg2 (Backend: PostgreSQL integration) - Redux Toolkit (Frontend: State management) - React Router Dom (Frontend: Routing) - MapLibre GL (Frontend: Mapping: `frontend/package.json`) - Konva / React-Konva (Frontend: Canvas drawing) - Turf.js (Frontend: Geospatial analysis) - python-jose / Passlib / Bcrypt (Backend: Auth and security) ## Configuration **Environment:** - `.env` files (Backend) - `docker-compose.yml` for production environment variables **Build:** - `Dockerfile` (Backend and Frontend) - `default.conf` (Frontend Nginx config) ## Platform Requirements **Development:** - Python 3.12+ - Node.js - Docker **Production:** - Dockerized containers (FastAPI, React/Nginx, PostgreSQL) --- *Stack analysis: 2026-04-14*
+# Stack: Home-Tools-2
+
+This document details the core technologies used in the project.
+
+## Frontend
+- **Framework**: React 19.x
+- **State Management**: Redux Toolkit (`@reduxjs/toolkit`, `react-redux`)
+- **Routing**: `react-router-dom` (v7)
+- **Mapping**: MapLibre GL (`maplibre-gl`)
+- **Canvas/Drawing**: Konva (`konva`, `react-konva`)
+- **Build Tool**: `react-scripts` (CRA-based setup)
+
+## Backend
+- **Framework**: FastAPI (Python)
+- **Asynchronous Server**: Uvicorn
+- **Validation**: Pydantic v2
+- **Database Driver**: `psycopg2-binary` (Postgres), `sqlite3` (built-in)
+- **Authentication**: `python-jose` (HS256), `passlib` (bcrypt)
+
+## Database
+- **Primary (Production)**: PostgreSQL 15 (via Docker)
+- **Secondary (Development)**: SQLite3 (`home_tools.db`)
+
+## Orchestration
+- **Containerization**: Docker & Docker Compose
+- **Services**:
+  - `db`: Postgres
+  - `backend`: FastAPI
+  - `frontend`: React (served via Nginx in production, presumed)
+  - `adminer`: Database management GUI

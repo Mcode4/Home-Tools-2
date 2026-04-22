@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef} from "react";
+import { useSelector } from "react-redux";
 import { createRoot } from "react-dom/client";
 import maplibregl from "maplibre-gl";
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { thunkEditPoint } from "../../../redux/points";
+import MapLibrePopup from "./MapLibrePopup";
 import { ModalButton } from "../../../context/Modal";
 import ManagePointsModal from "../../ManagePointsModal";
-import MapLibrePopup from "./MapLibrePopup";
 import "./MapComponent.css";
 
 
@@ -22,6 +24,7 @@ export default function MapComponent({
     const [leftPopupContext, setLeftPopupContext] = useState(null);
     const [rightPopupContext, setRightPopupContext] = useState(null);
     const canvasObjectsRef = useRef({});
+    const pointStore = useSelector(state => state.points);
 
     useEffect(()=> {
         if(mapInstance.current || !mapRef.current || isLoaded) return;
@@ -128,11 +131,20 @@ export default function MapComponent({
             if (obj.lineLayer && map.getLayer(obj.lineLayer)) map.removeLayer(obj.lineLayer);
             if (obj.sourceId && map.getSource(obj.sourceId)) map.removeSource(obj.sourceId);
         });
+
+        // Cleanup connection layers
+        if (map.getLayer("unit-connections-layer")) map.removeLayer("unit-connections-layer");
+        if (map.getSource("unit-connections-source")) map.removeSource("unit-connections-source");
+
         canvasObjectsRef.current = {};
 
         markers.map((m, i) => {
             console.log("MARKER AT INDEX:", i, "MARKER:", m)
             if(m.propertyId) {
+                if(!m.lngLat || m.lngLat.some(c => c === undefined || c === null)) {
+                    console.error("Invalid coordinate for property marker:", m);
+                    return;
+                }
                 const markerId = m.id ?? `prop-${m.propertyId}`;
                 const marker = new maplibregl.Marker({
                     color: "red",
@@ -146,8 +158,6 @@ export default function MapComponent({
 
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    console.log("CLICK");
-
                     setLeftPopupContext({
                         activeTime: Date.now(),
                         id: markerId,
@@ -160,8 +170,6 @@ export default function MapComponent({
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
                     setRightPopupContext({
                         activeTime: Date.now(),
                         lngLat: marker.getLngLat(),
@@ -178,7 +186,6 @@ export default function MapComponent({
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
                     const newLngLat = marker.getLngLat();
-                    console.log("CHANGING CANVAS OBJ, ID:", markerId)
                     createdCanvasObject({
                         id: markerId,
                         propertyId: m.propertyId,
@@ -190,11 +197,19 @@ export default function MapComponent({
                 canvasObjectsRef.current[markerId] = {
                     marker
                 };
-            } else if(m.type === "icon") {
-                console.log("MARKER AT ICON", m);
-                const tempEls = templateElements();
+            } else if(["point", "home", "apartment", "unit"].includes(m.type)) {
+                if(!m.lngLat || m.lngLat.some(c => c === undefined || c === null)) {
+                    console.error("Invalid coordinate for semantic marker:", m);
+                    return;
+                }
+                let iconUrl = m.icon;
+                if(m.type === "home") iconUrl = "/icons/home-point.svg";
+                else if(m.type === "apartment") iconUrl = "/icons/building-point.svg";
+                else if(m.type === "unit") iconUrl = "/icons/unit-point.svg";
+
+                const tempEls = templateElements({icon: iconUrl, name: m.name, type: m.type});
                 const iconDiv = tempEls.iconDiv;
-                const markerId = m.id ?? `icon-${m.pointId}`;
+                const markerId = m.id ?? `${m.type}-${m.pointId}`;
 
                 const marker = new maplibregl.Marker({
                     element: iconDiv,
@@ -208,8 +223,6 @@ export default function MapComponent({
 
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    console.log("CLICK");
-
                     setLeftPopupContext({
                         activeTime: Date.now(),
                         id: markerId,
@@ -222,8 +235,6 @@ export default function MapComponent({
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
                     setRightPopupContext({
                         activeTime: Date.now(),
                         lngLat: marker.getLngLat(),
@@ -245,72 +256,6 @@ export default function MapComponent({
                         type: m.type,
                         name: m.name,
                         icon: m.icon,
-                        lng: newLngLat.lng,
-                        lat: newLngLat.lat
-                    });
-                });
-
-                canvasObjectsRef.current[markerId] = {
-                    marker
-                };
-                console.log("ICON IMPORTANCE", {marker, el, iconDiv, markerId})
-            } else if(m.type === "marker") {
-                const markerId = m.id ?? `marker-${m.pointId}`;
-
-                const marker = new maplibregl.Marker({
-                    draggable: true,
-                    color: "red"
-                })
-                    .setLngLat(m.lngLat)
-                    .addTo(map);
-
-                const popup = new maplibregl.Popup({
-                    offset: 25,
-                    closeOnClick: true
-                });
-
-                const el = marker.getElement();
-                el.style.cursor = "cell";
-
-                el.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    console.log("CLICK");
-
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: markerId,
-                        type: m.type,
-                        name: m.name ?? "New " + m.type,
-                        lngLat: marker.getLngLat()
-                    });
-                });
-
-                el.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: marker.getLngLat(),
-                        id: markerId,
-                        name: m.name
-                    })
-                });
-
-                marker.on("dragstart", ()=> {
-                    setCursor("grabbing");
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
-                });
-                marker.on("dragend", ()=> {
-                    setCursor(getBaseCursor());
-                    const newLngLat = marker.getLngLat();
-                    createdCanvasObject({
-                        id: markerId,
-                        pointId: m.pointId,
-                        type: m.type,
-                        name: m.name,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat
                     });
@@ -410,7 +355,7 @@ export default function MapComponent({
 
                     setLeftPopupContext({
                         activeTime: Date.now(),
-                        id: radius,
+                        id: radiusId,
                         type: m.type,
                         name: m.name ?? "New " + m.type,
                         lngLat: centerMarker.getLngLat()
@@ -454,7 +399,9 @@ export default function MapComponent({
                 handleMarker.on("dragend", ()=> {
                     map.getCanvas().style.cursor = getBaseCursor();
                     createdCanvasObject({
-                        pointId: radiusId,
+                        id: radiusId,
+                        pointId: m.pointId, // Corrected from pointId: radiusId
+                        type: m.type,
                         radius: radius
                     });
                     canvasObjectsRef.current[radiusId].handleMarker = handleMarker;
@@ -637,6 +584,43 @@ export default function MapComponent({
                 };
             }
         });
+        // After placing all markers, draw connections
+        const connections = [];
+        markers.forEach(m => {
+            if (m.parent_id) {
+                const parent = markers.find(p => p.id === m.parent_id || p.pointId === m.parent_id);
+                if (parent) {
+                    connections.push({
+                        type: "Feature",
+                        geometry: {
+                            type: "LineString",
+                            coordinates: [m.lngLat, parent.lngLat]
+                        }
+                    });
+                }
+            }
+        });
+
+        if (connections.length > 0) {
+            map.addSource("unit-connections-source", {
+                type: "geojson",
+                data: {
+                    type: "FeatureCollection",
+                    features: connections
+                }
+            });
+
+            map.addLayer({
+                id: "unit-connections-layer",
+                type: "line",
+                source: "unit-connections-source",
+                paint: {
+                    "line-color": "#888",
+                    "line-width": 2,
+                    "line-dasharray": [2, 2]
+                }
+            });
+        }
     }, [markers, isLoaded]);
 
 
@@ -656,11 +640,18 @@ export default function MapComponent({
         const handleClick = (e) => {
             const {lng, lat} = e.lngLat;
 
-            if(canvasTool.type === "icon") {
-                const tempEls = templateElements();
+            if(["point", "home", "apartment", "unit"].includes(canvasTool.type)) {
+                let iconUrl = canvasTool.icon;
+                let actualType = canvasTool.type;
+                
+                if(actualType === "home") iconUrl = "/icons/home-point.svg";
+                else if(actualType === "apartment") iconUrl = "/icons/building-point.svg";
+                else if(actualType === "unit") iconUrl = "/icons/unit-point.svg";
+                
+                const tempEls = templateElements({icon: iconUrl, name: canvasTool.name, type: actualType});
                 const iconDiv = tempEls.iconDiv;
                 
-                const markerId = `temp-icon-${Date.now()}`;
+                const markerId = `temp-${actualType}-${Date.now()}`;
 
                 const marker = new maplibregl.Marker({
                     element: iconDiv,
@@ -674,13 +665,11 @@ export default function MapComponent({
 
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    console.log("CLICK");
-
                     setLeftPopupContext({
                         activeTime: Date.now(),
                         id: markerId,
-                        type: canvasTool.type,
-                        name: canvasTool.name ?? "New " + canvasTool.type,
+                        type: actualType,
+                        name: canvasTool.name ?? "New " + actualType,
                         lngLat: marker.getLngLat()
                     });
                 });
@@ -688,13 +677,11 @@ export default function MapComponent({
                 el.addEventListener("contextmenu", (e)=> {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
                     setRightPopupContext({
                         activeTime: Date.now(),
                         lngLat: marker.getLngLat(),
                         id: markerId,
-                        name: canvasTool.name ?? "New " + canvasTool.type
+                        name: canvasTool.name ?? "New " + actualType
                     });
                 });
 
@@ -708,6 +695,9 @@ export default function MapComponent({
                     const newLngLat = marker.getLngLat();
                     createdCanvasObject({
                         id: markerId,
+                        type: actualType,
+                        name: canvasTool.name,
+                        icon: canvasTool.icon,
                         lng: newLngLat.lng,
                         lat: newLngLat.lat
                     });
@@ -715,7 +705,7 @@ export default function MapComponent({
 
                 createdCanvasObject({
                     id: markerId,
-                    type: canvasTool.type,
+                    type: actualType,
                     name: canvasTool.name,
                     icon: canvasTool.icon,
                     lng: lng,
@@ -725,78 +715,6 @@ export default function MapComponent({
                 canvasObjectsRef.current[markerId] = {
                     marker
                 };
-
-            } else if(canvasTool.type === "marker") {
-                const markerId = `temp-marker-${Date.now()}`;
-
-                const marker = new maplibregl.Marker({
-                    draggable: true,
-                    color: "red"
-                })
-                    .setLngLat([lng, lat])
-                    .addTo(map);
-
-                const popup = new maplibregl.Popup({
-                    offset: 25,
-                    closeOnClick: true
-                });
-
-                const el = marker.getElement();
-                el.style.cursor = "cell";
-
-                el.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    console.log("CLICK");
-
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: markerId,
-                        type: canvasTool.type,
-                        name: canvasTool.name ?? "New " + canvasTool.type,
-                        lngLat: marker.getLngLat()
-                    });
-                });
-
-                el.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: marker.getLngLat(),
-                        id: markerId,
-                        name: canvasTool.name ?? "New " + canvasTool.type
-                    })
-                });
-
-                marker.on("dragstart", ()=> {
-                    setCursor("grabbing");
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
-                });
-                marker.on("dragend", ()=> {
-                    setCursor(getBaseCursor());
-                    const newLngLat = marker.getLngLat();
-                    createdCanvasObject({
-                        id: markerId,
-                        lng: newLngLat.lng,
-                        lat: newLngLat.lat
-                    });
-                });
-
-                createdCanvasObject({
-                    id: markerId,
-                    type: canvasTool.type,
-                    name: canvasTool.name,
-                    lng: lng,
-                    lat: lat
-                });
-
-                canvasObjectsRef.current[markerId] = {
-                    marker
-                };
-
             } else if(canvasTool.type === "radius") {
                 const radiusId = `temp-radius-${Date.now()}`;
 
@@ -895,7 +813,7 @@ export default function MapComponent({
 
                     setLeftPopupContext({
                         activeTime: Date.now(),
-                        id: radius,
+                        id: radiusId,
                         type: canvasTool.type,
                         name: canvasTool.name ?? "New " + canvasTool.type,
                         lngLat: centerMarker.getLngLat()
@@ -939,6 +857,7 @@ export default function MapComponent({
                     map.getCanvas().style.cursor = getBaseCursor();
                     createdCanvasObject({
                         id: radiusId,
+                        type: "radius",
                         radius: radius
                     });
                     canvasObjectsRef.current[radiusId].handleMarker = handleMarker;
@@ -1210,7 +1129,7 @@ export default function MapComponent({
         }
     }, [leftPopupContext, rightPopupContext]);
 
-    const templateElements = (id=null) => {
+    const templateElements = ({icon, name, type} = {}) => {
         const labelDiv = document.createElement("div");
         labelDiv.style.background = "white";
         labelDiv.style.padding = "2px 6px";
@@ -1220,18 +1139,21 @@ export default function MapComponent({
         labelDiv.style.pointerEvents = "none";
 
         const iconDiv = document.createElement("div");
-        // iconDiv.innerHTML = canvasTool.icon
-        // iconDiv.style.fontSize = "28px"
-        let root = createRoot(iconDiv);
+        const iconToShow = icon || canvasTool?.icon || "";
+        const isUrl = iconToShow.startsWith("/") || iconToShow.startsWith("http");
+
+        const root = createRoot(iconDiv);
         root.render(
             <div 
                 className="canvasMarker"
-                style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
+                style={{display: "flex", flexDirection: "column", alignItems: "center", gap: "2px"}}>
                 <div 
                     className="canvasMarkerIcon"
-                    style={{fontSize: "28px"}}
-                >{canvasTool.icon}</div>
-                <p className="canvasMarkerName">{canvasTool.name}</p>
+                    style={{fontSize: "42px", width: "48px", height: "48px", display: "flex", alignItems: "center", justifyContent: "center"}}
+                >
+                    {isUrl ? <img src={iconToShow} style={{width: "42px", height: "auto"}} alt={name} /> : iconToShow}
+                </div>
+                <p className="canvasMarkerName" style={{marginTop: "2px", fontWeight: "600", textShadow: "0 1px 2px rgba(255,255,255,0.8)"}}>{name || canvasTool?.name || ""}</p>
             </div>
         );
 
@@ -1247,7 +1169,7 @@ export default function MapComponent({
         map.getCanvas().style.cursor = cursor;
     };
 
-    const getBaseCursor = () => canvasTool?.type ? "crosshair" : "grab";
+    const getBaseCursor = () => (canvasTool?.type && ["point", "home", "apartment", "unit", "radius", "line"].includes(canvasTool.type)) ? "crosshair" : "grab";
 
     const EARTH_R = 6378137;
 
@@ -1392,6 +1314,7 @@ export default function MapComponent({
                         modalComponent={
                         <ManagePointsModal 
                             point={getMetadata(rightPopupContext.id)}
+                            allPoints={Object.values(pointStore.data)}
                             addFunc={createdCanvasObject}
                             deleteFunc={deleteCanvasObject}
                             changeFunc={onPointChange}

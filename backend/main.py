@@ -4,18 +4,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.db.db import init_db
 from app.routes import router as api_router
-from scripts.migrate_db_to_psql import run_migration
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "../.env"))
 PROJECT_ENV = os.environ.get("PROJECT_ENV", "development")
 
 app = FastAPI(title="API")
 
+frontend_port = os.environ.get("FRONTEND", "3000")
+backend_port = os.environ.get("BACKEND", "8888")
 origins = [
     "http://localhost",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8000",
+    f"http://localhost:{frontend_port}",
+    f"http://127.0.0.1:{frontend_port}",
+    f"http://localhost:{backend_port}",
+    f"http://127.0.0.1:{backend_port}",
     "http://localhost:10000",
 ]
 
@@ -31,7 +33,5 @@ init_db()
 
 print("PROJECT ENV - MAIN", PROJECT_ENV)
 
-if PROJECT_ENV == "production":
-    run_migration()
 
 app.include_router(api_router)

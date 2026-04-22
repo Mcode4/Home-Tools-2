@@ -1,85 +1,28 @@
-# Architecture **Analysis Date:** 2026-04-14
+# Architecture: Home-Tools-2
 
-## Pattern Overview
-**Overall:** Client-Server Architecture (Decoupled Frontend and Backend)
-**Key Characteristics:**
-- **Backend:** FastAPI based REST API with environment-based database switching (SQLite for development, PostgreSQL for production).
-- **Frontend:** React application with Redux Toolkit for centralized state management.
-- **Persistence:** Relational database mapping for users, properties, floors, images, and points.
-- **Authentication:** JWT-based session management using HTTP-only cookies.
+High-level architecture of the Home-Tools-2 system.
 
-## Layers
-**API Layer (Backend):**
-- Purpose: Handle HTTP requests, route to logic, and return JSON responses.
-- Location: `backend/app/routes/`
-- Contains: Route handlers for auth, users, properties, floors, images, etc.
-- Depends on: Models and DB utilities.
-- Used by: Frontend application.
+## Pattern: Client-Server
+The project follows a standard decoupled Client-Server architecture.
+- **Client**: Single Page Application (SPA) built with React.
+- **Server**: RESTful API built with FastAPI.
 
-**Data Access Layer (Backend):**
-- Purpose: Manage database connections and raw SQL execution.
-- Location: `backend/app/db/` and `backend/app/utils/`
-- Contains: `db.py` (SQLite init), `postgres_utils.py` (PostgreSQL connection).
-- Depends on: Database drivers (`sqlite3`, `psycopg2`).
-- Used by: API Layer.
+## Containerization
+The entire system is orchestrating using Docker Compose, separating services into isolated networks:
+- **db**: Data persistence layer.
+- **backend**: Application logic layer.
+- **frontend**: User interface layer.
+- **adminer**: Management layer.
 
-**Model Layer (Backend):**
-- Purpose: Define data structures and response formats.
-- Location: `backend/app/models/`
-- Contains: Pydantic models for request/response validation (e.g., `user.py`, `property.py`, `response_model.py`).
-- Depends on: Python type hints.
-- Used by: API Layer.
+## Frontend State Management
+- Uses **Redux Toolkit** for predictable state updates and cross-component data sharing.
+- **Context API** is used specifically for UI-level modals and popups.
 
-**State Management Layer (Frontend):**
-- Purpose: Synchronize application state across components.
-- Location: `frontend/src/redux/`
-- Contains: Reducers for session, users, properties, floors, images, and points.
-- Depends on: `@reduxjs/toolkit`.
-- Used by: React components.
+## Multi-Database Support (Environment Specific)
+The backend architecture supports two database types depending on the `PROJECT_ENV` environment variable:
+1. **Production Mode**: Uses PostgreSQL for reliability and performance.
+2. **Development Mode**: Uses SQLite for low-overhead local development.
 
-## Data Flow
-**Authentication Flow:**
-1. Frontend sends credentials to `/auth/login`.
-2. Backend verifies password via `passlib` and creates a JWT.
-3. Backend sets an HTTP-only cookie `access_token`.
-4. Frontend requests `/auth/session` to verify the current user via the cookie.
-
-**Property Data Flow:**
-1. Frontend requests property data from `/property` routes.
-2. Backend fetches data from the active database (SQLite/Postgres).
-3. Data is returned as JSON, which the frontend stores in the Redux `properties` slice.
-
-## Key Abstractions
-**ResponseModel:**
-- Purpose: Standardize all API responses.
-- Examples: `backend/app/models/response_model.py`
-- Pattern: Wrapper containing success boolean, message, and optional data payload.
-
-**DB Provider:**
-- Purpose: Abstract the difference between development (SQLite) and production (PostgreSQL).
-- Examples: `backend/app/db/db.py`, `backend/app/utils/postgres_utils.py`
-- Pattern: Conditional logic in routes based on `PROJECT_ENV`.
-
-## Entry Points
-**Backend Server:**
-- Location: `backend/main.py`
-- Triggers: Application startup.
-- Responsibilities: Initialize FastAPI, configure CORS, initialize DB, and include API routers.
-
-**Frontend Application:**
-- Location: `frontend/src/index.js`
-- Triggers: Browser page load.
-- Responsibilities: Bootstrap React and provide the Redux store to the component tree.
-
-## Error Handling
-**Strategy:** HTTP Exception raising in Backend, Response checking in Frontend.
-**Patterns:**
-- Backend: Use of `fastapi.HTTPException` to return specific status codes (401, 404, 500).
-- Frontend: `checkAndReturnRes` utility in `frontend/src/redux/apiUtils.js` to parse and log response status.
-
-## Cross-Cutting Concerns
-**Logging:** Basic print statements used in backend for environment and request tracking.
-**Validation:** Pydantic models for request body validation; custom password validation in `backend/app/routes/auth.py`.
-**Authentication:** JWT tokens stored in cookies for security against XSS.
----
-*Architecture analysis: 2026-04-14*
+## Authentication Flow
+- **JSON Web Tokens (JWT)**: Secure authentication handled by the backend.
+- **Roles**: User-team relationships define permissions.

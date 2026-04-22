@@ -1,46 +1,54 @@
-import sqlite3
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 
-DB_NAME = "home_tools.db"
+load_dotenv()
 
 def get_db():
-    conn = sqlite3.connect(DB_NAME, check_same_thread=True)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    url = os.environ.get("POSTGRES_URL")
+    if not url:
+        raise RuntimeError("POSTGRES_URL not set")
+    
+    conn = psycopg2.connect(
+        url,
+        cursor_factory=RealDictCursor
+    )
     return conn
 
 def init_db():
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.executescript("""       
+    cursor.execute("""       
         CREATE TABLE IF NOT EXISTS teams (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT,
             rules TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
                          
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             name TEXT,
-            phone_number INTEGER,
+            phone_number BIGINT,
             bio TEXT,
             profile_icon TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
                          
         CREATE TABLE IF NOT EXISTS notifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             sender_id INTEGER NOT NULL,
             recipient_id INTEGER NOT NULL,
             title TEXT NOT NULL,
             message TEXT NOT NULL,
             read INTEGER DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS user_teams (
@@ -53,16 +61,16 @@ def init_db():
         );     
                              
         CREATE TABLE IF NOT EXISTS home_groups (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             type TEXT NOT NULL,
             pinned INTEGER DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
                          
         CREATE TABLE IF NOT EXISTS property (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             owner_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             address TEXT,
@@ -74,9 +82,9 @@ def init_db():
             lat REAL NOT NULL,
             lng REAL NOT NULL,
             group_id INTEGER,
-            details TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            details jsonb,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (owner_id) REFERENCES users(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE,
@@ -86,8 +94,8 @@ def init_db():
         );
         
         CREATE TABLE IF NOT EXISTS images (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            owner_id INTEGER INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            owner_id INTEGER NOT NULL,
             property_id INTEGER,
             default_filename TEXT NOT NULL,
             filename TEXT NOT NULL,
@@ -95,7 +103,7 @@ def init_db():
             content_type TEXT,
             size INTEGER,
             type TEXT NOT NULL,
-            uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (property_id) REFERENCES property(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE,
@@ -105,7 +113,7 @@ def init_db():
         );
         
         CREATE TABLE IF NOT EXISTS floors (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             owner_id INTEGER NOT NULL,
             property_id INTEGER NOT NULL,
             name TEXT NOT NULL,
@@ -121,14 +129,16 @@ def init_db():
         );
         
         CREATE TABLE IF NOT EXISTS saved_types (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
+            owner_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             type TEXT NOT NULL,
-            extra_info TEXT
+            extra_info jsonb,
+            FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS points (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             owner_id INTEGER NOT NULL,
             type TEXT NOT NULL,
             name TEXT NOT NULL,
@@ -137,8 +147,10 @@ def init_db():
             lat REAL NOT NULL,
             endLng REAL,
             endLat REAL,
-            radius REAL
-        )
+            radius REAL,
+            parent_id INTEGER,
+            extra_info jsonb
+        );
     """)
 
     conn.commit()

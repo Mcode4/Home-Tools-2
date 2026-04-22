@@ -9,7 +9,7 @@ class Property(BaseModel):
     county: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
-    zip: Optional[int] = None
+    zip: Optional[str] = None
     lat: float
     lng: float
     details: Optional[Dict[str, Any]] = None

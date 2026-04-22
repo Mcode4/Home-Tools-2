@@ -7,15 +7,12 @@ import {
     thunkEditProperty,
     thunkDeleteProperty 
 } from "../../redux/properties";
-import { 
-    thunkGetAllPoints ,
-    thunkCreatePoint,
-    thunkEditPoint,
-    thunkDeletePoint
-} from "../../redux/points";
+import { thunkGetPoints, thunkCreatePoint, thunkEditPoint, thunkDeletePoint } from "../../redux/points";
+import { thunkGetSavedTypes, thunkDeleteSavedType } from "../../redux/savedTypes";
 import { handleSearchAddress, reverseLookupAddress } from "../../functions/search/search";
 
 import MapComponent from "./Map";
+import CustomPointModal from "../CustomPointModal/CustomPointModal";
 import "./EditorPage.css";
 import { ModalButton, ModalItem } from "../../context/Modal";
 import ManagePointsModal from "../ManagePointsModal";
@@ -25,7 +22,8 @@ export default function EditorPage() {
     // LOADING AND STATE
     const { state } = useLocation()
     const propertyStore = useSelector(store => store.properties);
-    const pointStore = useSelector(store => store.points);
+    const pointStore = useSelector(state => state.points);
+    const savedTypesStore = useSelector(state => state.savedTypes);
     const [initialized, setInitialized] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [reload, setReload] = useState(0);
@@ -34,6 +32,7 @@ export default function EditorPage() {
     const [historyIndex, setHistoryIndex] = useState(-1);
     const historyIndexRef = useRef(-1);
     const pendingHistoryRef = useRef(true);
+    const savingRef = useRef(false);
     const [err, setErr] = useState({});
 
     // MAIN DATA
@@ -58,6 +57,18 @@ export default function EditorPage() {
     const [search, setSearch] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [searchActive, setSearchActive] = useState(true);
+    const mapProperties = useMemo(() => {
+        const props = Object.values(properties).map(p => ({...p, source: "prop"}));
+        const semantic = Object.values(points).filter(p => ["home", "apartment", "unit"].includes(p.type)).map(p => ({...p, source: "point"}));
+        const unsaved = Object.values(canvasObjects).filter(p => ["home", "apartment", "unit"].includes(p.type)).map(p => ({...p, source: "canvas"}));
+        return [...props, ...semantic, ...unsaved];
+    }, [properties, points, canvasObjects]);
+
+    const mapPoints = useMemo(() => {
+        const semantic = Object.values(points).filter(p => ["point", "line", "radius"].includes(p.type)).map(p => ({...p, source: "point"}));
+        const unsaved = Object.values(canvasObjects).filter(p => ["point", "line", "radius"].includes(p.type)).map(p => ({...p, source: "canvas"}));
+        return [...semantic, ...unsaved];
+    }, [points, canvasObjects]);
 
     // PAGE VARIABLES
     const [popups, setPopups] = useState({});
@@ -116,7 +127,8 @@ export default function EditorPage() {
     useEffect(()=> {
         const initialData = async () => {
             await dispatch(thunkGetAllProperties());
-            await dispatch(thunkGetAllPoints());
+             dispatch(thunkGetSavedTypes());
+            dispatch(thunkGetPoints());
 
             let stored = localStorage.getItem("properties");
             let parsed = stored ? JSON.parse(stored) : null;
@@ -225,7 +237,7 @@ export default function EditorPage() {
 
             const p = newProperties[prefixedKey];
             const {lng, lat} = p;
-            if(state?.id && p.id === state?.id) setLngLat([lng, lat]);
+            if(state?.id && p.propertyId === state?.id) setLngLat([lng, lat]);
             
             allMarkers.push({ 
                 id: prefixedKey,
@@ -251,33 +263,25 @@ export default function EditorPage() {
                 pointId: prev.id,
                 type: prev.type,
                 name: prev.name,
+                icon: prev.icon,
                 lngLat: [p.lng, p.lat]
             };
 
             switch(p.type) {
-                case "marker": allMarkers.push(pointObj); break;
-                case "icon":
-                    if(p.icon) {pointObj.icon = p.icon; allMarkers.push(pointObj);} 
-                    else {
-                        console.warn(`No icon detected on ${p.name}. Deleting on next save.`);
-                        setDeletedPoints(prev => [...prev, p.id]);
-                    }
+                case "point":
+                case "home":
+                case "apartment":
+                case "unit":
+                    allMarkers.push(pointObj);
                     break;
                 case "radius":
                     if(p.radius) {pointObj.radius = p.radius; allMarkers.push(pointObj);} 
-                    else {
-                        console.warn(`No radius detected on ${p.name}. Deleting on next save.`);
-                        setDeletedPoints(prev => [...prev, p.id]);
-                    }
                     break;
                 case "line":
                     if ((p.endLng && p.endLat) || (p.endlng && p.endlat)) {
                         pointObj.endLng = p.endlng ?? p.endLng;
                         pointObj.endLat = p.endlat ?? p.endLat;
                         allMarkers.push(pointObj);
-                    } else {
-                        console.warn(`No endLng or endLat detected on ${p.name}. Deleting on next save.`);
-                        setDeletedPoints(prev => [...prev, p.id]);
                     }
                     break;
             };
@@ -294,29 +298,20 @@ export default function EditorPage() {
                 }
 
                 switch(p.type) {
-                    case "marker": allMarkers.push(pointObj); break;
-                    case "icon":
-                        if(p.icon) {pointObj.icon = p.icon; allMarkers.push(pointObj);} 
-                        else {
-                            console.warn(`No icon detected on ${p.name}. Deleting on next save.`);
-                            setDeletedPoints(prev => [...prev, p.id]);
-                        }
+                    case "home":
+                    case "apartment":
+                    case "unit":
+                    case "point":
+                        allMarkers.push(pointObj);
                         break;
                     case "radius":
                         if(p.radius) {pointObj.radius = p.radius; allMarkers.push(pointObj);} 
-                        else {
-                            console.warn(`No radius detected on ${p.name}. Deleting on next save.`);
-                            setDeletedPoints(prev => [...prev, p.id]);
-                        }
                         break;
                     case "line":
                         if ((p.endLng && p.endLat) || (p.endlng && p.endlat)) {
                             pointObj.endLng = p.endlng ?? p.endLng;
                             pointObj.endLat = p.endlat ?? p.endLat;
                             allMarkers.push(pointObj);
-                        } else {
-                            console.warn(`No endLng or endLat detected on ${p.name}. Deleting on next save.`);
-                            setDeletedPoints(prev => [...prev, p.id]);
                         }
                         break;
                 };
@@ -339,13 +334,53 @@ export default function EditorPage() {
         setLoaded(true);
         setInitialized(false);
         setMarkers(allMarkers);
+
+        if(!state?.id && allMarkers.length > 0) {
+            const lastMarker = allMarkers[allMarkers.length - 1];
+            setLngLat(lastMarker.lngLat);
+        }
+
+        pendingHistoryRef.current = false;
         console.log("SENDING MARKERS:", allMarkers, "BASE DATA:", {
             pinned: propertyStore?.pinned,
             other: propertyStore?.other,
             points: pointStore?.data,
             canvasObjects
         })
-    }, [initialized]);
+    }, [initialized, propertyStore?.data, pointStore?.data]);
+
+    // Reactivity: Sync new properties/points from Redux into local state
+    useEffect(()=> {
+        if(!loaded) return;
+        
+        let changed = false;
+        const newProperties = {...properties};
+        const newPoints = {...points};
+        
+        propertyStore?.data.forEach(p => {
+            const key = `prop-${p.id}`;
+            if(!newProperties[key]) {
+                newProperties[key] = {...p, id: key, propertyId: p.id};
+                changed = true;
+            }
+        });
+
+        pointStore?.data.forEach(p => {
+            const key = `${p.type}-${p.id}`;
+            if(!newPoints[key]) {
+                newPoints[key] = {...p, id: key, pointId: p.id};
+                changed = true;
+            }
+        });
+
+        if(changed) {
+            setProperties(newProperties);
+            setPoints(newPoints);
+            // Re-trigger marker build
+            setInitialized(true);
+        }
+
+    }, [propertyStore?.data.length, pointStore?.data.length, loaded]);
 
     useEffect(()=> {
         setSearchResults([]);
@@ -365,7 +400,7 @@ export default function EditorPage() {
     }, [search]);
 
     useEffect(()=> {
-        if(!loaded || saving) return;
+        if(!loaded || savingRef.current) return;
         localStorage.setItem("properties", JSON.stringify({
             data: properties,
             expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
@@ -377,7 +412,7 @@ export default function EditorPage() {
     }, [properties]);
 
     useEffect(()=> {
-        if(!loaded || saving) return;
+        if(!loaded || savingRef.current) return;
         console.log("SAVING POINTS HIT:", points);
         localStorage.setItem("points", JSON.stringify({
             data: points,
@@ -390,7 +425,7 @@ export default function EditorPage() {
     }, [points]);
 
     useEffect(()=> {
-        if(!loaded || saving) return;
+        if(!loaded || savingRef.current) return;
         localStorage.setItem("canvasObjects", JSON.stringify({
             data: canvasObjects,
             expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
@@ -402,7 +437,7 @@ export default function EditorPage() {
     }, [canvasObjects]);
 
     useEffect(()=> {
-        if(!loaded || saving) return;
+        if(!loaded || savingRef.current) return;
         console.log("SAVING POINTS HIT:", points);
         localStorage.setItem("deletedProperties", JSON.stringify({
             data: deletedProperties,
@@ -415,7 +450,7 @@ export default function EditorPage() {
     }, [deletedProperties]);
 
     useEffect(()=> {
-        if(!loaded || saving) return;
+        if(!loaded || savingRef.current) return;
         console.log("SAVING POINTS HIT:", points);
         localStorage.setItem("deletedPoints", JSON.stringify({
             data: deletedPoints,
@@ -446,22 +481,20 @@ export default function EditorPage() {
             allMarkers.push({id: p.id, propertyId: p.propertyId, lngLat: [p.lng, p.lat]});
         });
         ptsData.forEach(p => {
-            const obj = {id: p.id, pointId: p.pointId, type: p.type, name: p.name, lngLat: [p.lng, p.lat]};
-            if(p.type === "icon" && p.icon) {obj.icon = p.icon; allMarkers.push(obj)}
+            const obj = {id: p.id, pointId: p.pointId, type: p.type, name: p.name, lngLat: [p.lng, p.lat], parent_id: p.parent_id};
+            if(["point", "home", "apartment", "unit"].includes(p.type)) {obj.icon = p.icon; allMarkers.push(obj)}
             else if(p.type === "radius" && p.radius) {obj.radius = p.radius; allMarkers.push(obj)}
-            else if(p.type === "marker") allMarkers.push(obj)
-            else if(p.type === "line" && (p.endLng || p.enlng)) {
+            else if(p.type === "line" && (p.endLng || p.endlng)) {
                 obj.endLng = p.endLng ?? p.endlng;
                 obj.endLat = p.endLat ?? p.endlat;
                 allMarkers.push(obj);
             }
         });
         canvasObjs.forEach(p => {
-            const obj = {id: p.id, type: p.type, name: p.name, lngLat: [p.lng, p.lat]};
-            if(p.type === "icon" && p.icon) {obj.icon = p.icon; allMarkers.push(obj)}
+            const obj = {id: p.id, type: p.type, name: p.name, lngLat: [p.lng, p.lat], parent_id: p.parent_id};
+            if(["point", "home", "apartment", "unit"].includes(p.type)) {obj.icon = p.icon; allMarkers.push(obj)}
             else if(p.type === "radius" && p.radius) {obj.radius = p.radius; allMarkers.push(obj)}
-            else if(p.type === "marker") allMarkers.push(obj)
-            else if(p.type === "line" && (p.endLng || p.enlng)) {
+            else if(p.type === "line" && (p.endLng || p.endlng)) {
                 obj.endLng = p.endLng ?? p.endlng;
                 obj.endLat = p.endLat ?? p.endlat;
                 allMarkers.push(obj);
@@ -485,6 +518,11 @@ export default function EditorPage() {
         setCanvasObjects(snapshot.canvasObjects);
         setDeletedProperties(snapshot.deletedProperties);
         setDeletedPoints(snapshot.deletedPoints);
+        
+        // Prevent history push loop
+        savingRef.current = true;
+        setTimeout(() => { savingRef.current = false; }, 0);
+
         const restored = buildMarkersFromState(
             Object.values(snapshot.properties),
             Object.values(snapshot.points),
@@ -543,7 +581,9 @@ export default function EditorPage() {
             "owner_id", "country",
             "city", "endLng",
             "endLat", "length",
-            "endlng", "endlat"
+            "endlng", "endlat",
+            "location", "parent_id",
+            "extra_info"
         ];
         for(const key of Object.keys(obj)) {
             if(!allowedKeys.includes(key)) {
@@ -555,6 +595,7 @@ export default function EditorPage() {
     }
 
     const selectMenu = (e, val) => {
+        setCanvasSelect({type: null, savedTypeId: null, name: ""}); // Deactivate tool on menu switch
         e.preventDefault();
         // No teams now
         ["map", "draw", "render-page", "exports"].forEach(m => {
@@ -651,12 +692,16 @@ export default function EditorPage() {
             });
         } 
         
-        else if(obj.pointId) {
+        else if(obj.pointId || (typeof obj.id === "string" && (obj.id.startsWith("radius-") || obj.id.startsWith("line-") || obj.id.startsWith("icon-") || obj.id.startsWith("marker-")))) {
             console.log("POINT CHANGE HITT", obj);
 
-            const key = typeof obj.pointId === "string"
-                ? obj.pointId
-                : `${obj.type}-${obj.pointId}`;
+            const key = obj.pointId 
+                ? (typeof obj.pointId === "string" ? obj.pointId : `${obj.type}-${obj.pointId}`)
+                : obj.id;
+            
+            const numericId = obj.pointId && typeof obj.pointId === "number" 
+                ? obj.pointId 
+                : (typeof key === "string" ? Number(key.split("-")[1]) : null);
 
             setPoints(p => {
                 console.log("ADDING EXISTING POINT TO P:", p);
@@ -674,6 +719,13 @@ export default function EditorPage() {
                     ...p,
                     [key]: updated
                 };
+            });
+            // CRITICAL: Deduplicate - remove from canvasObjects if it was there
+            setCanvasObjects(c => {
+                const copy = {...c};
+                delete copy[key];
+                delete copy[obj.id];
+                return copy;
             });
         }
         
@@ -716,8 +768,10 @@ export default function EditorPage() {
                     setProperties(p => { const copy = {...p}; delete copy[id]; return copy; });
                 }
                 return;
-            case "icon":
-            case "marker":
+            case "point":
+            case "home":
+            case "apartment":
+            case "unit":
             case "radius":
             case "line":
                 pendingHistoryRef.current = true;
@@ -738,8 +792,10 @@ export default function EditorPage() {
                 return canvasObjects[id] ?? null;
             case "prop":
                 return properties[id] ?? null;
-            case "icon":
-            case "marker":
+            case "point":
+            case "home":
+            case "apartment":
+            case "unit":
             case "radius":
             case "line":
                 return points[id] ?? null;
@@ -762,8 +818,8 @@ export default function EditorPage() {
 
         const pointObj = {
             name: point.name,
-            lng: point.lngLat[0] ?? point.lng,
-            lat: point.lngLat[1] ?? point.lat,
+            lng: point.lngLat ? point.lngLat[0] : point.lng,
+            lat: point.lngLat ? point.lngLat[1] : point.lat,
             address: point.address ?? null,
             city: point.city ?? null,
             county: point.county ?? null,
@@ -807,8 +863,8 @@ export default function EditorPage() {
         const pointObj = {
             type: point.type,
             name: point.name,
-            lng: point.lng ?? point.lngLat[0],
-            lat:  point.lat ?? point.lngLat[1]
+            lng: point.lng ?? point.lngLat?.[0],
+            lat:  point.lat ?? point.lngLat?.[1]
         }
 
         if(point.name.includes("(Unsaved)")) {
@@ -823,15 +879,11 @@ export default function EditorPage() {
         }
 
         switch(point.type) {
-            case "marker":
+            case "point":
+            case "home":
+            case "apartment":
+            case "unit":
                 return pointObj;
-            case "icon":
-                if(point.icon) {
-                    pointObj.icon = point.icon;
-                    return pointObj;
-                }
-                console.error(`Error: Point doesn't have a key: icon`);
-                return false;
             case "radius":
                 if(point.radius) {
                     pointObj.radius = point.radius;
@@ -891,7 +943,7 @@ export default function EditorPage() {
                 }
                 if(deletedProperties.length > 0) {
                     await Promise.all(
-                        deletedProperties.forEach(id => { 
+                        deletedProperties.map(id => { 
                             return dispatch(thunkDeleteProperty(id))
                         })
                     );
@@ -960,7 +1012,16 @@ export default function EditorPage() {
                 if(Object.keys(createPoint).length) {
                     await Promise.all(
                         Object.values(createPoint).map(p => {
-                            if(["marker", "icon", "radius", "line"].includes(p.type)) {
+                            if(["point", "home", "apartment", "unit", "radius", "line"].includes(p.type)) {
+                                if(typeof p.id === "string" && !p.id.startsWith("temp-")) {
+                                    // It's a persisted point that somehow got here
+                                    const actualId = Number(p.id.split("-")[1]);
+                                    const formatted = formatPoint(p);
+                                    if(formatted && actualId) {
+                                        return dispatch(thunkEditPoint(actualId, formatted));
+                                    }
+                                    return Promise.resolve(); // Hard stop to prevent double-save
+                                }
                                 return dispatch(thunkCreatePoint(p))
                             }
                             return Promise.resolve();
@@ -985,6 +1046,16 @@ export default function EditorPage() {
         setReload(r => r += 1);
     };
 
+    // Sync Redux pointStore to local points draft
+    useEffect(() => {
+        if (!initialized) return;
+        const allPoints = {};
+        pointStore.data.forEach(p => {
+            allPoints[`${p.type}-${p.id}`] = p;
+        });
+        setPoints(allPoints);
+    }, [initialized, pointStore?.data.length]);
+    
     return (<>
     {loaded && (
     <div id="editor" className="user-select-none">
@@ -1105,209 +1176,164 @@ export default function EditorPage() {
                         className="menu-item-container"
                         id="menu-item-map"
                     >
-                        <div className="menu-item-title user-select-none">Maps</div>
+                        <div className="menu-tools-section">
+                            <div className="menu-item-title-row">
+                                <h4 className="user-select-none">Properties</h4>
+                                <button onClick={()=> setMenuSelects(m => ({...m, 1: !m[1]}))}>
+                                    {menuSelects[1] ? "V" : "𐌡"}
+                                </button>
+                            </div>
+                            {menuSelects[1] && (
+                                <ul className="tool-list">
+                                    {mapProperties.map((p, i) => (
+                                        <li 
+                                            key={`map-prop-${p.id}`}
+                                            className="tool-item map-list-item"
+                                            onMouseDown={()=> setLngLat([p.lng, p.lat])}
+                                            onContextMenu={(e)=> {
+                                                e.preventDefault();
+                                                showPointContextMenu(e.clientX, e.clientY, p.id);
+                                            }}
+                                        >
+                                            <div className="tool-icon">
+                                                {p.type === "home" ? <img src="/icons/home-point.svg" alt="Home" /> : 
+                                                 p.type === "apartment" ? <img src="/icons/building-point.svg" alt="Apartment" /> : 
+                                                 p.type === "unit" ? <img src="/icons/unit-point.svg" alt="Unit" /> : "📍"}
+                                            </div>
+                                            <span className="user-select-none">
+                                                {p.name || `Property ${p.id}`}
+                                                {p.source === "canvas" && <small style={{marginLeft: "4px", opacity: 0.6}}>(Unsaved)</small>}
+                                            </span>
+                                        </li>
+                                    ))}
+                                    {mapProperties.length === 0 && <p className="empty-section-text">No properties found</p>}
+                                </ul>
+                            )}
+                        </div>
 
-                        <div className="menu-item-1-subtitle user-select-none">
-                            Properties
-                            <button
-                                onClick={()=> setMenuSelects(m => ({...m, 1: !m[1]}) )}
-                            >
-                                {menuSelects[1] ? "V" : "𐌡"}
-                            </button>
-                        </div>
-                        {Object.keys(properties ?? {}).length > 0 && (
-                            <div className={`${menuSelects[1] ? "" : "hidden"}`}>
-                            {Object.values(properties).map((p, i) => (
-                                <div className="menu-item-1 user-select-none" key={`props-${i}`}>
-                                    <p
-                                        className="point-menu-button"
-                                        onMouseDown={()=> setLngLat([p?.lng, p?.lat])}
-                                        onMouseEnter={(e)=> showDefaultHoverContext(true, e.clientX, e.clientY)}
-                                        onMouseLeave={()=> showDefaultHoverContext(false)}
-                                        onContextMenu={(e)=> {
-                                            e.preventDefault();
-                                            showPointContextMenu(e.clientX, e.clientY, p.id);
-                                        }}
-                                    >{p?.name}</p>
-                                </div>
-                            ))}
+                        <div className="menu-tools-section">
+                            <div className="menu-item-title-row">
+                                <h4 className="user-select-none">Points</h4>
+                                <button onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}))}>
+                                    {menuSelects[2] ? "V" : "𐌡"}
+                                </button>
                             </div>
-                        )}
-                        <div className="menu-item-1-subtitle user-select-none">
-                            Points
-                            <button
-                                onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}))}
-                            >
-                                {menuSelects[2] ? "V" : "𐌡"}
-                            </button>
+                            {menuSelects[2] && (
+                                <ul className="tool-list">
+                                    {mapPoints.map((p, i) => (
+                                        <li 
+                                            key={`map-point-${p.id}`}
+                                            className="tool-item map-list-item"
+                                            onMouseDown={()=> setLngLat([p.lng, p.lat])}
+                                            onContextMenu={(e)=> {
+                                                e.preventDefault();
+                                                showPointContextMenu(e.clientX, e.clientY, p.id);
+                                            }}
+                                        >
+                                            <div className="tool-icon">
+                                                {p.type === "radius" ? "⭕" : 
+                                                 p.type === "line" ? "📏" : 
+                                                 (p.icon && p.icon.length > 5) ? <img src={p.icon} alt={p.name} /> : 
+                                                 p.icon || "📍"}
+                                            </div>
+                                            <span className="user-select-none">
+                                                {p.name || `Point ${p.id}`}
+                                                {p.source === "canvas" && <small style={{marginLeft: "4px", opacity: 0.6}}>(Unsaved)</small>}
+                                            </span>
+                                        </li>
+                                    ))}
+                                    {mapPoints.length === 0 && <p className="empty-section-text">No points found</p>}
+                                </ul>
+                            )}
                         </div>
-                        {Object.keys(points ?? {}).length > 0 && (
-                            <div className={`${menuSelects[2] ? "" : "hidden"}`}>
-                                {Object.values(points).map((p, i) => (
-                                <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
-                                    <p
-                                        className="point-menu-button"
-                                        onMouseDown={()=> setLngLat([p?.lng, p?.lat])}
-                                        onMouseEnter={(e)=> showDefaultHoverContext(true, e.clientX, e.clientY)}
-                                        onMouseLeave={()=> showDefaultHoverContext(false)}
-                                        onContextMenu={(e)=> {
-                                            e.preventDefault();
-                                            showPointContextMenu(e.clientX, e.clientY, p.id);
-                                        }}
-                                    >{p?.name}</p>
-                                </div>
-                                ))}
-                            </div>
-                        )}
-                        <div className="menu-item-1-subtitle user-select-none">
-                            Unsaved Points
-                            <button
-                                onClick={()=> setMenuSelects(m => ({...m, 3: !m[3]}))}
-                            >
-                                {menuSelects[3] ? "V" : "𐌡"}
-                            </button>
-                        </div>
-                        {Object.keys(canvasObjects)?.length > 0 && (
-                            <div className={`${menuSelects[3] ? "" : "hidden"}`}>
-                                {Object.values(canvasObjects)?.map((p, i) => (
-                                <div className="menu-item-1 user-select-none" key={`unsaved-p-${i}`}>
-                                    <p
-                                        className="point-menu-button"
-                                        onMouseDown={()=> setLngLat([p?.lng, p?.lat])}
-                                        onMouseEnter={(e)=> showDefaultHoverContext(true, e.clientX, e.clientY)}
-                                        onMouseLeave={()=> showDefaultHoverContext(false)}
-                                        onContextMenu={(e)=> {
-                                            e.preventDefault();
-                                            showPointContextMenu(e.clientX, e.clientY, p.id);
-                                        }}
-                                    >{p?.name}</p>
-                                </div>
-                                ))}
-                            </div>
-                        )}
                     </li>
                     <li
                         className="menu-item-container hidden"
                         id="menu-item-draw"
                     >
-                        <div className="menu-item-title user-select-none">Draw</div>
-
-                        <div className="menu-item-1-subtitle user-select-none">
-                            Basic Tools
-                            <button
-                                onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}))}
-                            >
-                                {menuSelects[2] ? "V" : "𐌡"}
-                            </button>
-                        </div>
-
-                        <div className={`menu-item-2-container ${menuSelects[2] ? "" : "hidden"}`}>
-                            <div 
-                                className={`menu-item-2 ${
-                                    canvasSelect.name === "marker" &&
-                                    canvasSelect.type === "marker" ? "selected" : ""
-                                }`}
-                                onClick={()=> selectCanvasAddon(null, "marker", "marker")}
-                            >
-                                <img src="/icons/point.svg" alt="Marker" />
-                                <p>Marker</p>
-                            </div>
-
-                            <div 
-                                className={`menu-item-2 ${
-                                    canvasSelect.name === "radius" &&
-                                    canvasSelect.type === "radius" ? "selected" : ""
-                                }`}
-                                onClick={()=> selectCanvasAddon(null, "radius", "radius", {size: "6"})}
-                            >
-                                <img src="/icons/radius.svg" alt="Radius" />
-                                <p>Radius</p>
-                            </div>
-
-                            <div 
-                                className={`menu-item-2 ${
-                                    canvasSelect.name === "line" &&
-                                    canvasSelect.type === "line" ? "selected" : ""
-                                }`}
-                                onClick={()=> selectCanvasAddon(null, "line", "line", {size: "6"})}
-                            >
-                                <img src="/icons/line.svg" alt="Radius" />
-                                <p>Line</p>
-                            </div>
-                        </div>
-
-                        <div className="menu-item-1-subtitle user-select-none">
-                            Amenities
-                            <button
-                                onClick={()=> setMenuSelects(m => ({...m, 3: !m[3]}) )}
-                            >
-                                {menuSelects[3] ? "V" : "𐌡"}
-                            </button>
-                        </div>
-
-                        <div className={`menu-item-2-container ${menuSelects[3] ? "" : "hidden"}`}>
-                            {amenities?.map((a, i) => (
-                                <div 
-                                    className={`menu-item-2 ${
-                                        canvasSelect.icon === a.emoji && 
-                                        canvasSelect.name === a.name ? "selected" : ""
-                                    }`}
-                                    key={`amentity-${i}`}
-                                    onClick={()=> selectCanvasAddon(a.emoji, a.name)}
+                        <div className="menu-tools-section">
+                            <h4 className="user-select-none">Points</h4>
+                            <ul className="tool-list">
+                                <li 
+                                    className={`tool-item tool-marker ${canvasSelect.type === "home" && !canvasSelect.savedTypeId ? "tool-active" : ""}`}
+                                    onClick={()=> selectCanvasAddon(null, "Home", "home")}
                                 >
-                                    <p>{a.emoji}</p>
-                                    <p>{a.name}</p>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="menu-item-1-subtitle user-select-none">
-                            Emergencies
-                            <button
-                                onClick={()=> setMenuSelects(m => ({...m, 4: !m[4]}) )}
-                            >
-                                {menuSelects[4] ? "V" : "𐌡"}
-                            </button>
-                        </div>
-
-                        <div className={`menu-item-2-container ${menuSelects[4] ? "" : "hidden"}`}>
-                            {emergencies?.map((e, i) => (
-                                <div 
-                                    className={`menu-item-2 ${
-                                        canvasSelect.icon === e.emoji && 
-                                        canvasSelect.name === e.name ? "selected" : ""
-                                    }`}
-                                    key={`emergency-${i}`}
-                                    onClick={()=> selectCanvasAddon(e.emoji, e.name)}
+                                    <div className="tool-icon"><img src="/icons/home-point.svg" alt="Home" /></div>
+                                    <span className="user-select-none">Home</span>
+                                </li>
+                                <li 
+                                    className={`tool-item tool-marker ${canvasSelect.type === "apartment" && !canvasSelect.savedTypeId ? "tool-active" : ""}`}
+                                    onClick={()=> selectCanvasAddon(null, "Apartment", "apartment")}
                                 >
-                                    <p>{e.emoji}</p>
-                                    <p>{e.name}</p>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="menu-item-1-subtitle user-select-none">
-                            Buildings
-                            <button
-                                onClick={()=> setMenuSelects(m => ({...m, 5: !m[5]}) )}
-                            >
-                                {menuSelects[5] ? "V" : "𐌡"}
-                            </button>
-                        </div>
-
-                        <div className={`menu-item-2-container ${menuSelects[5] ? "" : "hidden"}`}>
-                            {buildings?.map((b, i) => (
-                                <div 
-                                    className={`menu-item-2 ${
-                                        canvasSelect.icon === b && 
-                                        canvasSelect.name === "building" ? "selected" : ""
-                                    }`}
-                                    key={`build-${i}`}
-                                    onClick={()=> selectCanvasAddon(b, "building")}
+                                    <div className="tool-icon"><img src="/icons/building-point.svg" alt="Apartment" /></div>
+                                    <span className="user-select-none">Apartment</span>
+                                </li>
+                                <li 
+                                    className={`tool-item tool-marker ${canvasSelect.type === "unit" && !canvasSelect.savedTypeId ? "tool-active" : ""}`}
+                                    onClick={()=> selectCanvasAddon(null, "Unit", "unit")}
                                 >
-                                    {b}
-                                </div>
-                            ))}
+                                    <div className="tool-icon"><img src="/icons/unit-point.svg" alt="Unit" /></div>
+                                    <span className="user-select-none">Unit</span>
+                                </li>
+                                
+                                {/* Custom Points from Database */}
+                                {savedTypesStore.data.map(type => (
+                                    <li 
+                                        key={`saved-type-${type.id}`}
+                                        className={`tool-item tool-marker ${canvasSelect.savedTypeId === type.id ? "tool-active" : ""}`}
+                                        onClick={()=> setCanvasSelect({ 
+                                            type: "point", 
+                                            savedTypeId: type.id, 
+                                            name: type.name, 
+                                            icon: type.type
+                                        })}
+                                        onContextMenu={(e)=> {
+                                            e.preventDefault();
+                                            if(window.confirm(`Delete ${type.name} from your tools?`)) {
+                                                dispatch(thunkDeleteSavedType(type.id));
+                                            }
+                                        }}
+                                    >
+                                        <div className="tool-icon">{type.type.length > 5 ? <img src={type.type} alt={type.name} /> : type.type}</div>
+                                        <span className="user-select-none">{type.name}</span>
+                                    </li>
+                                ))}
+
+                                <ModalButton
+                                    itemText={(
+                                        <li className="tool-item add-custom-point">
+                                            <div className="tool-icon">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <circle cx="12" cy="12" r="10" stroke="#007bff" strokeWidth="2"/>
+                                                    <path d="M12 8V16M8 12H16" stroke="#007bff" strokeWidth="2" strokeLinecap="round"/>
+                                                </svg>
+                                            </div>
+                                            <span className="user-select-none">Custom Point</span>
+                                        </li>
+                                    )}
+                                    modalComponent={<CustomPointModal />}
+                                />
+                            </ul>
+                        </div>
+
+                        <div className="menu-tools-section">
+                            <h4 className="user-select-none">Measure</h4>
+                            <ul className="tool-list">
+                                <li 
+                                    className={`tool-item tool-radius ${canvasSelect.type === "radius" ? "tool-active" : ""}`}
+                                    onClick={()=> selectCanvasAddon(null, "Radius", "radius")}
+                                >
+                                    <div className="tool-icon">⭕</div>
+                                    <span className="user-select-none">Radius</span>
+                                </li>
+                                <li 
+                                    className={`tool-item tool-line ${canvasSelect.type === "line" ? "tool-active" : ""}`}
+                                    onClick={()=> selectCanvasAddon(null, "Line", "line")}
+                                >
+                                    <div className="tool-icon">📏</div>
+                                    <span className="user-select-none">Line</span>
+                                </li>
+                            </ul>
                         </div>
                     </li>
                     <li 
