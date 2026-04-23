@@ -7,10 +7,9 @@
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
     padding: 16px;
     height: 100%;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    overflow: hidden; /* Header and Footer stay fixed */
 }
 
 .sidebar-header {
@@ -22,17 +21,41 @@
     margin-bottom: 8px;
 }
 
-.sidebar-title-row {
+.sidebar-header-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sidebar-main-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.sidebar-subtitle {
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.staged-banner {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 6px;
+    padding: 6px 10px;
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-bottom: 8px;
 }
 
-.sidebar-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #f8fafc;
-    letter-spacing: -0.01em;
+.staged-banner span {
+    font-size: 10px;
+    font-weight: 700;
+    color: #f59e0b;
+    letter-spacing: 0.1em;
 }
 
 .pin-button {
@@ -71,6 +94,9 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow-y: auto;
+    flex-grow: 1;
+    padding-right: 4px; /* Space for scrollbar */
 }
 
 .sidebar-group {
@@ -111,14 +137,31 @@
 }
 
 .sidebar-footer {
-    margin-top: auto;
+    margin-top: 12px;
     padding-top: 16px;
-    position: sticky;
-    bottom: 0;
-    background: transparent;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+}
+
+.apply-action-btn {
+    background: #6366f1;
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.apply-action-btn:hover {
+    background: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .delete-action-btn {

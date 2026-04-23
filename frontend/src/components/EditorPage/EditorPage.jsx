@@ -125,13 +125,6 @@ export default function EditorPage() {
     }, [initialized]);
     
     // EVENT LISTENERS
-    useEffect(()=> {
-        const closeMenu = () => {
-            hideContextMenu();
-        }
-        document.addEventListener("click", closeMenu);
-        return () => document.removeEventListener("click", closeMenu);
-    }, [])
 
     // LOADING USESTATES
     useEffect(()=> {
@@ -357,7 +350,7 @@ export default function EditorPage() {
             points: pointStore?.data,
             canvasObjects
         })
-    }, [initialized, propertyStore?.data, pointStore?.data]);
+    }, [initialized, propertyStore?.data, pointStore?.data, properties, points, canvasObjects]);
 
     // Reactivity: Sync new properties/points from Redux into local state
     useEffect(()=> {
@@ -628,44 +621,6 @@ export default function EditorPage() {
         });
     };
 
-    const showPointContextMenu = (x, y, id) => {
-        showDefaultHoverContext(false);
-        const menu = document.getElementById("marker-context");
-        if(!menu) return;
-
-        menu.style.left = `${x}px`;
-        menu.style.top = `${y}px`;
-        menu.classList.remove("hidden");
-
-        const obj =
-            Object.values(properties).find(p => p.id === id) ||
-            Object.values(points).find(p => p.id === id) ||
-            Object.values(canvasObjects).find(p => p.id === id);
-        
-        setContextPoint(obj ? {...obj, id} : {id})
-
-        document.getElementById("marker-delete-action").onclick = () => {
-            signalPointDelete(id);
-            hideContextMenu();
-        }
-    }
-
-    function hideContextMenu() {
-        const menu = document.getElementById("marker-context");
-        if(menu) menu?.classList.add("hidden");
-    }
-
-    const showDefaultHoverContext = (visible, x=null, y=null) => {
-        const hoverEl = document.getElementById("hover-element");
-        if(!hoverEl) return;
-
-        if(!visible) hoverEl?.classList.toggle("hidden", true);
-        else if(x && y) {
-            hoverEl?.classList.toggle("hidden", false);
-            hoverEl.style.left = `${x}px`;
-            hoverEl.style.top = `${y}px`;
-        }
-    }
 
     const selectCanvasAddon = (icon, name, type="icon") => {
         if(canvasSelect.icon === icon && canvasSelect.name === name) {
@@ -1200,10 +1155,7 @@ export default function EditorPage() {
                                             key={`map-prop-${p.id}`}
                                             className="tool-item map-list-item"
                                             onMouseDown={()=> setLngLat([p.lng, p.lat])}
-                                            onContextMenu={(e)=> {
-                                                e.preventDefault();
-                                                showPointContextMenu(e.clientX, e.clientY, p.id);
-                                            }}
+                                            onClick={()=> handlePointSelect(p)}
                                         >
                                             <div className="tool-icon">
                                                 {p.type === "home" ? <img src="/icons/home-point.svg" alt="Home" /> : 
@@ -1235,10 +1187,7 @@ export default function EditorPage() {
                                             key={`map-point-${p.id}`}
                                             className="tool-item map-list-item"
                                             onMouseDown={()=> setLngLat([p.lng, p.lat])}
-                                            onContextMenu={(e)=> {
-                                                e.preventDefault();
-                                                showPointContextMenu(e.clientX, e.clientY, p.id);
-                                            }}
+                                            onClick={()=> handlePointSelect(p)}
                                         >
                                             <div className="tool-icon">
                                                 {p.type === "radius" ? "⭕" : 

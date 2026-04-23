@@ -81,18 +81,19 @@ export default function PropertyDetailsSidebar({
     if (!point) return null;
 
     return (
-        <div className="sidebar-container glass-container">
+        <div className="sidebar-container">
+            {hasStagedChanges && (
+                <div className="staged-banner">
+                    <UnsavedIndicator pulseOnly />
+                    <span>STAGED CHANGES</span>
+                </div>
+            )}
             <div className="sidebar-header">
-                <div className="sidebar-title-row">
-                    <span className="sidebar-title">
+                <div className="sidebar-header-titles">
+                    <h3 className="sidebar-main-title">
                         {type.charAt(0).toUpperCase() + type.slice(1)} Details
-                    </span>
-                    {hasStagedChanges && (
-                        <div className="sidebar-title-row" style={{gap: "4px"}}>
-                            <UnsavedIndicator />
-                            <span className="unsaved-status-badge">(Unsaved)</span>
-                        </div>
-                    )}
+                    </h3>
+                    <p className="sidebar-subtitle">Editing {point.name || "Unnamed Point"}</p>
                 </div>
                 <button 
                     className={`pin-button ${isPinned ? "active" : ""}`} 
@@ -102,7 +103,7 @@ export default function PropertyDetailsSidebar({
                     }}
                     title={isPinned ? "Unpin sidebar (Volatile Mode)" : "Pin sidebar (Persistent Mode)"}
                 >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M7 6v1b0 0 0 4 4v5l-1 3v1h10v-1l-1-3v-5a4 4 0 0 0-4-4V6z" />
                         <line x1="12" y1="17" x2="12" y2="22" />
                     </svg>
@@ -226,6 +227,13 @@ export default function PropertyDetailsSidebar({
             </div>
 
             <div className="sidebar-footer">
+                <button 
+                    className="apply-action-btn"
+                    onClick={onClose}
+                >
+                    Apply Changes
+                </button>
+                
                 {!confirmingDelete ? (
                     <button 
                         className="delete-action-btn"
