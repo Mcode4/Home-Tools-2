@@ -14,7 +14,7 @@ export default function MapComponent({
     layer, lngLat, markers, canvasTool,
     createdCanvasObject, deletedCanvasObject,
     updateObject, onPointChange, deleteSignal,
-    getMetadata
+    getMetadata, onSelect, onCloseSidebar
 }) {
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
@@ -158,13 +158,7 @@ export default function MapComponent({
 
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: markerId,
-                        type: m.type,
-                        name: m.name ?? "New " + m.type,
-                        lngLat: marker.getLngLat()
-                    });
+                    onSelect(getMetadata(markerId));
                 });
 
                 el.addEventListener("contextmenu", (e)=> {
@@ -223,13 +217,7 @@ export default function MapComponent({
 
                 el.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: markerId,
-                        type: m.type,
-                        name: m.name ?? "New " + m.type,
-                        lngLat: marker.getLngLat()
-                    });
+                    onSelect(getMetadata(markerId));
                 });
 
                 el.addEventListener("contextmenu", (e)=> {
@@ -351,15 +339,7 @@ export default function MapComponent({
 
                 centerEl.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    console.log("CLICK");
-
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: radiusId,
-                        type: m.type,
-                        name: m.name ?? "New " + m.type,
-                        lngLat: centerMarker.getLngLat()
-                    });
+                    onSelect(getMetadata(radiusId));
                 });
 
                 centerEl.addEventListener("contextmenu", (e)=> {
@@ -515,28 +495,12 @@ export default function MapComponent({
 
                 startEl.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    console.log("CLICK");
-
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: lineId,
-                        type: m.type,
-                        name: m.name ?? "New " + m.type,
-                        lngLat: startMarker.getLngLat()
-                    });
+                    onSelect(getMetadata(lineId));
                 });
 
                 endEl.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    console.log("CLICK");
-
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: lineId,
-                        type: m.type,
-                        name: m.name ?? "New " + m.type,
-                        lngLat: endMarker.getLngLat()
-                    });
+                    onSelect(getMetadata(lineId));
                 });
 
                 startEl.addEventListener("contextmenu", (e)=> {
@@ -638,6 +602,10 @@ export default function MapComponent({
         };
 
         const handleClick = (e) => {
+            if (!canvasTool?.type) {
+                onCloseSidebar();
+                return;
+            }
             const {lng, lat} = e.lngLat;
 
             if(["point", "home", "apartment", "unit"].includes(canvasTool.type)) {

@@ -14,6 +14,7 @@ import { handleSearchAddress, reverseLookupAddress } from "../../functions/searc
 import MapComponent from "./Map";
 import CustomPointModal from "../CustomPointModal/CustomPointModal";
 import "./EditorPage.css";
+import PropertyDetailsSidebar from "./PropertyDetailsSidebar/PropertyDetailsSidebar";
 import { ModalButton, ModalItem } from "../../context/Modal";
 import ManagePointsModal from "../ManagePointsModal";
 import { NavigateModal } from "../PopupModals";
@@ -74,6 +75,8 @@ export default function EditorPage() {
     const [popups, setPopups] = useState({});
     const [menuSelects, setMenuSelects] = useState({});
     const [menu, setMenu] = useState("map") // "map", "draw", "teams", "render-page", "exports"
+    const [selectedPoint, setSelectedPoint] = useState(null);
+    const [isPinned, setIsPinned] = useState(false);
     
     // TEMP DATA
     const [buildings, setBuildings] = useState(["A", "B", "C", "D", "E", "F", "G"]);
@@ -97,6 +100,14 @@ export default function EditorPage() {
     useEffect(()=> {
         console.log("LNG LAT CHANGED", lngLat);
     }, [lngLat]);
+
+    const handlePointSelect = (point) => {
+        setSelectedPoint(point);
+    };
+
+    const handleCloseSidebar = () => {
+        if (!isPinned) setSelectedPoint(null);
+    };
 
     useEffect(()=> {
         console.log("MENU CHANGED", menu);
@@ -1394,6 +1405,23 @@ export default function EditorPage() {
                         </div>
                     </div>
                 </div>
+                {selectedPoint && (
+                    <PropertyDetailsSidebar 
+                        point={selectedPoint}
+                        isPinned={isPinned}
+                        allPoints={[...mapProperties, ...mapPoints]}
+                        onPinToggle={() => setIsPinned(!isPinned)}
+                        onUpdate={(updatedPoint) => {
+                            addCanvasObjects(updatedPoint);
+                            setSelectedPoint(updatedPoint);
+                        }}
+                        onDelete={(id) => {
+                            deleteCanvasObjects(id);
+                            setSelectedPoint(null);
+                        }}
+                        onClose={handleCloseSidebar}
+                    />
+                )}
             </span>
 
             <div id="marker-context" className="marker-context hidden">
@@ -1426,6 +1454,8 @@ export default function EditorPage() {
                 onPointChange={signalPointUpdate}
                 deleteSignal={pointDelete}
                 getMetadata={getMetadata}
+                onSelect={handlePointSelect}
+                onCloseSidebar={handleCloseSidebar}
             />             
         </div>
     </div>
