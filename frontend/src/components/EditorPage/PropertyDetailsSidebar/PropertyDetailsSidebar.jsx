@@ -87,14 +87,22 @@ export default function PropertyDetailsSidebar({
                     <span className="sidebar-title">
                         {type.charAt(0).toUpperCase() + type.slice(1)} Details
                     </span>
-                    {hasStagedChanges && <UnsavedIndicator />}
+                    {hasStagedChanges && (
+                        <div className="sidebar-title-row" style={{gap: "4px"}}>
+                            <UnsavedIndicator />
+                            <span className="unsaved-status-badge">(Unsaved)</span>
+                        </div>
+                    )}
                 </div>
                 <button 
                     className={`pin-button ${isPinned ? "active" : ""}`} 
-                    onClick={onPinToggle}
-                    title={isPinned ? "Unpin sidebar" : "Pin sidebar open"}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onPinToggle();
+                    }}
+                    title={isPinned ? "Unpin sidebar (Volatile Mode)" : "Pin sidebar (Persistent Mode)"}
                 >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M7 6v1b0 0 0 4 4v5l-1 3v1h10v-1l-1-3v-5a4 4 0 0 0-4-4V6z" />
                         <line x1="12" y1="17" x2="12" y2="22" />
                     </svg>
