@@ -20,7 +20,6 @@ export default function MapComponent({
     const mapInstance = useRef(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [propertyState, setPropertyState] = useState({});
-    const [leftPopupContext, setLeftPopupContext] = useState(null);
     const canvasObjectsRef = useRef({});
     const pointStore = useSelector(state => state.points);
 
@@ -159,21 +158,9 @@ export default function MapComponent({
                     onSelect(getMetadata(markerId));
                 });
 
-                el.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: marker.getLngLat(),
-                        id: markerId,
-                        name: m.name
-                    })
-                });
 
                 marker.on("dragstart", ()=> {
                     setCursor("grabbing");
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
                 });
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
@@ -218,21 +205,9 @@ export default function MapComponent({
                     onSelect(getMetadata(markerId));
                 });
 
-                el.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: marker.getLngLat(),
-                        id: markerId,
-                        name: m.name
-                    })
-                });
 
                 marker.on("dragstart", ()=> {
                     setCursor("grabbing");
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
                 });
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
@@ -881,7 +856,7 @@ export default function MapComponent({
             map.off("dragstart", dragStart);
             map.off("dragend", dragEnd);
         };
-    }, [canvasTool, isLoaded]);
+    }, [canvasTool, isLoaded, onSelect, onCloseSidebar]);
 
     useEffect(()=> {
         console.log("UPDATE POINT HIT MAPCOMPONENT", updateObject)
@@ -1086,6 +1061,5 @@ export default function MapComponent({
             className=""
             ref={mapRef}
         />
-        </>
     )
 }
