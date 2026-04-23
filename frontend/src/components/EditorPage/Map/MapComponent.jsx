@@ -20,9 +20,7 @@ export default function MapComponent({
     const mapInstance = useRef(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [propertyState, setPropertyState] = useState({});
-    const [contextPoint, setContextPoint] = useState(null);
     const [leftPopupContext, setLeftPopupContext] = useState(null);
-    const [rightPopupContext, setRightPopupContext] = useState(null);
     const canvasObjectsRef = useRef({});
     const pointStore = useSelector(state => state.points);
 
@@ -342,23 +340,8 @@ export default function MapComponent({
                     onSelect(getMetadata(radiusId));
                 });
 
-                centerEl.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: centerMarker.getLngLat(),
-                        id: radiusId,
-                        name: m.name
-                    })
-                });
-
                 centerMarker.on("dragstart", ()=> {
                     map.getCanvas().style.cursor = "grabbing";
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
                 });
                 centerMarker.on("dragend", ()=> {
                     map.getCanvas().style.cursor = getBaseCursor();
@@ -503,40 +486,11 @@ export default function MapComponent({
                     onSelect(getMetadata(lineId));
                 });
 
-                startEl.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: startMarker.getLngLat(),
-                        id: lineId,
-                        name: m.name
-                    })
-                });
-                endEl.addEventListener("contextmenu", (e)=> {
-                   e.preventDefault();
-                    e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: endMarker.getLngLat(),
-                        id: lineId,
-                        name: m.name
-                    })
-                });
-
                 startMarker.on("dragstart", ()=> {
                     setCursor("grabbing");
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
                 });
                 endMarker.on("dragstart", ()=> {
                     setCursor("grabbing");
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
                 });
 
                 canvasObjectsRef.current[lineId] = {
@@ -631,32 +585,8 @@ export default function MapComponent({
                 const el = marker.getElement();
                 el.style.cursor = "cell";
 
-                el.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: markerId,
-                        type: actualType,
-                        name: canvasTool.name ?? "New " + actualType,
-                        lngLat: marker.getLngLat()
-                    });
-                });
-
-                el.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: marker.getLngLat(),
-                        id: markerId,
-                        name: canvasTool.name ?? "New " + actualType
-                    });
-                });
-
                 marker.on("dragstart", ()=> {
                     setCursor("grabbing");
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
                 });
                 marker.on("dragend", ()=> {
                     setCursor(getBaseCursor());
@@ -744,11 +674,6 @@ export default function MapComponent({
                     .setLngLat([handleMarker.getLngLat().lng, handleMarker.getLngLat().lat])
                     .addTo(map)
 
-                const popup = new maplibregl.Popup({
-                    offset: 25,
-                    closeOnClick: true
-                });
-
                 handleMarker.on("drag", ()=> {
                     const center = centerMarker.getLngLat();
                     const handle = handleMarker.getLngLat();
@@ -775,36 +700,8 @@ export default function MapComponent({
                 centerEl.style.cursor = "cell";
                 handleEl.style.cursor = "grab";
 
-                centerEl.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    console.log("CLICK");
-
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: radiusId,
-                        type: canvasTool.type,
-                        name: canvasTool.name ?? "New " + canvasTool.type,
-                        lngLat: centerMarker.getLngLat()
-                    });
-                });
-
-                centerEl.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: centerMarker.getLngLat(),
-                        id: radiusId,
-                        name: canvasTool.name
-                    })
-                });
-
                 centerMarker.on("dragstart", ()=> {
                     map.getCanvas().style.cursor = "grabbing";
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
                 });
                 centerMarker.on("dragend", ()=> {
                     map.getCanvas().style.cursor = getBaseCursor();
@@ -947,66 +844,11 @@ export default function MapComponent({
                 startEl.style.cursor = "grab";
                 endEl.style.cursor = "grab";
 
-                startEl.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    console.log("CLICK");
-
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: lineId,
-                        type: canvasTool.type,
-                        name: canvasTool.name ?? "New " + canvasTool.type,
-                        lngLat: startMarker.getLngLat()
-                    });
-                });
-
-                endEl.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    console.log("CLICK");
-
-                    setLeftPopupContext({
-                        activeTime: Date.now(),
-                        id: lineId,
-                        type: canvasTool.type,
-                        name: canvasTool.name ?? "New " + canvasTool.type,
-                        lngLat: endMarker.getLngLat()
-                    });
-                });
-
-                startEl.addEventListener("contextmenu", (e)=> {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: startMarker.getLngLat(),
-                        id: lineId,
-                        name: canvasTool.name
-                    })
-                });
-                endEl.addEventListener("contextmenu", (e)=> {
-                   e.preventDefault();
-                    e.stopPropagation();
-                    console.log("CONTEXT POPUP CLICKED")
-
-                    setRightPopupContext({
-                        activeTime: Date.now(),
-                        lngLat: endMarker.getLngLat(),
-                        id: lineId,
-                        name: canvasTool.name
-                    })
-                });
-
                 startMarker.on("dragstart", ()=> {
                     setCursor("grabbing");
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
                 });
                 endMarker.on("dragstart", ()=> {
                     setCursor("grabbing");
-                    setLeftPopupContext(null);
-                    setRightPopupContext(null);
                 });
                 createdCanvasObject({
                     id: lineId,
@@ -1088,14 +930,6 @@ export default function MapComponent({
             deleteCanvasObject(deleteSignal?.id);
         }
     }, [deleteSignal]);
-
-    useEffect(()=> {
-        if(leftPopupContext && rightPopupContext) {
-            if(leftPopupContext.activeTime > rightPopupContext.activeTime)
-                setRightPopupContext(null);
-            else setLeftPopupContext(null);
-        }
-    }, [leftPopupContext, rightPopupContext]);
 
     const templateElements = ({icon, name, type} = {}) => {
         const labelDiv = document.createElement("div");
@@ -1247,54 +1081,6 @@ export default function MapComponent({
     }
 
     return (
-        <>
-        {leftPopupContext && (
-            <MapLibrePopup
-                map={mapInstance.current ?? null}
-                lngLat={leftPopupContext.lngLat}
-                onClose={()=> setLeftPopupContext(null)}
-            >
-                <div className="map-popup">
-                    <strong>{leftPopupContext.name || "Point"} Menu</strong>
-                    <div className="popup-actions">
-                        {propertyState[leftPopupContext.id] ? (
-                            <>
-                            <button className="config-property">Configure Property</button>
-                            <button className="render-property">Render Editor</button>
-                            </>
-                        ) : (
-                            <button id="add-property">Add Property</button>
-                        )}
-                    </div>
-                </div>
-            </MapLibrePopup>
-        )}
-        {rightPopupContext && (
-            <MapLibrePopup
-                map={mapInstance.current ?? null}
-                lngLat={rightPopupContext.lngLat}
-                onClose={()=> setRightPopupContext(null)}
-            >
-                <div className="map-popup">
-                    <strong>{rightPopupContext.name || "Point"} Options</strong>
-                    <ModalButton
-                        itemText="Edit"
-                        modalComponent={
-                        <ManagePointsModal 
-                            point={getMetadata(rightPopupContext.id)}
-                            allPoints={Object.values(pointStore.data)}
-                            addFunc={createdCanvasObject}
-                            deleteFunc={deleteCanvasObject}
-                            changeFunc={onPointChange}
-                        />}
-                    />
-                    <button 
-                        onClick={()=> {deleteCanvasObject(rightPopupContext.id); setRightPopupContext(null)}
-                    }>Delete</button>
-                </div>
-            </MapLibrePopup>
-        )}
-
         <div
             id="map-container"
             className=""

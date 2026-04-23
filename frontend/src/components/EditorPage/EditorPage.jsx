@@ -52,7 +52,6 @@ export default function EditorPage() {
     const [canvasSelect, setCanvasSelect] = useState({icon: null, name: null, type: null});
     const [pointChange, setPointChange] = useState({});
     const [pointDelete, setPointDelete] = useState({});
-    const [contextPoint, setContextPoint] = useState(null);
 
     // SEARCH
     const [search, setSearch] = useState("");
@@ -1424,24 +1423,6 @@ export default function EditorPage() {
                 )}
             </span>
 
-            <div id="marker-context" className="marker-context hidden">
-                <ModalButton
-                    itemText="Edit"
-                    modalComponent={
-                    <ManagePointsModal 
-                        point={contextPoint}
-                        isSaved={contextPoint?.propertyId || contextPoint?.pointId}
-                        addFunc={addCanvasObjects}
-                        deleteFunc={deleteCanvasObjects}
-                        changeFunc={signalPointUpdate}
-                    />}
-                />
-                <button id="marker-delete-action">Delete</button>
-            </div>
-
-            <div id="hover-element" className="hover-element hidden">
-                <p>Left-Click to Go To | Right Click to Edit/Delete</p>
-            </div>
 
             <MapComponent 
                 layer={layer} 
