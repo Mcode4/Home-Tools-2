@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Tree } from "react-arborist";
 import UnsavedIndicator from "./UnsavedIndicator";
 import { reverseLookupAddress } from "../../../functions/search/search";
+import { useLocalStorageWithTTL } from "../../../hooks/useLocalStorageWithTTL";
 import "./PropertyDetailsSidebar.css";
 
 export default function PropertyDetailsSidebar({
@@ -12,18 +14,20 @@ export default function PropertyDetailsSidebar({
     onDelete,
     onClose
 }) {
+    const [activeTab, setActiveTab] = useState("general");
     const [name, setName] = useState("");
     const [location, setLocation] = useState(null);
     const [icon, setIcon] = useState("");
-    const [radius, setRadius] = useState(0);
     const [type, setType] = useState("");
-    const [length, setLength] = useState(0);
-    const [unitList, setUnitList] = useState("");
-    const [parentId, setParentId] = useState("");
-    const [floors, setFloors] = useState(1);
     const [loaded, setLoaded] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [hasStagedChanges, setHasStagedChanges] = useState(false);
+
+    // Hierarchy State
+    const [hierarchy, setHierarchy] = useState({ dimensions: null, notes: [], floors: [] });
+    // Selection state for tree
+    const [selectedNodeId, setSelectedNodeId] = useState(null);
+    const [treeSearch, setTreeSearch] = useState("");
 
     // Sync internal state with selected point
     useEffect(() => {
@@ -40,12 +44,35 @@ export default function PropertyDetailsSidebar({
         setName(cleanName);
         setType(point.type === "icon" ? "marker" : (point.type || "marker"));
         setIcon(point.icon || "");
-        setRadius(point.radius || 0);
-        setLength(point.length || 0);
-        setUnitList(point.extra_info?.units?.join(", ") || "");
-        setFloors(point.extra_info?.floors || 1);
-        setParentId(point.parent_id || "");
         setConfirmingDelete(false);
+
+        // Initialize Hierarchy from point or legacy data
+        if (point.hierarchy) {
+            setHierarchy(point.hierarchy);
+        } else {
+            // Legacy Migration (Soft)
+            const legacyFloorsCount = point.extra_info?.floors || 1;
+            const legacyUnits = point.extra_info?.units || [];
+            
+            const initialFloors = Array.from({ length: legacyFloorsCount }, (_, i) => ({
+                id: `floor-${Date.now()}-${i}`,
+                name: `Floor ${i + 1}`,
+                dimensions: null,
+                notes: [],
+                rooms: i === 0 ? legacyUnits.map((u, ui) => ({
+                    id: `room-${Date.now()}-${ui}`,
+                    name: u,
+                    dimensions: null,
+                    notes: []
+                })) : []
+            }));
+
+            setHierarchy({
+                dimensions: null,
+                notes: [],
+                floors: initialFloors
+            });
+        }
 
         if (point.location) {
             setLocation(point.location);
@@ -62,28 +89,204 @@ export default function PropertyDetailsSidebar({
                     setLoaded(true);
                 });
         }
-    }, [point?.id, point?.lng, point?.lat]);
+    }, [point?.id, point?.lng, point?.lat, point?.type]);
+
+    // Format hierarchy for React Arborist
+    const treeData = useMemo(() => {
+        if (!point) return [];
+        
+        const root = {
+            id: 'root',
+            name: name || "Property",
+            type: 'property',
+            children: [
+                ...hierarchy.floors.map(f => ({
+                    id: f.id,
+                    name: f.name,
+                    type: 'floor',
+                    children: [
+                        ...f.rooms.map(r => ({
+                            id: r.id,
+                            name: r.name,
+                            type: 'room',
+                            children: r.notes.map(n => ({
+                                id: n.id,
+                                name: n.title || "Untitled Note",
+                                type: 'note'
+                            }))
+                        })),
+                        ...f.notes.map(n => ({
+                            id: n.id,
+                            name: n.title || "Untitled Note",
+                            type: 'note'
+                        }))
+                    ]
+                })),
+                ...hierarchy.notes.map(n => ({
+                    id: n.id,
+                    name: n.title || "Untitled Note",
+                    type: 'note'
+                }))
+            ]
+        };
+        return [root];
+    }, [hierarchy, name, point]);
 
     // Handle Live Updates
     const handleChange = (field, value) => {
         const update = { [field]: value };
-
-        // Semantic sync for complex objects
-        if (field === "unitList") {
-            update.extra_info = {
-                ...point.extra_info,
-                units: value.split(",").map(u => u.trim()).filter(u => u)
-            };
-            delete update.unitList;
-        }
-        if (field === "floors") {
-            update.extra_info = {
-                ...point.extra_info,
-                floors: parseInt(value) || 1
-            };
-        }
-
         onUpdate({ ...point, ...update });
+    };
+
+    const handleHierarchyChange = (newHierarchy) => {
+        setHierarchy(newHierarchy);
+        onUpdate({ ...point, hierarchy: newHierarchy });
+    };
+
+    const handleCreateChild = (parentId, type) => {
+        const newNode = {
+            id: `${type}-${Date.now()}`,
+            name: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+            dimensions: null,
+            notes: [],
+            rooms: type === 'floor' ? [] : undefined
+        };
+
+        const newHierarchy = { ...hierarchy };
+        if (parentId === 'root') {
+            if (type === 'floor') newHierarchy.floors.push(newNode);
+            if (type === 'note') newHierarchy.notes.push({ id: newNode.id, title: newNode.name, content: "", type: "inspection" });
+        } else {
+            // Find parent and add
+            const floor = newHierarchy.floors.find(f => f.id === parentId);
+            if (floor) {
+                if (type === 'room') floor.rooms.push(newNode);
+                if (type === 'note') floor.notes.push({ id: newNode.id, title: newNode.name, content: "", type: "inspection" });
+            } else {
+                newHierarchy.floors.forEach(f => {
+                    const room = f.rooms.find(r => r.id === parentId);
+                    if (room && type === 'note') {
+                        room.notes.push({ id: newNode.id, title: newNode.name, content: "", type: "inspection" });
+                    }
+                });
+            }
+        }
+        handleHierarchyChange(newHierarchy);
+    };
+
+    const handleRenameNode = (id, newName) => {
+        const newHierarchy = { ...hierarchy };
+        // Deep search and rename
+        if (id === 'root') return; // Controlled by General tab
+
+        let found = false;
+        newHierarchy.floors.forEach(f => {
+            if (f.id === id) { f.name = newName; found = true; }
+            if (!found) {
+                f.rooms.forEach(r => {
+                    if (r.id === id) { r.name = newName; found = true; }
+                    if (!found) {
+                        r.notes.forEach(n => {
+                            if (n.id === id) { n.title = newName; found = true; }
+                        });
+                    }
+                });
+                f.notes.forEach(n => {
+                    if (n.id === id) { n.title = newName; found = true; }
+                });
+            }
+        });
+        newHierarchy.notes.forEach(n => {
+            if (n.id === id) { n.title = newName; found = true; }
+        });
+
+        if (found) handleHierarchyChange(newHierarchy);
+    };
+
+    const handleDeleteNode = (id) => {
+        let newHierarchy = { ...hierarchy };
+        newHierarchy.floors = newHierarchy.floors.filter(f => f.id !== id);
+        newHierarchy.floors.forEach(f => {
+            f.rooms = f.rooms.filter(r => r.id !== id);
+            f.notes = f.notes.filter(n => n.id !== id);
+            f.rooms.forEach(r => {
+                r.notes = r.notes.filter(n => n.id !== id);
+            });
+        });
+        newHierarchy.notes = newHierarchy.notes.filter(n => n.id !== id);
+        handleHierarchyChange(newHierarchy);
+    };
+
+    // Node Component for Arborist
+    const Node = ({ node, style, dragHandle, tree }) => {
+        const [isEditing, setIsEditing] = useState(false);
+        const [tempName, setTempName] = useState(node.data.name);
+
+        const onEdit = () => {
+            setIsEditing(true);
+            setTempName(node.data.name);
+        };
+
+        const onSave = () => {
+            setIsEditing(false);
+            handleRenameNode(node.id, tempName);
+        };
+
+        return (
+            <div 
+                style={style} 
+                ref={dragHandle}
+                className={`node-container ${node.isSelected ? 'selected' : ''}`}
+                onClick={() => {
+                    node.select();
+                    setSelectedNodeId(node.id);
+                }}
+            >
+                <div className="node-icon">
+                    {node.data.type === 'property' && '🏠'}
+                    {node.data.type === 'floor' && '🪜'}
+                    {node.data.type === 'room' && '🚪'}
+                    {node.data.type === 'note' && '📝'}
+                </div>
+                
+                {isEditing ? (
+                    <input 
+                        className="node-edit-input"
+                        value={tempName}
+                        onChange={(e) => setTempName(e.target.value)}
+                        onBlur={onSave}
+                        onKeyDown={(e) => e.key === 'Enter' && onSave()}
+                        autoFocus
+                    />
+                ) : (
+                    <span className="node-text">{node.data.name}</span>
+                )}
+
+                <div className="node-actions">
+                    {node.data.type === 'property' && (
+                        <>
+                            <button className="node-action-btn" onClick={(e) => { e.stopPropagation(); handleCreateChild('root', 'floor'); }}>➕🪜</button>
+                            <button className="node-action-btn" onClick={(e) => { e.stopPropagation(); handleCreateChild('root', 'note'); }}>➕📝</button>
+                        </>
+                    )}
+                    {node.data.type === 'floor' && (
+                        <>
+                            <button className="node-action-btn" onClick={(e) => { e.stopPropagation(); handleCreateChild(node.id, 'room'); }}>➕🚪</button>
+                            <button className="node-action-btn" onClick={(e) => { e.stopPropagation(); handleCreateChild(node.id, 'note'); }}>➕📝</button>
+                        </>
+                    )}
+                    {node.data.type === 'room' && (
+                        <button className="node-action-btn" onClick={(e) => { e.stopPropagation(); handleCreateChild(node.id, 'note'); }}>➕📝</button>
+                    )}
+                    {node.data.type !== 'property' && (
+                        <>
+                            <button className="node-action-btn" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>
+                            <button className="node-action-btn" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}>🗑️</button>
+                        </>
+                    )}
+                </div>
+            </div>
+        );
     };
 
     if (!point) return null;
@@ -118,143 +321,114 @@ export default function PropertyDetailsSidebar({
                 </button>
             </div>
 
+            <div className="sidebar-tabs">
+                <button 
+                    className={`sidebar-tab ${activeTab === "general" ? "active" : ""}`}
+                    onClick={() => setActiveTab("general")}
+                >
+                    General
+                </button>
+                <button 
+                    className={`sidebar-tab ${activeTab === "structure" ? "active" : ""}`}
+                    onClick={() => setActiveTab("structure")}
+                >
+                    Structure
+                </button>
+                <button 
+                    className={`sidebar-tab ${activeTab === "details" ? "active" : ""}`}
+                    onClick={() => setActiveTab("details")}
+                >
+                    Details
+                </button>
+            </div>
+
             <div className="sidebar-form">
-                <div className="sidebar-group">
-                    <label className="sidebar-label">Name</label>
-                    <input
-                        type="text"
-                        className="sidebar-input"
-                        value={name}
-                        onChange={(e) => {
-                            setName(e.target.value);
-                            handleChange("name", e.target.value);
-                        }}
-                    />
-                </div>
+                {activeTab === "general" && (
+                    <>
+                        <div className="sidebar-group">
+                            <label className="sidebar-label">Name</label>
+                            <input
+                                type="text"
+                                className="sidebar-input"
+                                value={name}
+                                onChange={(e) => {
+                                    setName(e.target.value);
+                                    handleChange("name", e.target.value);
+                                }}
+                            />
+                        </div>
 
-                <div className="sidebar-group">
-                    <label className="sidebar-label">Location (Coordinates)</label>
-                    <div className="sidebar-coords">
-                        <span>LAT: {point.lat?.toFixed(6) || point.lngLat?.[1]?.toFixed(6)}</span>
-                        <span>LNG: {point.lng?.toFixed(6) || point.lngLat?.[0]?.toFixed(6)}</span>
-                    </div>
-                </div>
+                        <div className="sidebar-group">
+                            <label className="sidebar-label">Location</label>
+                            <div className="sidebar-coords">
+                                <span>LAT: {point.lat?.toFixed(6)}</span>
+                                <span>LNG: {point.lng?.toFixed(6)}</span>
+                            </div>
+                        </div>
 
-                <div className="sidebar-group">
-                    <label className="sidebar-label">Reverse Lookup Address</label>
-                    <input
-                        type="text"
-                        className="sidebar-input sidebar-readonly"
-                        value={location || "No address found"}
-                        disabled
-                    />
-                </div>
+                        <div className="sidebar-group">
+                            <label className="sidebar-label">Address</label>
+                            <input
+                                type="text"
+                                className="sidebar-input sidebar-readonly"
+                                value={location || "Loading..."}
+                                disabled
+                            />
+                        </div>
 
-                <div className="sidebar-group">
-                    <label className="sidebar-label">Type</label>
-                    <select
-                        className="sidebar-select"
-                        value={type}
-                        onChange={(e) => {
-                            setType(e.target.value);
-                            handleChange("type", e.target.value);
-                        }}
-                    >
-                        {["marker", "icon", "home", "apartment", "unit"].includes(point.type) ? (
-                            <>
+                        <div className="sidebar-group">
+                            <label className="sidebar-label">Type</label>
+                            <select
+                                className="sidebar-select"
+                                value={type}
+                                onChange={(e) => {
+                                    setType(e.target.value);
+                                    handleChange("type", e.target.value);
+                                }}
+                            >
                                 <option value="marker">Marker</option>
                                 <option value="home">Home</option>
                                 <option value="apartment">Apartment</option>
                                 <option value="unit">Unit</option>
-                            </>
+                            </select>
+                        </div>
+                    </>
+                )}
+
+                {activeTab === "structure" && (
+                    <div className="sidebar-tree-container">
+                        <input 
+                            type="text" 
+                            className="tree-search-input"
+                            placeholder="Search points..."
+                            value={treeSearch}
+                            onChange={(e) => setTreeSearch(e.target.value)}
+                        />
+                        <div style={{ height: '400px' }}>
+                            <Tree
+                                data={treeData}
+                                searchTerm={treeSearch}
+                                searchMatch={(node, term) => 
+                                    node.data.name.toLowerCase().includes(term.toLowerCase())
+                                }
+                                width={240}
+                                height={400}
+                                indent={16}
+                                rowHeight={32}
+                            >
+                                {Node}
+                            </Tree>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === "details" && (
+                    <div className="sidebar-group">
+                        {selectedNodeId ? (
+                            <p>Editing Node: {selectedNodeId}</p>
                         ) : (
-                            <>
-                                <option value="radius">Radius</option>
-                                <option value="line">Line</option>
-                            </>
+                            <p className="sidebar-subtitle">Select a node in Structure to edit details</p>
                         )}
-                    </select>
-                </div>
-
-                {["home", "apartment", "unit"].includes(type) && (
-                    <div className="sidebar-group">
-                        <label className="sidebar-label">Number of Floors</label>
-                        <input
-                            type="number"
-                            className="sidebar-input"
-                            value={floors}
-                            onChange={(e) => {
-                                setFloors(e.target.value);
-                                handleChange("floors", e.target.value);
-                            }}
-                            min="1"
-                            max="163"
-                        />
-                    </div>
-                )}
-
-                {type === "apartment" && (
-                    <div className="sidebar-group">
-                        <label className="sidebar-label">Units / Rooms (CSV)</label>
-                        <textarea
-                            className="sidebar-textarea"
-                            value={unitList}
-                            onChange={(e) => {
-                                setUnitList(e.target.value);
-                                handleChange("unitList", e.target.value);
-                            }}
-                            placeholder="e.g. 101, 102"
-                        />
-                    </div>
-                )}
-
-                {type === "unit" && (
-                    <div className="sidebar-group">
-                        <label className="sidebar-label">Parent Property</label>
-                        <select
-                            className="sidebar-select"
-                            value={parentId}
-                            onChange={(e) => {
-                                setParentId(e.target.value);
-                                handleChange("parent_id", e.target.value);
-                            }}
-                        >
-                            <option value="">-- No Connection --</option>
-                            {allPoints.filter(p => (p.type === "unit" || p.type === "home" || p.type === "apartment") && p.id !== point.id).map(p => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                )}
-
-                {type === "radius" && (
-                    <div className="sidebar-group">
-                        <label className="sidebar-label">Radius (meters)</label>
-                        <input
-                            type="number"
-                            className="sidebar-input"
-                            value={radius}
-                            onChange={(e) => {
-                                setRadius(e.target.value);
-                                handleChange("radius", e.target.value);
-                            }}
-                            step="0.01"
-                        />
-                    </div>
-                )}
-
-                {type === "icon" && (
-                    <div className="sidebar-group">
-                        <label className="sidebar-label">Icon / Emoji</label>
-                        <input
-                            type="text"
-                            className="sidebar-input"
-                            value={icon}
-                            onChange={(e) => {
-                                setIcon(e.target.value);
-                                handleChange("icon", e.target.value);
-                            }}
-                        />
                     </div>
                 )}
             </div>
@@ -272,7 +446,7 @@ export default function PropertyDetailsSidebar({
                         className="delete-action-btn"
                         onClick={() => setConfirmingDelete(true)}
                     >
-                        Delete {["home", "apartment", "unit", "icon"].includes(type) ? "Property" : "Tool"}
+                        Delete Property
                     </button>
                 ) : (
                     <div className="confirm-delete-row">
