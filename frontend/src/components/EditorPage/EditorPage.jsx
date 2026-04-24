@@ -1134,10 +1134,10 @@ export default function EditorPage() {
 
                                             <ModalItem
                                                 itemText={
-                                                    <li className="tool-item tool-marker add-custom-point">
+                                                    <div className="tool-item tool-marker add-custom-point">
                                                         <div className="tool-icon">+</div>
                                                         <span className="user-select-none">Custom Marker</span>
-                                                    </li>
+                                                    </div>
                                                 }
                                                 modalComponent={<CustomPointModal />}
                                             />

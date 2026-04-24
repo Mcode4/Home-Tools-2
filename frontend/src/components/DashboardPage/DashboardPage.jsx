@@ -63,7 +63,7 @@ export default function DashboardPage() {
             ) : (
                 <p>
                     No properties available. <br/> 
-                    <ModalItem
+                    <ModalButton
                         modalComponent={<PropertyForm />}
                         itemText={"Make your first"} 
                     />
