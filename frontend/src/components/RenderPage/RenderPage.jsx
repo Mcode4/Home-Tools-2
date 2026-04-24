@@ -107,18 +107,7 @@ export default function RenderPage() {
                 </div>
 
                 <div id="properties-menu">
-                    <h3>Properties</h3>
-                    <div className="property-list">
-                        {propertyStore.data.map(p => (
-                            <div 
-                                key={p.id} 
-                                className={`property-item ${p.id === id ? "active" : ""}`}
-                                onClick={() => navigate(`/render/${p.id}`)}
-                            >
-                                {p.name}
-                            </div>
-                        ))}
-                    </div>
+                    Properties Menu
                 </div>
 
                 <div id="render-screen">

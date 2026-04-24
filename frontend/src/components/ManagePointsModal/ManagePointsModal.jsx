@@ -92,7 +92,7 @@ export default function ManagePointsModal({
             changeFunc(point.id, {
                 name,
                 type,
-                icon: (type === "icon" || type === "home" || type === "apartment" || type === "unit") ? icon : null,
+                icon: (type === "point" || type === "home" || type === "apartment" || type === "unit") ? icon : null,
                 radius: type === "radius" ? Number(radius) : null,
                 parent_id: type === "unit" ? (Number(parentId) || null) : null,
                 extra_info: type === "apartment" ? { units: unitList.split(",").map(u => u.trim()).filter(u => u) } : point.extra_info
@@ -151,12 +151,33 @@ export default function ManagePointsModal({
                     value={type}
                     onChange={(e) => handleTypeChange(e.target.value)}
                 >
-                    <option value="point">Point</option>
-                    <option value="home">Home</option>
-                    <option value="apartment">Apartment</option>
-                    <option value="unit">Unit</option>
-                    <option value="radius">Radius</option>
-                    <option value="line">Line</option>
+                    {/* Category: Properties */}
+                    {["home", "apartment", "unit"].includes(point?.type) && (
+                        <>
+                            <option value="home">Home</option>
+                            <option value="apartment">Apartment</option>
+                            <option value="unit">Unit</option>
+                        </>
+                    )}
+                    {/* Category: Points */}
+                    {["point", "line", "radius"].includes(point?.type) && (
+                        <>
+                            <option value="point">Point</option>
+                            <option value="radius">Radius</option>
+                            <option value="line">Line</option>
+                        </>
+                    )}
+                    {/* Fallback for legacy items */}
+                    {!["home", "apartment", "unit", "point", "line", "radius"].includes(point?.type) && (
+                        <>
+                            <option value="point">Point</option>
+                            <option value="home">Home</option>
+                            <option value="apartment">Apartment</option>
+                            <option value="unit">Unit</option>
+                            <option value="radius">Radius</option>
+                            <option value="line">Line</option>
+                        </>
+                    )}
                 </select>
             </div>
 
@@ -188,7 +209,7 @@ export default function ManagePointsModal({
                 </div>
             )}
 
-            {type === "icon" && (
+            {type === "point" && (
                 <div className="form-group">
                 <label htmlFor="point-icon">Icon:</label>
                 <input 
@@ -197,7 +218,7 @@ export default function ManagePointsModal({
                     id="point-icon"
                     value={icon}
                     onChange={(e)=> setIcon(e.target.value)}
-                    placeholder="e.emoji: 🏠"
+                    placeholder="e.emoji: 🏠 or path /icons/..."
                 />
                 </div>
             )}

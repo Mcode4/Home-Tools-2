@@ -1,23 +1,33 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
-import { 
-    thunkGetAllProperties, 
+import {
+    thunkGetAllProperties,
     thunkCreateProperty,
     thunkEditProperty,
-    thunkDeleteProperty 
+    thunkDeleteProperty
 } from "../../redux/properties";
 import { thunkGetPoints, thunkCreatePoint, thunkEditPoint, thunkDeletePoint } from "../../redux/points";
 import { thunkGetSavedTypes, thunkDeleteSavedType } from "../../redux/savedTypes";
 import { handleSearchAddress, reverseLookupAddress } from "../../functions/search/search";
-
 import MapComponent from "./Map";
 import CustomPointModal from "../CustomPointModal/CustomPointModal";
 import "./EditorPage.css";
 import PropertyDetailsSidebar from "./PropertyDetailsSidebar/PropertyDetailsSidebar";
+import SettingsPanel from "./SettingsPanel/SettingsPanel";
+import { thunkGetSettings } from "../../redux/settings";
 import { ModalButton, ModalItem } from "../../context/Modal";
 import ManagePointsModal from "../ManagePointsModal";
 import { NavigateModal } from "../PopupModals";
+
+// OUTSIDE component — stable across all renders, no stale closures
+const debounce = (fn, delay) => {
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+    };
+};
 
 export default function EditorPage() {
     // LOADING AND STATE
@@ -25,6 +35,7 @@ export default function EditorPage() {
     const propertyStore = useSelector(store => store.properties);
     const pointStore = useSelector(state => state.points);
     const savedTypesStore = useSelector(state => state.savedTypes);
+    const settings = useSelector(state => state.settings);
     const [initialized, setInitialized] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [reload, setReload] = useState(0);
@@ -32,13 +43,16 @@ export default function EditorPage() {
     const [history, setHistory] = useState([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
     const historyIndexRef = useRef(-1);
-    const pendingHistoryRef = useRef(true);
+    const pendingHistoryRef = useRef(false);
     const savingRef = useRef(false);
+    const isSavingAllRef = useRef(false);
+    // Refs to latest state so debounced closures never go stale
+    const currentCanvasObjectsRef = useRef({});
+    const currentDeletedPropertiesRef = useRef([]);
+    const currentDeletedPointsRef = useRef([]);
     const [err, setErr] = useState({});
 
-    // MAIN DATA
-    const [properties, setProperties] = useState({});
-    const [points, setPoints] = useState({});
+    // MAIN DATA - Staging Area (Diff Set)
     const [canvasObjects, setCanvasObjects] = useState({});
 
     // DELETION TRACKING
@@ -47,28 +61,56 @@ export default function EditorPage() {
 
     // MAP VARIABLES
     const [lngLat, setLngLat] = useState([-83.5, 32.9]);
-    const [markers, setMarkers] = useState([]); // [{id: propertyId: int(1), lngLat: [lng, lat]}, {...}]
     const [layer, setLayer] = useState("osm-layer");
-    const [canvasSelect, setCanvasSelect] = useState({icon: null, name: null, type: null});
-    const [pointChange, setPointChange] = useState({});
-    const [pointDelete, setPointDelete] = useState({});
+    const [canvasSelect, setCanvasSelect] = useState({ icon: null, name: null, type: null });
 
     // SEARCH
     const [search, setSearch] = useState("");
     const [searchResults, setSearchResults] = useState([]);
+    const [showSearchResults, setShowSearchResults] = useState(false);
+    const searchRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowSearchResults(false);
+                setSearchResults([]);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
     const [searchActive, setSearchActive] = useState(true);
+
     const mapProperties = useMemo(() => {
-        const props = Object.values(properties).map(p => ({...p, source: "prop"}));
-        const semantic = Object.values(points).filter(p => ["home", "apartment", "unit"].includes(p.type)).map(p => ({...p, source: "point"}));
-        const unsaved = Object.values(canvasObjects).filter(p => ["home", "apartment", "unit"].includes(p.type)).map(p => ({...p, source: "canvas"}));
-        return [...props, ...semantic, ...unsaved];
-    }, [properties, points, canvasObjects]);
+        // Redux data filtered by current deletions and staged mods
+        const savedProps = (propertyStore.data || []).filter(p => {
+            const stagedId = `prop-${p.id}`;
+            return !deletedProperties.includes(p.id) && !canvasObjects[stagedId];
+        }).map(p => ({ ...p, source: 'db', type: p.type || "home" }));
+
+        // Staged properties from the unified canvasObjects
+        const stagedProps = Object.values(canvasObjects)
+            .filter(p => ["home", "apartment", "unit"].includes(p.type))
+            .map(p => ({ ...p, source: String(p.id).startsWith('temp-') ? 'canvas' : 'prop' }));
+
+        return [...savedProps, ...stagedProps];
+    }, [propertyStore.data, canvasObjects, deletedProperties]);
 
     const mapPoints = useMemo(() => {
-        const semantic = Object.values(points).filter(p => ["point", "line", "radius"].includes(p.type)).map(p => ({...p, source: "point"}));
-        const unsaved = Object.values(canvasObjects).filter(p => ["point", "line", "radius"].includes(p.type)).map(p => ({...p, source: "canvas"}));
-        return [...semantic, ...unsaved];
-    }, [points, canvasObjects]);
+        // Redux data filtered by current deletions and staged mods
+        const savedPts = (pointStore.data || []).filter(p => {
+            const stagedId = `point-${p.id}`;
+            return !deletedPoints.includes(p.id) && !canvasObjects[stagedId];
+        }).map(p => ({ ...p, source: 'db' }));
+
+        // Staged points from the unified canvasObjects
+        const stagedPts = Object.values(canvasObjects)
+            .filter(p => !["home", "apartment", "unit"].includes(p.type))
+            .map(p => ({ ...p, source: String(p.id).startsWith('temp-') ? 'canvas' : 'point' }));
+
+        return [...savedPts, ...stagedPts];
+    }, [pointStore.data, canvasObjects, deletedPoints]);
 
     // PAGE VARIABLES
     const [popups, setPopups] = useState({});
@@ -76,113 +118,118 @@ export default function EditorPage() {
     const [menu, setMenu] = useState("map") // "map", "draw", "teams", "render-page", "exports"
     const [selectedPoint, setSelectedPoint] = useState(null);
     const [isPinned, setIsPinned] = useState(false);
-    
+
+    // RE-SYNC MARKERS: Redux arrays are the source of truth; canvas adds / overrides with unsaved items
+    const memoMarkers = useMemo(() => {
+        const allMarkers = [];
+
+        // 1. Saved Properties from Redux
+        (propertyStore.data || []).forEach(p => {
+            const stagedId = `prop-${p.id}`;
+            if (deletedProperties.includes(p.id) || canvasObjects[stagedId]) return;
+            
+            allMarkers.push({
+                ...p,
+                source: 'db',
+                type: p.type || "home",
+                lngLat: [p.lng, p.lat]
+            });
+        });
+
+        // 2. Saved Points from Redux
+        (pointStore.data || []).forEach(p => {
+            const stagedId = `point-${p.id}`;
+            if (deletedPoints.includes(p.id) || canvasObjects[stagedId]) return;
+
+            allMarkers.push({
+                ...p,
+                source: 'db',
+                lngLat: [p.lng, p.lat]
+            });
+        });
+
+        // 3. Staged / Unsaved objects (includes new temp-* and edits to DB items)
+        Object.values(canvasObjects).forEach(p => {
+            allMarkers.push({
+                ...p,
+                source: String(p.id).startsWith('temp-') ? 'canvas' : 'mod',
+                lngLat: p.lngLat || [p.lng, p.lat]
+            });
+        });
+
+        return allMarkers;
+    }, [propertyStore.data, pointStore.data, canvasObjects, deletedProperties, deletedPoints]);
+
     // TEMP DATA
     const [buildings, setBuildings] = useState(["A", "B", "C", "D", "E", "F", "G"]);
     const [amenities, setAmenities] = useState([
-        {emoji: "🏠", name: "Leasing"}, {emoji: "🗑️", name: "Trash bin"}, {emoji: "🔥", name: "Grill"}, 
-        {emoji: "✉️", name: "Mailboxes"}, {emoji: "🐕", name: "Pet Station"}, {emoji: "🏛️", name: "Clubhouse"}, 
-        {emoji: "🌲", name: "Park"}, {emoji: "💪", name: "Gym"}, {emoji: "🏢", name: "Senior Bldg"}, 
-        {emoji: "🏊", name: "Pool"}, {emoji: "🎠", name: "Playground"}, 
+        { emoji: "🏠", name: "Leasing" }, { emoji: "🗑️", name: "Trash bin" }, { emoji: "🔥", name: "Grill" },
+        { emoji: "✉️", name: "Mailboxes" }, { emoji: "🐕", name: "Pet Station" }, { emoji: "🏛️", name: "Clubhouse" },
+        { emoji: "🌲", name: "Park" }, { emoji: "💪", name: "Gym" }, { emoji: "🏢", name: "Senior Bldg" },
+        { emoji: "🏊", name: "Pool" }, { emoji: "🎠", name: "Playground" },
     ]);
     const [emergencies, setEmergencies] = useState([
-        {emoji: "🤢", name: "Contamination"}, {emoji: "🛠️", name: "Maintenance"}, {emoji: "💩", name: "Hazard"}, 
-        {emoji: "🌊", name: "Flood"}, {emoji: "⚠️", name: "Incident"},
+        { emoji: "🤢", name: "Contamination" }, { emoji: "🛠️", name: "Maintenance" }, { emoji: "💩", name: "Hazard" },
+        { emoji: "🌊", name: "Flood" }, { emoji: "⚠️", name: "Incident" },
     ]);
-    
+
     // ETC
-    const searchRef = useRef();
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    // TESTING
-    useEffect(()=> {
-        console.log("LNG LAT CHANGED", lngLat);
-    }, [lngLat]);
-
     const handlePointSelect = (point) => {
         setSelectedPoint(point);
+        if (point.lngLat) {
+            setLngLat([...point.lngLat]);
+        } else if (point.lng !== undefined && point.lat !== undefined) {
+            setLngLat([point.lng, point.lat]);
+        }
     };
 
     const handleCloseSidebar = () => {
         if (!isPinned) setSelectedPoint(null);
     };
 
-    useEffect(()=> {
-        console.log("MENU CHANGED", menu);
-    }, [menu]);
-
-    useEffect(()=> {
-        console.log("SEARCH REF CHANGED", searchRef);
-    }, [searchRef]);
-
-    useEffect(()=> {
-        console.log("CANVAS OBJECTS CHANGED", canvasObjects);
-    }, [canvasObjects]);
-
-    useEffect(()=> {
-        console.log("INITIALIZED CHANGED", initialized);
-    }, [initialized]);
-    
-    // EVENT LISTENERS
+    // Keep latest-state refs always current
+    useEffect(() => {
+        currentCanvasObjectsRef.current = canvasObjects;
+        currentDeletedPropertiesRef.current = deletedProperties;
+        currentDeletedPointsRef.current = deletedPoints;
+    });
 
     // LOADING USESTATES
-    useEffect(()=> {
+    useEffect(() => {
         const initialData = async () => {
             await dispatch(thunkGetAllProperties());
-             dispatch(thunkGetSavedTypes());
+            dispatch(thunkGetSettings());
+            dispatch(thunkGetSavedTypes());
             dispatch(thunkGetPoints());
 
-            let stored = localStorage.getItem("properties");
+            let stored = localStorage.getItem("canvasObjects");
             let parsed = stored ? JSON.parse(stored) : null;
-            if(parsed && Date.now() > parsed?.expires) {
-                localStorage.removeItem("properties");
-            }
-            else if(parsed?.data) {
-                console.log("PARSED PINNED", parsed)
-                Object.values(parsed.data).forEach(p => validatePoint(p));
-                setProperties(parsed.data);
-            }
-
-            stored = localStorage.getItem("points");
-            parsed = stored ? JSON.parse(stored) : null;
-            if(parsed && Date.now() > parsed?.expires) {
-                localStorage.removeItem("points");
-            }
-            else if(parsed?.data) {
-                console.log("PARSED points", parsed)
-                Object.values(parsed.data).forEach(p => validatePoint(p));
-                setPoints(parsed.data);
-            }
-
-            stored = localStorage.getItem("canvasObjects");
-            parsed = stored ? JSON.parse(stored) : null;
-            if(parsed && Date.now() > parsed?.expires) {
+            if (parsed && Date.now() > parsed?.expires) {
                 localStorage.removeItem("canvasObjects");
             }
-            else if(parsed?.data) {
-                console.log("PARSED CANVAS OBJS", parsed)
-                Object.values(parsed.data).forEach(p => validatePoint(p));
+            else if (parsed?.data) {
+                console.log("PARSED STAGING AREA", parsed)
                 setCanvasObjects(parsed.data);
             }
 
             stored = localStorage.getItem("deletedProperties");
             parsed = JSON.parse(stored);
-            if(parsed && Date.now() > parsed?.expires) {
+            if (parsed && Date.now() > parsed?.expires) {
                 localStorage.removeItem("deletedProperties")
             }
             else if (parsed?.data) {
-                console.log("PARSED DELETED PROPS", parsed);
                 setDeletedProperties([...parsed?.data]);
             }
 
             stored = localStorage.getItem("deletedPoints");
             parsed = JSON.parse(stored);
-            if(parsed && Date.now() > parsed?.expires) {
+            if (parsed && Date.now() > parsed?.expires) {
                 localStorage.removeItem("deletedPoints")
             }
             else if (parsed?.data) {
-                console.log("PARSED DELETED POINTS", parsed);
                 setDeletedPoints([...parsed?.data]);
             }
 
@@ -192,208 +239,98 @@ export default function EditorPage() {
         initialData()
     }, [reload]);
 
-    useEffect(()=> {
-        console.log("Properties", propertyStore);
-        console.log("SAVED PROP FROM LOCAL", properties);
-        console.log("POINTS from STORE", pointStore);
-        console.log("SAVED POINTS", points);
-        console.log("DELETE TESSSSSSSSSSSSSSSSTT", Object.keys(canvasObjects).length)
-        if(!initialized) {
-            console.error("Not Initialized")
-            return;
-        }
+    // Initial Data Hydration from Redux
+    // Merges Redux data as the base, then overlays localStorage edits on top
+    // This way local unsaved changes always win over the raw DB values
+    useEffect(() => {
+        if (!initialized || !propertyStore || !pointStore) return;
 
-        if (
-            !propertyStore?.data.length && 
-            !pointStore?.data.length &&
-            !Object.keys(canvasObjects)?.length
-        ) {    
-            const initSnapshot = {
-                properties: {...properties},
-                points: {...points},
-                canvasObjects: {...canvasObjects},
-                deletedProperties: [...deletedProperties],
-                deletedPoints: [...deletedPoints]
-            };
-            setHistory([initSnapshot]);
-            historyIndexRef.current = 0;
-            setHistoryIndex(0);
-            setLoaded(true);
-            return;
-        }
-        
-        const allMarkers = [];
-        const seenInStore = new Set();
-        let newProperties = {...properties};
-        let newPoints = {...points};
-        let newCanvasObjects = {...canvasObjects};
-        let newDeleteProperties = [...deletedProperties];
-        let newDeletePoints = [...deletedPoints];
+        const reduxProperties = {};
+        const reduxPoints = {};
 
-        propertyStore?.data.forEach(prev => {
+        propertyStore?.data?.forEach(prev => {
             const prefixedKey = `prop-${prev.id}`;
-            seenInStore.add(prefixedKey);
-
-            if (!newProperties[prefixedKey]) {
-                newProperties[prefixedKey] = {...prev, id: prefixedKey, propertyId: prev.id};
-            };
-
-            const p = newProperties[prefixedKey];
-            const {lng, lat} = p;
-            if(state?.id && p.propertyId === state?.id) setLngLat([lng, lat]);
-            
-            allMarkers.push({ 
-                id: prefixedKey,
-                name: p.name,
-                propertyId: prev.id,
-                lngLat: [lng, lat] 
-            });
+            if (deletedProperties.includes(prev.id)) return;
+            reduxProperties[prefixedKey] = { ...prev, id: prefixedKey, propertyId: prev.id };
         });
 
-        pointStore?.data.forEach(prev => {
-            const prefixedKey = `${prev.type}-${prev.id}`;
-            seenInStore.add(prefixedKey);
-
-            if (!newPoints[prefixedKey]) {
-                newPoints[prefixedKey] = {...prev, id: prefixedKey, pointId: prev.id};
-            };
-
-            if(newCanvasObjects[prefixedKey]) delete newCanvasObjects[prefixedKey];
-
-            const p = newPoints[prefixedKey];
-            const pointObj = {
-                id: prefixedKey,
-                pointId: prev.id,
-                type: prev.type,
-                name: prev.name,
-                icon: prev.icon,
-                lngLat: [p.lng, p.lat]
-            };
-
-            switch(p.type) {
-                case "point":
-                case "home":
-                case "apartment":
-                case "unit":
-                    allMarkers.push(pointObj);
-                    break;
-                case "radius":
-                    if(p.radius) {pointObj.radius = p.radius; allMarkers.push(pointObj);} 
-                    break;
-                case "line":
-                    if ((p.endLng && p.endLat) || (p.endlng && p.endlat)) {
-                        pointObj.endLng = p.endlng ?? p.endLng;
-                        pointObj.endLat = p.endlat ?? p.endLat;
-                        allMarkers.push(pointObj);
-                    }
-                    break;
-            };
+        pointStore?.data?.forEach(prev => {
+            const prefixedKey = `point-${prev.id}`;
+            if (deletedPoints.includes(prev.id)) return;
+            reduxPoints[prefixedKey] = { ...prev, id: prefixedKey, pointId: prev.id };
         });
-        
-        Object.values(canvasObjects)
-            .filter(p => !seenInStore.has(p))
-            .forEach(p => {
-                const pointObj = {
-                    id: p.id,
-                    type: p.type,
-                    name: p.name,
-                    lngLat: [p.lng, p.lat]
-                }
 
-                switch(p.type) {
-                    case "home":
-                    case "apartment":
-                    case "unit":
-                    case "point":
-                        allMarkers.push(pointObj);
-                        break;
-                    case "radius":
-                        if(p.radius) {pointObj.radius = p.radius; allMarkers.push(pointObj);} 
-                        break;
-                    case "line":
-                        if ((p.endLng && p.endLat) || (p.endlng && p.endlat)) {
-                            pointObj.endLng = p.endlng ?? p.endLng;
-                            pointObj.endLat = p.endlat ?? p.endLat;
-                            allMarkers.push(pointObj);
-                        }
-                        break;
-                };
-            });
-
-        const initSnapshot = {
-            properties: {...properties},
-            points: {...points},
-            canvasObjects: {...canvasObjects},
-            deletedProperties: [...deletedProperties],
-            deletedPoints: [...deletedPoints]
-        };
-        setProperties(newProperties);
-        setPoints(newPoints);
-        setCanvasObjects(newCanvasObjects);
-        setDeletedPoints(newDeletePoints);
-        setHistory([initSnapshot]);
-        historyIndexRef.current = 0;
-        setHistoryIndex(0);
+        // localStorage edits override Redux (user's unsaved changes take priority)
         setLoaded(true);
-        setInitialized(false);
-        setMarkers(allMarkers);
-
-        if(!state?.id && allMarkers.length > 0) {
-            const lastMarker = allMarkers[allMarkers.length - 1];
-            setLngLat(lastMarker.lngLat);
-        }
-
+        setInitialized(false); // Only hydrate once
         pendingHistoryRef.current = false;
-        console.log("SENDING MARKERS:", allMarkers, "BASE DATA:", {
-            pinned: propertyStore?.pinned,
-            other: propertyStore?.other,
-            points: pointStore?.data,
-            canvasObjects
-        })
-    }, [initialized, propertyStore?.data, pointStore?.data, properties, points, canvasObjects]);
+    }, [initialized, propertyStore?.data, pointStore?.data]);
 
     // Reactivity: Sync new properties/points from Redux into local state
-    useEffect(()=> {
-        if(!loaded) return;
-        
+    // PERFORMANCE: Debounced History & LocalStorage
+    // Uses refs for current state so closures never go stale
+
+    const debouncedSaveToLocal = useRef(debounce((key) => {
+        const dataMap = {
+            canvasObjects: currentCanvasObjectsRef.current,
+            deletedProperties: currentDeletedPropertiesRef.current,
+            deletedPoints: currentDeletedPointsRef.current,
+        };
+        const data = dataMap[key];
+        if (data === undefined) return;
+        localStorage.setItem(key, JSON.stringify({
+            data,
+            expires: (Date.now() + (6 * 60 * 60 * 1000))
+        }));
+    }, 2000)).current;
+
+    const debouncedPushHistory = useRef(debounce(() => {
+        const snapshot = {
+            canvasObjects: { ...currentCanvasObjectsRef.current },
+            deletedProperties: [...currentDeletedPropertiesRef.current],
+            deletedPoints: [...currentDeletedPointsRef.current],
+        };
+        const newIndex = historyIndexRef.current + 1;
+        historyIndexRef.current = newIndex;
+        setHistoryIndex(newIndex);
+        setHistory(prev => {
+            const trimmed = prev.slice(0, newIndex);
+            return [...trimmed, snapshot];
+        });
+    }, 1000)).current;
+
+    // Reactivity: Sync brand-new Redux items (e.g. after Save All) into local state
+    // Only adds items that don't exist locally yet — never overwrites local edits
+    useEffect(() => {
+        if (!loaded) return;
+
         let changed = false;
-        const newProperties = {...properties};
-        const newPoints = {...points};
-        
-        propertyStore?.data.forEach(p => {
+        const currentStaging = currentCanvasObjectsRef.current;
+        const currentDelProps = currentDeletedPropertiesRef.current;
+        const currentDelPts = currentDeletedPointsRef.current;
+
+        const nextStaging = { ...currentStaging };
+
+        propertyStore?.data?.forEach(p => {
             const key = `prop-${p.id}`;
-            if(!newProperties[key]) {
-                newProperties[key] = {...p, id: key, propertyId: p.id};
-                changed = true;
-            }
+            if (currentDelProps.includes(p.id)) return;
+            // No need to inject if it's already staged; if not staged, we don't automatically inject into staging
         });
 
-        pointStore?.data.forEach(p => {
-            const key = `${p.type}-${p.id}`;
-            if(!newPoints[key]) {
-                newPoints[key] = {...p, id: key, pointId: p.id};
-                changed = true;
-            }
-        });
-
-        if(changed) {
-            setProperties(newProperties);
-            setPoints(newPoints);
-            // Re-trigger marker build
-            setInitialized(true);
+        if (changed) {
+            setCanvasObjects(nextStaging);
         }
+    }, [propertyStore?.data?.length, pointStore?.data?.length, loaded]);
 
-    }, [propertyStore?.data.length, pointStore?.data.length, loaded]);
-
-    useEffect(()=> {
+    useEffect(() => {
         setSearchResults([]);
-        if(!search) return;
+        if (!search) return;
 
-        if(search.length > 2) {
-            const searchDelay = setTimeout(()=> {
+        if (search.length > 2) {
+            const searchDelay = setTimeout(() => {
                 handleSearchAddress(search)
                     .then(data => setSearchResults(data))
-                    .catch(err => setErr({search: err}));
+                    .catch(err => setErr({ search: err }));
             }, 500);
 
             return () => {
@@ -402,157 +339,33 @@ export default function EditorPage() {
         }
     }, [search]);
 
-    useEffect(()=> {
-        if(!loaded || savingRef.current) return;
-        localStorage.setItem("properties", JSON.stringify({
-            data: properties,
-            expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
-        }));
-        if(pendingHistoryRef.current) {
+    // Sync state changes to localStorage and push history
+    // savingRef prevents this from firing during undo/redo/restore
+    useEffect(() => {
+        if (!loaded || savingRef.current || isSavingAllRef.current) return;
+        debouncedSaveToLocal("canvasObjects");
+        if (pendingHistoryRef.current) {
             pendingHistoryRef.current = false;
-            pushHistory()
+            debouncedPushHistory();
         }
-    }, [properties]);
+    }, [canvasObjects]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    useEffect(()=> {
-        if(!loaded || savingRef.current) return;
-        console.log("SAVING POINTS HIT:", points);
-        localStorage.setItem("points", JSON.stringify({
-            data: points,
-            expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
-        }));
-        if(pendingHistoryRef.current) {
-            pendingHistoryRef.current = false;
-            pushHistory()
-        }
-    }, [points]);
+    useEffect(() => {
+        if (!loaded || savingRef.current || isSavingAllRef.current) return;
+        debouncedSaveToLocal("deletedProperties");
+    }, [deletedProperties]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    useEffect(()=> {
-        if(!loaded || savingRef.current) return;
-        localStorage.setItem("canvasObjects", JSON.stringify({
-            data: canvasObjects,
-            expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
-        }));
-        if(pendingHistoryRef.current) {
-            pendingHistoryRef.current = false;
-            pushHistory()
-        }
-    }, [canvasObjects]);
-
-    useEffect(()=> {
-        if(!loaded || savingRef.current) return;
-        console.log("SAVING POINTS HIT:", points);
-        localStorage.setItem("deletedProperties", JSON.stringify({
-            data: deletedProperties,
-            expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
-        }));
-        if(pendingHistoryRef.current) {
-            pendingHistoryRef.current = false;
-            pushHistory()
-        }
-    }, [deletedProperties]);
-
-    useEffect(()=> {
-        if(!loaded || savingRef.current) return;
-        console.log("SAVING POINTS HIT:", points);
-        localStorage.setItem("deletedPoints", JSON.stringify({
-            data: deletedPoints,
-            expires: (Date.now() + (6 * 60 * 60 * 1000)) //Date now + 6 hours
-        }));
-        if(pendingHistoryRef.current) {
-            pendingHistoryRef.current = false;
-            pushHistory()
-        }
-    }, [deletedPoints]);
-
-    useEffect(()=> {
-        console.log("HISTORY CHANGED, HISTORY:", history, "INDEX:", historyIndex);
-        const handleKeyDown = (e) => {
-            if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
-                e.preventDefault();
-                if(e.shiftKey) redo();
-                else undo();
-            }
-        }
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [history, historyIndex]);
-
-    function buildMarkersFromState(propsData, ptsData, canvasObjs) {
-        const allMarkers = [];
-        propsData.forEach(p => {
-            allMarkers.push({id: p.id, propertyId: p.propertyId, lngLat: [p.lng, p.lat]});
-        });
-        ptsData.forEach(p => {
-            const obj = {id: p.id, pointId: p.pointId, type: p.type, name: p.name, lngLat: [p.lng, p.lat], parent_id: p.parent_id};
-            if(["point", "home", "apartment", "unit"].includes(p.type)) {obj.icon = p.icon; allMarkers.push(obj)}
-            else if(p.type === "radius" && p.radius) {obj.radius = p.radius; allMarkers.push(obj)}
-            else if(p.type === "line" && (p.endLng || p.endlng)) {
-                obj.endLng = p.endLng ?? p.endlng;
-                obj.endLat = p.endLat ?? p.endlat;
-                allMarkers.push(obj);
-            }
-        });
-        canvasObjs.forEach(p => {
-            const obj = {id: p.id, type: p.type, name: p.name, lngLat: [p.lng, p.lat], parent_id: p.parent_id};
-            if(["point", "home", "apartment", "unit"].includes(p.type)) {obj.icon = p.icon; allMarkers.push(obj)}
-            else if(p.type === "radius" && p.radius) {obj.radius = p.radius; allMarkers.push(obj)}
-            else if(p.type === "line" && (p.endLng || p.endlng)) {
-                obj.endLng = p.endLng ?? p.endlng;
-                obj.endLat = p.endLat ?? p.endlat;
-                allMarkers.push(obj);
-            }
-        });
-        return allMarkers;
-    }
-
-    const buildSnapshot = () => ({
-        properties: {...properties},
-        points: {...points},
-        canvasObjects: {...canvasObjects},
-        deletedProperties: [...deletedProperties],
-        deletedPoints: [...deletedPoints]
-    })
-    
-    const restoreSnapshot = (snapshot) => {
-        console.log("RESTORING SNAPSHOT HIT");
-        setProperties(snapshot.properties);
-        setPoints(snapshot.points);
-        setCanvasObjects(snapshot.canvasObjects);
-        setDeletedProperties(snapshot.deletedProperties);
-        setDeletedPoints(snapshot.deletedPoints);
-        
-        // Prevent history push loop
-        savingRef.current = true;
-        setTimeout(() => { savingRef.current = false; }, 0);
-
-        const restored = buildMarkersFromState(
-            Object.values(snapshot.properties),
-            Object.values(snapshot.points),
-            Object.values(snapshot.canvasObjects)
-        )
-        setMarkers(restored);
-    }
-
-    const pushHistory = () => {
-        console.log("PUSH HISTORY HIT");
-        const snapshot = buildSnapshot();
-        const newIndex = historyIndexRef.current + 1;
-
-        historyIndexRef.current = newIndex;
-        setHistoryIndex(newIndex);
-        setHistory(prev => {
-            const trimmed = prev.slice(0, newIndex);
-            return [...trimmed, snapshot];
-        });
-    }
+    useEffect(() => {
+        if (!loaded || savingRef.current || isSavingAllRef.current) return;
+        debouncedSaveToLocal("deletedPoints");
+    }, [deletedPoints]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const undo = () => {
         console.log("UNDO HIT");
-        if(historyIndexRef.current <= 0) return;
+        if (historyIndexRef.current <= 0) return;
         const newIndex = historyIndexRef.current - 1;
         const snapshot = history[newIndex];
-        if(!snapshot) return;
+        if (!snapshot) return;
         restoreSnapshot(snapshot);
         historyIndexRef.current = newIndex;
         setHistoryIndex(newIndex);
@@ -560,17 +373,40 @@ export default function EditorPage() {
 
     const redo = () => {
         console.log("REDO HIT");
-        if(historyIndexRef.current >= history.length - 1) return;
+        if (historyIndexRef.current >= history.length - 1) return;
         const newIndex = historyIndexRef.current + 1;
         const snapshot = history[newIndex];
-        if(!snapshot) return;
+        if (!snapshot) return;
         restoreSnapshot(snapshot);
         historyIndexRef.current = newIndex;
         setHistoryIndex(newIndex);
     }
 
+    const restoreSnapshot = useCallback((snapshot) => {
+        console.log("RESTORING SNAPSHOT HIT");
+        setCanvasObjects(snapshot.canvasObjects);
+        setDeletedProperties(snapshot.deletedProperties);
+        setDeletedPoints(snapshot.deletedPoints);
+
+        // Prevent history push loop
+        savingRef.current = true;
+        setTimeout(() => { savingRef.current = false; }, 100);
+    }, []);
+
+    useEffect(() => {
+        console.log("HISTORY CHANGED, HISTORY:", history, "INDEX:", historyIndex);
+        const handleKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+                e.preventDefault();
+                if (e.shiftKey) redo();
+                else undo();
+            }
+        }
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [history, historyIndex]);
+
     function validatePoint(obj) {
-        console.log("VALIDATING POINT", obj)
         const allowedKeys = [
             "pointId", "details",
             "propertyId", "created_at",
@@ -588,28 +424,28 @@ export default function EditorPage() {
             "location", "parent_id",
             "extra_info"
         ];
-        for(const key of Object.keys(obj)) {
-            if(!allowedKeys.includes(key)) {
+        for (const key of Object.keys(obj)) {
+            if (!allowedKeys.includes(key)) {
                 throw new Error(`Invalid property: ${key}`);
             };
         }
-        if(!obj.pointId && !obj.propertyId && !obj.id) throw new Error("Missing id");
+        if (!obj.pointId && !obj.propertyId && !obj.id) throw new Error("Missing id");
         return true;
     }
 
     const selectMenu = (e, val) => {
-        setCanvasSelect({type: null, savedTypeId: null, name: ""}); // Deactivate tool on menu switch
+        setCanvasSelect({ type: null, savedTypeId: null, name: "" }); // Deactivate tool on menu switch
         e.preventDefault();
         // No teams now
-        ["map", "draw", "render-page", "exports"].forEach(m => {
+        ["map", "draw", "render-page", "exports", "settings"].forEach(m => {
             const currMenu = document.getElementById(`menu-${m}`);
             const menuItem = document.getElementById(`menu-item-${m}`);
             const slider = document.getElementById("menu-tools");
-            if(m === val) {
+            if (m === val) {
                 currMenu?.classList.toggle("menu-active");
                 menuItem?.classList.toggle("hidden");
 
-                if(menuItem?.className.includes("hidden")) {
+                if (menuItem?.className.includes("hidden")) {
                     slider?.classList.toggle("closed", true);
                 } else {
                     slider?.classList.toggle("closed", false);
@@ -619,181 +455,121 @@ export default function EditorPage() {
                 menuItem?.classList.toggle("hidden", true);
             };
         });
+        setMenu(val);
     };
 
 
-    const selectCanvasAddon = (icon, name, type="icon") => {
-        if(canvasSelect.icon === icon && canvasSelect.name === name) {
-            setCanvasSelect({icon: null, name: null, type: null});
+    const selectCanvasAddon = (icon, name, type = "icon") => {
+        if (canvasSelect.icon === icon && canvasSelect.name === name) {
+            setCanvasSelect({ icon: null, name: null, type: null });
             return;
-        };
-        setCanvasSelect({icon, name, type});
+        }
+        setCanvasSelect({ icon, name, type });
     };
 
     const addCanvasObjects = (obj) => {
-        if (!validatePoint(obj)) return;
-        pendingHistoryRef.current = true;
-
-        if(obj.propertyId) {
-            console.log("PROPERTIES CHANGE HITT")
-            const key = typeof obj.pointId === "string"
-                ? obj.propertyId
-                : `prop-${obj.propertyId}`;
-
-            setProperties(p => {
-                const existing = p[key];
-                const updated = existing
-                    ? {...existing, ...obj}
-                    : {...obj};
-
-                if(!updated.name?.includes("(Unsaved")) {
-                    updated.name = "(Unsaved) "  + (updated.name ?? updated.type);
-                }
-                
-                return {
-                    ...p,
-                    [key]: updated
-                }
-            });
-        } 
+        if (!obj || !obj.id) return;
+        const idStr = String(obj.id);
+        const isNumeric = !isNaN(idStr) && !idStr.includes("-");
         
-        else if(obj.pointId || (typeof obj.id === "string" && (obj.id.startsWith("radius-") || obj.id.startsWith("line-") || obj.id.startsWith("icon-") || obj.id.startsWith("marker-")))) {
-            console.log("POINT CHANGE HITT", obj);
-
-            const key = obj.pointId 
-                ? (typeof obj.pointId === "string" ? obj.pointId : `${obj.type}-${obj.pointId}`)
-                : obj.id;
-            
-            const numericId = obj.pointId && typeof obj.pointId === "number" 
-                ? obj.pointId 
-                : (typeof key === "string" ? Number(key.split("-")[1]) : null);
-
-            setPoints(p => {
-                console.log("ADDING EXISTING POINT TO P:", p);
-                console.log("POINT ID:", obj.pointId, "KEY", key);
-                const existing = p[key];
-                const updated = existing
-                    ? {...existing, ...obj}
-                    : {...obj};
-                
-                if(!updated.name?.includes("(Unsaved)")) {
-                    updated.name = "(Unsaved) " + (updated.name ?? updated.type);
-                }
-                console.log("SET POINT RESULTS", updated);
-                return {
-                    ...p,
-                    [key]: updated
-                };
-            });
-            // CRITICAL: Deduplicate - remove from canvasObjects if it was there
-            setCanvasObjects(c => {
-                const copy = {...c};
-                delete copy[key];
-                delete copy[obj.id];
-                return copy;
-            });
+        let targetId = idStr;
+        if (isNumeric) {
+            // "Promote" numeric DB IDs to prefixed staging IDs immediately
+            const isProp = ["home", "apartment", "unit"].includes(obj.type) || 
+                           (propertyStore.data || []).some(p => p.id === Number(idStr));
+            targetId = isProp ? `prop-${idStr}` : `point-${idStr}`;
         }
-        
-        else {
-            setCanvasObjects(p => {
-                console.log("CANVAS RECIEVED OBJECT", obj);
-                const existing = p[obj.id];
-                const updated = existing
-                    ? {...existing, ...obj}
-                    : {...obj};
-                if(!updated.name || updated.name === updated.type) {
-                    updated.name = "New " + updated.type;
-                };
-                console.log("FINISHED CANVAS OBJECT", updated);
-                return {
-                    ...p,
-                    [obj.id]: updated
-                };
-            });
+
+        // Apply default naming
+        const finalObj = { ...obj, id: targetId, source: isNumeric ? 'mod' : 'canvas' };
+        if (!finalObj.name || finalObj.name === finalObj.type) {
+            finalObj.name = (finalObj.type || 'Point').charAt(0).toUpperCase() + (finalObj.type || 'Point').slice(1);
         }
+
+        setCanvasObjects(prev => ({
+            ...prev,
+            [targetId]: finalObj
+        }));
     };
 
     const deleteCanvasObjects = (id) => {
-        console.log("DELETION ID", id);
-        // console.log("AT DELETION OTHER PROPERTIES", otherProperties);
-        // console.log("AT DELETION POINTS", points);
-        const split = id.split("-");
-        console.log("SPLIT ID:", split)
+        if (!id) return;
+        const idStr = String(id);
+        pendingHistoryRef.current = true;
 
-        switch(split[0]) {
-            case "temp":
-                pendingHistoryRef.current = true;
-                setCanvasObjects(prev => { const copy = {...prev}; delete copy[id]; return copy; });
-                return;
-            case "prop":
-                if(properties[id]) {
-                    pendingHistoryRef.current = true;
-                    const numberId = Number(split[1])
-                    setDeletedProperties(p => [...p, numberId]);
-                    setProperties(p => { const copy = {...p}; delete copy[id]; return copy; });
-                }
-                return;
-            case "point":
-            case "home":
-            case "apartment":
-            case "unit":
-            case "radius":
-            case "line":
-                pendingHistoryRef.current = true;
-                console.log("POINT DETECT")
-                const numberId = Number(split[1])
-                setDeletedPoints(p => [...p, numberId]);
-                setPoints(p => { const copy = {...p}; delete copy[id]; return copy; });
-                return;
-        };
+        const split = idStr.split("-");
+        const typePrefix = split[0];
+        const numId = Number(split[1] || idStr);
+
+        // 1. Remove from staging
+        setCanvasObjects(prev => {
+            const copy = { ...prev };
+            delete copy[idStr];
+            // Also clean up unprefixed/differently-prefixed versions just in case
+            delete copy[numId];
+            delete copy[`prop-${numId}`];
+            delete copy[`point-${numId}`];
+            return copy;
+        });
+
+        // 2. Add to deletion tracking if it's a DB item
+        if (!isNaN(numId) && typePrefix !== "temp") {
+            const isProp = ["home", "apartment", "unit", "prop"].includes(typePrefix) || 
+                           (propertyStore.data || []).some(p => p.id === numId);
+            
+            if (isProp) setDeletedProperties(prev => [...prev, numId]);
+            else setDeletedPoints(prev => [...prev, numId]);
+        }
     };
 
+
     const getMetadata = (id) => {
-        const split = id.split("-");
-        console.log("SPLIT ID:", split)
+        if (!id) return null;
+        const idStr = String(id);
+        const split = idStr.split("-");
 
-        switch(split[0]) {
-            case "temp":
-                return canvasObjects[id] ?? null;
-            case "prop":
-                return properties[id] ?? null;
-            case "point":
-            case "home":
-            case "apartment":
-            case "unit":
-            case "radius":
-            case "line":
-                return points[id] ?? null;
-        };
-    }
+        const canvas = currentCanvasObjectsRef.current;
 
-    function signalPointUpdate(id, changesObj) {
-        console.log("ICON CHANGED SIGNAL 2: EDITOR")
-        return setPointChange({id: id, updates: changesObj});
-    }
+        // 1. Check staging area
+        if (canvas[idStr]) return canvas[idStr];
 
-    function signalPointDelete(id) {
-        return setPointDelete({id})
-    }
+        // 2. Check Redux stores if it's a numeric (saved) ID
+        const isNumeric = !isNaN(idStr) && !idStr.includes("-");
+        if (isNumeric) {
+            const numId = Number(idStr);
+            const dbProp = (propertyStore.data || []).find(p => p.id === numId);
+            if (dbProp) return dbProp;
+            const dbPoint = (pointStore.data || []).find(p => p.id === numId);
+            if (dbPoint) return dbPoint;
+        }
+
+        return null;
+    };
+
 
     const formatProperty = async (point) => {
-        console.log("FORMAT PROPERTY", point);
-        if(!point.name) return false;
-        if(!point.lngLat && (!point.lng && !point.lat)) return false;
+        if (!point.name) return false;
+        if (!point.lngLat && (!point.lng && !point.lat)) return false;
+
+        const finalLng = point.lng ?? (point.lngLat ? point.lngLat[0] : null);
+        const finalLat = point.lat ?? (point.lngLat ? point.lngLat[1] : null);
 
         const pointObj = {
+            type: point.type || "home",
+            icon: point.icon || null,
             name: point.name,
-            lng: point.lngLat ? point.lngLat[0] : point.lng,
-            lat: point.lngLat ? point.lngLat[1] : point.lat,
+            lng: finalLng,
+            lat: finalLat,
             address: point.address ?? null,
             city: point.city ?? null,
             county: point.county ?? null,
             state: point.state ?? null,
             country: point.country ?? null,
-            zip: point.zip ?? null
+            zip: point.zip ?? null,
+            details: point.extra_info ?? null
         }
 
-        if(
+        if (
             !pointObj.city && !pointObj.address &&
             !pointObj.county && !pointObj.state &&
             !pointObj.country && !pointObj.zip
@@ -807,588 +583,468 @@ export default function EditorPage() {
             pointObj.zip = addressObj.zip ?? null;
         }
 
-        if(point.name.includes("(Unsaved)")) {
-            pointObj.name = pointObj.name.split("(Unsaved)")[1].trim();
+        // Sanitize Zip: Convert empty string to null to avoid backend integer errors
+        pointObj.zip = pointObj.zip === "" ? null : pointObj.zip;
+
+        const nameSource = point.name || (point.type || "home").charAt(0).toUpperCase() + (point.type || "home").slice(1);
+        if (nameSource.includes("(Unsaved)")) {
+            pointObj.name = nameSource.split("(Unsaved)")[1].trim();
+        } else {
+            pointObj.name = nameSource;
         }
 
         return pointObj;
     }
 
     const formatPoint = (point) => {
-        console.log("FORMAT POINT", point);
-        if(!point.name) {
-            console.error("No name for formatted point", point);
-            return false;
-        }
-        if(!point.lngLat && (!point.lng && !point.lat)) {
-            console.error("No lng and lat for formatted point", point);
+        const lng = point.lng ?? point.lngLat?.[0];
+        const lat = point.lat ?? point.lngLat?.[1];
+
+        if (!lng || !lat) {
+            console.error("No lng/lat for point", point);
             return false;
         }
 
+        const nameSource = point.name || (point.type || "point").charAt(0).toUpperCase() + (point.type || "point").slice(1);
         const pointObj = {
-            type: point.type,
-            name: point.name,
-            lng: point.lng ?? point.lngLat?.[0],
-            lat:  point.lat ?? point.lngLat?.[1]
-        }
+            type: (point.type === "marker" || point.type === "icon") ? "icon" : point.type,
+            name: nameSource.includes("(Unsaved)") ? nameSource.split("(Unsaved)")[1].trim() : nameSource,
+            lng,
+            lat,
+            icon: point.icon || null,
+            extra_info: point.extra_info || null,
+            parent_id: point.parent_id || null,
+        };
 
-        if(point.name.includes("(Unsaved)")) {
-            pointObj.name = pointObj.name.split("(Unsaved)")[1].trim();
-        }
-
-        for(const key in pointObj) {
-            if(!point[key]) {
-                console.error(`Error: Point doesn't have a key: ${key}`);
-                return false;
-            }
-        }
-
-        switch(point.type) {
-            case "point":
+        switch (point.type) {
+            case "marker":
+            case "icon":
+                if (!pointObj.icon) {
+                    console.error("Icon/Marker type point missing icon field", point);
+                    // Don't block save — icon can be null for default marker
+                }
+                return pointObj;
             case "home":
             case "apartment":
             case "unit":
+            case "point":
                 return pointObj;
             case "radius":
-                if(point.radius) {
-                    pointObj.radius = point.radius;
-                    return pointObj;
+                if (!point.radius) {
+                    console.error("Radius type point missing radius field", point);
+                    return false;
                 }
-                console.error(`Error: Point doesn't have a key: radius`);
-                return false;
+                pointObj.radius = point.radius;
+                return pointObj;
             case "line":
-                if(point.endLng && point.endLat) {
-                    pointObj.endLng = point.endLng;
-                    pointObj.endLat = point.endLat;
-                    return pointObj;
+                if (!point.endLng || !point.endLat) {
+                    console.error("Line type point missing endLng/endLat", point);
+                    return false;
                 }
-                console.error(`Error: Point doesn't have one or both keys: endLng, endLat`);
+                pointObj.endLng = point.endLng;
+                pointObj.endLat = point.endLat;
+                return pointObj;
+            default:
+                console.error("Unknown point type", point.type);
                 return false;
         }
     }
 
     const handleSaveAll = async (e) => {
-        console.log("SAVING HIT")
         e.preventDefault();
+        if (isSavingAllRef.current) return;
+        isSavingAllRef.current = true;
         setSaving(true);
 
-        const storedProperties = localStorage.getItem("properties");
-        const storedPoints = localStorage.getItem("points");
-        const storedCanvasObjs = localStorage.getItem("canvasObjects");
-        let parsed = storedProperties ? JSON.parse(storedProperties) : null;
+        const currentCanvas = { ...currentCanvasObjectsRef.current };
+        const currentDeletedProps = [...currentDeletedPropertiesRef.current];
+        const currentDeletedPts = [...currentDeletedPointsRef.current];
 
-        if(parsed?.data) {
-            try {
-                const createProp = {...parsed?.data};
-                console.log("SAVED PROPERTY DATA", createProp);
-                await Promise.all(
-                    propertyStore.data.map(async (p) => {
-                        if(createProp[`prop-${p.id}`]) {
-                            const newProp = await formatProperty(createProp[`prop-${p.id}`]); // Async returns promise unfilled
-                            console.log("FORMAT PROPERTY COMPLETE", newProp);
-                            if(newProp) {
-                                const edit = dispatch(thunkEditProperty(p.id, newProp));
-                                delete createProp[`prop-${p.id}`];
-                                return edit;
-                            }
-                        };
-                        return Promise.resolve();
-                    })
-                );
-                if(Object.keys(createProp).length) {
-                    await Promise.all(
-                        Object.values(createProp).map(p=> {
-                            if(p.name.includes("(Unsaved)")) {
-                                p.name = p.name.split("(Unsaved)")[1].trim();
-                                setProperties(prev => ({...prev, p}))
-                            }
-                            return dispatch(thunkCreateProperty(p))
-                        })
-                    );
+        try {
+            const propCreates = [];
+            const propUpdates = [];
+            const pointCreates = [];
+            const pointUpdates = [];
+
+            Object.values(currentCanvas).forEach(obj => {
+                const idStr = String(obj.id);
+                const isProperty = ["home", "apartment", "unit"].includes(obj.type);
+
+                if (idStr.startsWith("temp-")) {
+                    if (isProperty) propCreates.push(obj);
+                    else pointCreates.push(obj);
+                } else if (idStr.startsWith("prop-")) {
+                    const numId = Number(idStr.split("-")[1]);
+                    propUpdates.push({ id: numId, data: obj });
+                } else if (idStr.startsWith("point-")) {
+                    const numId = Number(idStr.split("-")[1]);
+                    pointUpdates.push({ id: numId, data: obj });
                 }
-                if(deletedProperties.length > 0) {
-                    await Promise.all(
-                        deletedProperties.map(id => { 
-                            return dispatch(thunkDeleteProperty(id))
-                        })
-                    );
-                }
-                localStorage.removeItem("properties");
-            } catch(e) {
-                console.error("Failed to save properties, quitting before other properties, and points ", e);
-                return;
-            };
-        };
+            });
 
-        parsed = storedPoints ? JSON.parse(storedPoints) : null;
-        if(parsed?.data) {
-            try {
-                const createPoint = {...parsed?.data};
-                console.log("SAVE OTHER PROP DATA", createPoint);
-                await Promise.all(
-                    pointStore.data.map(p => {
-                        console.log("EDIT POINT P IN MAP", p)
-                        console.log("EDIT POINT IN MAP", createPoint)
-                        if(createPoint[`${p.type}-${p.id}`]) {
-                            const newPoint = formatPoint(createPoint[`${p.type}-${p.id}`]);
-                            if(newPoint) {
-                                const edit = dispatch(thunkEditPoint(p.id, newPoint));
-                                delete createPoint[`${p.type}-${p.id}`];
-                                return edit;
-                            }
-                        };
-                        return Promise.resolve();
-                    })
-                );
-                console.log("SAVED EDIT POINTS PASSED, CURRENT:", createPoint)
-                if(Object.keys(createPoint).length) {
-                    await Promise.all(
-                        Object.values(createPoint).map(p => {
-                            console.log("CREATE POINTS PASSED, P:", p)
-                            if(p.name.includes("(Unsaved)")) {
-                                p.name = p.name.split("(Unsaved)")[1].trim();
-                            }
-                            return dispatch(thunkCreatePoint(p));
-                        })
-                    )
-                };
-                console.log("SAVED CREATE POINTS PASSED, CURRENT:", createPoint)
-                if(deletedPoints.length > 0) {
-                    console.log("DELETING POINTS:", deletedPoints);
-                    await Promise.all(
-                        deletedPoints.map(id => {
-                            return dispatch(thunkDeletePoint(id));
-                        })
-                    );
-                };
-                console.log("SAVED DELETE POINTS PASSED, CURRENT:", createPoint)
-                localStorage.removeItem("points");
-            } catch(e) {
-                console.error("Failed to save points", e);
-                return;
-            };
-        };
-        
-        parsed = storedCanvasObjs ? JSON.parse(storedCanvasObjs) : null;
-        if(parsed?.data) {
-            try {
-                const createPoint = {...parsed?.data};
-                console.log("SAVED EDIT POINTS PASSED, CURRENT:", createPoint)
-                if(Object.keys(createPoint).length) {
-                    await Promise.all(
-                        Object.values(createPoint).map(p => {
-                            if(["point", "home", "apartment", "unit", "radius", "line"].includes(p.type)) {
-                                if(typeof p.id === "string" && !p.id.startsWith("temp-")) {
-                                    // It's a persisted point that somehow got here
-                                    const actualId = Number(p.id.split("-")[1]);
-                                    const formatted = formatPoint(p);
-                                    if(formatted && actualId) {
-                                        return dispatch(thunkEditPoint(actualId, formatted));
-                                    }
-                                    return Promise.resolve(); // Hard stop to prevent double-save
-                                }
-                                return dispatch(thunkCreatePoint(p))
-                            }
-                            return Promise.resolve();
-                        })
-                    )
-                };
-                localStorage.removeItem("canvasObjects");
-            } catch(e) {
-                console.error("Failed to save canvas objects", e);
-                return;
-            };
-        };
+            console.log("\npropCreates", propCreates);
+            console.log("propUpdates", propUpdates);
+            console.log("pointCreates", pointCreates);
+            console.log("pointUpdates", pointUpdates, "\n");
 
-        setHistory([]);
-        setHistoryIndex(-1);
-        historyIndexRef.current = -1;
-        setProperties({});
-        setPoints({});
-        setCanvasObjects({});
-        setDeletedPoints([]);
-        setDeletedProperties([]);
-        setReload(r => r += 1);
+            await Promise.all([
+                // Deletions first
+                ...currentDeletedProps.map(id => dispatch(thunkDeleteProperty(id))),
+                ...currentDeletedPts.map(id => dispatch(thunkDeletePoint(id))),
+                
+                // Property Actions
+                ...propCreates.map(async p => {
+                    const formatted = await formatProperty(p);
+                    if (formatted) return dispatch(thunkCreateProperty(formatted));
+                }),
+                ...propUpdates.map(async ({ id, data }) => {
+                    const formatted = await formatProperty(data);
+                    if (formatted) return dispatch(thunkEditProperty(id, formatted));
+                }),
+
+                // Point Actions
+                ...pointCreates.map(p => {
+                    const formatted = formatPoint(p);
+                    if (formatted) return dispatch(thunkCreatePoint(formatted));
+                }),
+                ...pointUpdates.map(({ id, data }) => {
+                    const formatted = formatPoint(data);
+                    if (formatted) return dispatch(thunkEditPoint(id, formatted));
+                })
+            ]);
+
+            localStorage.removeItem("canvasObjects");
+            localStorage.removeItem("deletedProperties");
+            localStorage.removeItem("deletedPoints");
+            
+            savingRef.current = true;
+            setHistory([]);
+            setHistoryIndex(-1);
+            historyIndexRef.current = -1;
+            setDeletedPoints([]);
+            setDeletedProperties([]);
+            setCanvasObjects({});
+            
+            await dispatch(thunkGetAllProperties());
+            await dispatch(thunkGetPoints());
+            savingRef.current = false;
+            setInitialized(true);
+
+        } catch (err) {
+            console.error("Save All failed:", err);
+        } finally {
+            isSavingAllRef.current = false;
+            setSaving(false);
+        }
     };
 
-    // Sync Redux pointStore to local points draft
-    useEffect(() => {
-        if (!initialized) return;
-        const allPoints = {};
-        pointStore.data.forEach(p => {
-            allPoints[`${p.type}-${p.id}`] = p;
-        });
-        setPoints(allPoints);
-    }, [initialized, pointStore?.data.length]);
-    
-    return (<>
-    {loaded && (
-    <div id="editor" className="user-select-none">
-        <div className={`loading-mask ${saving ? "active" : ""}`} />
 
-        <div id="editor-top">
-            <div className="editor-controls">
-                <button
-                    onClick={()=> undo()}
-                    disabled={historyIndex <= 0}
-                >Undo</button>
 
-                <button
-                    onClick={()=> redo()}
-                    disabled={historyIndex >= history.length - 1}
-                >Redo</button>
-            </div>
-
-            <div className="editor-search" ref={searchRef}>
-                <input 
-                    type="text" 
-                    name="search" 
-                    className="app-searchbar user-select-none"
-                    placeholder="🔍 Search Location..."
-                    value={search}
-                    onFocus={()=> setSearchActive(true)}
-                    onBlur={()=> setSearchActive(false)}
-                    onChange={(e)=> setSearch(e.target.value)}
-                />
-                {searchActive && search.length > 0 && (
-                    <div className="search-results">
-                        {search?.length > 2 ? (
-                            <>
-                            {searchResults?.length > 0 ? searchResults?.map((result, i) => (
-                                <div 
-                                    key={`search-${i}`}
-                                    className="search-result"
-                                    onMouseDown={()=> {
-                                        setLngLat([result.lng, result.lat]);
-                                        setSearchActive(false);
-                                    }}
-                                >
-                                    {result.text}
-                                </div>
-                            )) : (
-                                <p className="user-select-none">Searching...</p>
-                            )}
-                            </>
-                        ) : (
-                            <p className="user-select-none">Searching after 3 characters...</p>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            <div className="editor-controls-2">
-                <button
-                    className="user-select-none"
-                    onClick={handleSaveAll}
-                    disabled={historyIndex <= 0}
-                >Save All</button>
-
-                <button 
-                    className="user-select-none" 
-                    onClick={()=> navigate("/dashboard")}
-                >Exit to Dashboard</button>
-            </div>
-        </div>
-
-        <div id="editor-main">
-            <div className="app-slider">
-                <ul className="menu">
-                    <li 
-                        id="menu-map"
-                        className="menu-active user-select-none"
-                        onClick={(e)=> selectMenu(e, "map")}
-                    >
-                        <img src="/icons/map.svg" alt="Map" />
-                    </li>
-                    <li 
-                        id="menu-draw"
-                        className="user-select-none"
-                        onClick={(e)=> selectMenu(e, "draw")}
-                    >
-                        <img src="/icons/design.svg" alt="Draw" />
-                    </li>
-                    {/* <li
-                        id="menu-render-page"
-                        className="user-select-none"
-                        onClick={(e)=> selectMenu(e, "render-page")}
-                    >
-                        <img src="/icons/home.svg" alt="Render Page" />
-                    </li> */}
-                    <ModalItem 
-                        itemText={(<img src="/icons/home.svg" alt="Render Page" />)}
-                        modalComponent={<NavigateModal
-                            to={"render"}
-                        />}
-                    />
-                    <li 
-                        id="menu-exports"
-                        className="user-select-none"
-                        onClick={(e)=> selectMenu(e, "exports")}
-                    >
-                        <img src="/icons/export.svg" alt="Exports" />
-                    </li>
-                    {/* <li 
-                        id="menu-teams"
-                        className="user-select-none"
-                        onClick={(e)=> selectMenu(e, "teams")}
-                    >
-                        <img src="/icons/team.svg" alt="Teams" />
-                    </li> */}
-                </ul>
-
-                <ul id={`menu-tools`}>
-                    <li 
-                        className="menu-item-container"
-                        id="menu-item-map"
-                    >
-                        <div className="menu-tools-section">
-                            <div className="menu-item-title-row">
-                                <h4 className="user-select-none">Properties</h4>
-                                <button onClick={()=> setMenuSelects(m => ({...m, 1: !m[1]}))}>
-                                    {menuSelects[1] ? "V" : "𐌡"}
-                                </button>
-                            </div>
-                            {menuSelects[1] && (
-                                <ul className="tool-list">
-                                    {mapProperties.map((p, i) => (
-                                        <li 
-                                            key={`map-prop-${p.id}`}
-                                            className="tool-item map-list-item"
-                                            onMouseDown={()=> setLngLat([p.lng, p.lat])}
-                                            onClick={()=> handlePointSelect(p)}
-                                        >
-                                            <div className="tool-icon">
-                                                {p.type === "home" ? <img src="/icons/home-point.svg" alt="Home" /> : 
-                                                 p.type === "apartment" ? <img src="/icons/building-point.svg" alt="Apartment" /> : 
-                                                 p.type === "unit" ? <img src="/icons/unit-point.svg" alt="Unit" /> : "📍"}
-                                            </div>
-                                            <span className="user-select-none">
-                                                {p.name || `Property ${p.id}`}
-                                                {p.source === "canvas" && <small style={{marginLeft: "4px", opacity: 0.6}}>(Unsaved)</small>}
-                                            </span>
-                                        </li>
-                                    ))}
-                                    {mapProperties.length === 0 && <p className="empty-section-text">No properties found</p>}
-                                </ul>
-                            )}
-                        </div>
-
-                        <div className="menu-tools-section">
-                            <div className="menu-item-title-row">
-                                <h4 className="user-select-none">Points</h4>
-                                <button onClick={()=> setMenuSelects(m => ({...m, 2: !m[2]}))}>
-                                    {menuSelects[2] ? "V" : "𐌡"}
-                                </button>
-                            </div>
-                            {menuSelects[2] && (
-                                <ul className="tool-list">
-                                    {mapPoints.map((p, i) => (
-                                        <li 
-                                            key={`map-point-${p.id}`}
-                                            className="tool-item map-list-item"
-                                            onMouseDown={()=> setLngLat([p.lng, p.lat])}
-                                            onClick={()=> handlePointSelect(p)}
-                                        >
-                                            <div className="tool-icon">
-                                                {p.type === "radius" ? "⭕" : 
-                                                 p.type === "line" ? "📏" : 
-                                                 (p.icon && p.icon.length > 5) ? <img src={p.icon} alt={p.name} /> : 
-                                                 p.icon || "📍"}
-                                            </div>
-                                            <span className="user-select-none">
-                                                {p.name || `Point ${p.id}`}
-                                                {p.source === "canvas" && <small style={{marginLeft: "4px", opacity: 0.6}}>(Unsaved)</small>}
-                                            </span>
-                                        </li>
-                                    ))}
-                                    {mapPoints.length === 0 && <p className="empty-section-text">No points found</p>}
-                                </ul>
-                            )}
-                        </div>
-                    </li>
-                    <li
-                        className="menu-item-container hidden"
-                        id="menu-item-draw"
-                    >
-                        <div className="menu-tools-section">
-                            <h4 className="user-select-none">Points</h4>
-                            <ul className="tool-list">
-                                <li 
-                                    className={`tool-item tool-marker ${canvasSelect.type === "home" && !canvasSelect.savedTypeId ? "tool-active" : ""}`}
-                                    onClick={()=> selectCanvasAddon(null, "Home", "home")}
-                                >
-                                    <div className="tool-icon"><img src="/icons/home-point.svg" alt="Home" /></div>
-                                    <span className="user-select-none">Home</span>
-                                </li>
-                                <li 
-                                    className={`tool-item tool-marker ${canvasSelect.type === "apartment" && !canvasSelect.savedTypeId ? "tool-active" : ""}`}
-                                    onClick={()=> selectCanvasAddon(null, "Apartment", "apartment")}
-                                >
-                                    <div className="tool-icon"><img src="/icons/building-point.svg" alt="Apartment" /></div>
-                                    <span className="user-select-none">Apartment</span>
-                                </li>
-                                <li 
-                                    className={`tool-item tool-marker ${canvasSelect.type === "unit" && !canvasSelect.savedTypeId ? "tool-active" : ""}`}
-                                    onClick={()=> selectCanvasAddon(null, "Unit", "unit")}
-                                >
-                                    <div className="tool-icon"><img src="/icons/unit-point.svg" alt="Unit" /></div>
-                                    <span className="user-select-none">Unit</span>
-                                </li>
-                                
-                                {/* Custom Points from Database */}
-                                {savedTypesStore.data.map(type => (
-                                    <li 
-                                        key={`saved-type-${type.id}`}
-                                        className={`tool-item tool-marker ${canvasSelect.savedTypeId === type.id ? "tool-active" : ""}`}
-                                        onClick={()=> setCanvasSelect({ 
-                                            type: "point", 
-                                            savedTypeId: type.id, 
-                                            name: type.name, 
-                                            icon: type.type
-                                        })}
-                                        onContextMenu={(e)=> {
-                                            e.preventDefault();
-                                            if(window.confirm(`Delete ${type.name} from your tools?`)) {
-                                                dispatch(thunkDeleteSavedType(type.id));
-                                            }
-                                        }}
-                                    >
-                                        <div className="tool-icon">{type.type.length > 5 ? <img src={type.type} alt={type.name} /> : type.type}</div>
-                                        <span className="user-select-none">{type.name}</span>
-                                    </li>
-                                ))}
-
-                                <ModalButton
-                                    itemText={(
-                                        <li className="tool-item add-custom-point">
-                                            <div className="tool-icon">
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <circle cx="12" cy="12" r="10" stroke="#007bff" strokeWidth="2"/>
-                                                    <path d="M12 8V16M8 12H16" stroke="#007bff" strokeWidth="2" strokeLinecap="round"/>
-                                                </svg>
-                                            </div>
-                                            <span className="user-select-none">Custom Point</span>
-                                        </li>
-                                    )}
-                                    modalComponent={<CustomPointModal />}
-                                />
-                            </ul>
-                        </div>
-
-                        <div className="menu-tools-section">
-                            <h4 className="user-select-none">Measure</h4>
-                            <ul className="tool-list">
-                                <li 
-                                    className={`tool-item tool-radius ${canvasSelect.type === "radius" ? "tool-active" : ""}`}
-                                    onClick={()=> selectCanvasAddon(null, "Radius", "radius")}
-                                >
-                                    <div className="tool-icon">⭕</div>
-                                    <span className="user-select-none">Radius</span>
-                                </li>
-                                <li 
-                                    className={`tool-item tool-line ${canvasSelect.type === "line" ? "tool-active" : ""}`}
-                                    onClick={()=> selectCanvasAddon(null, "Line", "line")}
-                                >
-                                    <div className="tool-icon">📏</div>
-                                    <span className="user-select-none">Line</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </li>
-                    <li 
-                        className="hidden menu-item-container"
-                        id="menu-item-render-page"
-                    >3</li>
-                    <li 
-                        className="hidden menu-item-container"
-                        id="menu-item-exports"
-                    >4</li>
-                    {/* <li 
-                        className="hidden menu-item-container"
-                        id="menu-item-teams"
-                    >5</li> */}
-                </ul>
-            </div>
-
-            <span className="popup-span">
-                <div className="popup">
-
-                    <div className="popup-controls">
-                        <p className="popup-title user-select-none">Map Layers</p>
-                        <button 
-                            className="popup-minimize user-select-none"
-                            onClick={()=> setPopups(p => ({...p, 0: !p[0] }) )}
-                        >{popups[0] ? "V" : "𐌡"}</button>
-                    </div>
-
-                    <div className={`popup-screen ${popups[0] ? "" : "hidden"}`}>
-                        <div className="popup-radio">
-                            <div className="map-layer-option">
-                                <label 
-                                    htmlFor="base-map-radio"
-                                    className="user-select-none"
-                                >Toggle OSM</label>
-                                <input 
-                                    type="radio" 
-                                    name="base-map-radio" 
-                                    id="base-map-radio"
-                                    checked={layer === "osm-layer"}
-                                    onChange={()=> setLayer("osm-layer")} 
-                                />
-                            </div>
-
-                            <div className="map-layer-option">
-                                <label 
-                                    htmlFor="base-map-radio"
-                                    className="user-select-none"
-                                >Toggle Satellite</label>
-                                <input 
-                                    type="radio" 
-                                    name="satellite-map-radio" 
-                                    id="satellite-map-radio"
-                                    checked={layer === "satellite-layer"}
-                                    onChange={()=> setLayer("satellite-layer")} 
-                                />
-                            </div>
-                        </div>
-                    </div>
+    return (
+        <div className={`editor-app-wrapper theme-${settings.theme}`}>
+            {!loaded ? (
+                <div className="landing-load">
+                    <i className="fa-solid fa-spinner fa-spin-pulse"></i>
                 </div>
-                {selectedPoint && (
-                    <PropertyDetailsSidebar 
-                        point={selectedPoint}
-                        isPinned={isPinned}
-                        allPoints={[...mapProperties, ...mapPoints]}
-                        onPinToggle={() => setIsPinned(!isPinned)}
-                        onUpdate={(updatedPoint) => {
-                            addCanvasObjects(updatedPoint);
-                            setSelectedPoint(updatedPoint);
-                        }}
-                        onDelete={(id) => {
-                            deleteCanvasObjects(id);
-                            setSelectedPoint(null);
-                        }}
-                        onClose={handleCloseSidebar}
-                    />
-                )}
-            </span>
+            ) : (
+                <div id="editor">
+                    <header id="editor-top">
+                        <div className="header-nav-left">
+                            <button className="header-btn" onClick={() => navigate("/")}>Home</button>
+                            <button
+                                className="header-btn save-btn"
+                                onClick={handleSaveAll}
+                                disabled={Object.keys(canvasObjects).length === 0 && deletedPoints.length === 0 && deletedProperties.length === 0}
+                            >Save All</button>
+                        </div>
 
+                        <div className="header-nav-center">
+                            <div className="search-container" ref={searchRef}>
+                                <span className="search-icon">🔍</span>
+                                <input
+                                    type="text"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="Find addresses or points..."
+                                    className="app-searchbar"
+                                    onFocus={() => setShowSearchResults(true)}
+                                />
+                                {showSearchResults && search.length > 0 && search.length <= 2 && (
+                                    <div className="search-results info-msg">
+                                        <p>Type 3+ characters to search...</p>
+                                    </div>
+                                )}
+                                {showSearchResults && search.length > 2 && searchResults.length === 0 && (
+                                    <div className="search-results info-msg">
+                                        <p>No results found.</p>
+                                    </div>
+                                )}
+                                {showSearchResults && searchResults.length > 0 && (
+                                    <div className="search-results">
+                                        {searchResults.map((res, i) => (
+                                            <div
+                                                key={i}
+                                                className="search-result"
+                                                onClick={() => {
+                                                    setLngLat([res.lng, res.lat]);
+                                                    setSearchResults([]);
+                                                    setSearch("");
+                                                    setShowSearchResults(false);
+                                                }}
+                                            >
+                                                {res.text || res.address || res.name}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
-            <MapComponent 
-                layer={layer} 
-                lngLat={lngLat} 
-                markers={markers} 
-                canvasTool={canvasSelect}
-                createdCanvasObject={addCanvasObjects}
-                deletedCanvasObject={deleteCanvasObjects}
-                updateObject={pointChange}
-                onPointChange={signalPointUpdate}
-                deleteSignal={pointDelete}
-                getMetadata={getMetadata}
-                onSelect={handlePointSelect}
-                onCloseSidebar={handleCloseSidebar}
-            />             
+                        <div className="header-nav-right">
+                            <button
+                                className="header-btn"
+                                onClick={undo}
+                                disabled={historyIndex <= 0}
+                            >Undo</button>
+                            <button
+                                className="header-btn"
+                                onClick={redo}
+                                disabled={historyIndex >= history.length - 1}
+                            >Redo</button>
+                        </div>
+                    </header>
+
+                    <section id="editor-main">
+                        <aside className="app-slider">
+                            <ul className="menu">
+                                <li
+                                    id="menu-draw"
+                                    className={`user-select-none ${menu === "draw" ? "menu-active" : ""}`}
+                                    onClick={(e) => selectMenu(e, "draw")}
+                                >
+                                    <img src="/icons/brush.svg" alt="Draw" />
+                                </li>
+                                <li
+                                    id="menu-map"
+                                    className={`user-select-none ${menu === "map" ? "menu-active" : ""}`}
+                                    onClick={(e) => selectMenu(e, "map")}
+                                >
+                                    <img src="/icons/map.svg" alt="Properties" />
+                                </li>
+                                <li
+                                    id="menu-render"
+                                    className="user-select-none"
+                                    onClick={() => navigate("/render")}
+                                >
+                                    <img src="/icons/eye.svg" alt="Render Page" />
+                                </li>
+                                <li
+                                    id="menu-exports"
+                                    className={`user-select-none ${menu === "exports" ? "menu-active" : ""}`}
+                                    onClick={(e) => selectMenu(e, "exports")}
+                                >
+                                    <img src="/icons/export.svg" alt="Exports" />
+                                </li>
+                                <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
+                                <li
+                                    id="menu-settings"
+                                    className={`user-select-none ${menu === "settings" ? "menu-active" : ""}`}
+                                    onClick={(e) => selectMenu(e, "settings")}
+                                >
+                                    <img src="/icons/setting.svg" alt="Settings" />
+                                </li>
+                            </ul>
+
+                            <ul id="menu-tools">
+                                <li className="menu-item-container" id="menu-item-map">
+                                    <div className="menu-tools-section">
+                                        <div className="menu-item-title-row">
+                                            <h4 className="user-select-none">Properties</h4>
+                                            <img src="/icons/down-arrow.svg" className="menu-section-icon" alt="Expand" />
+                                        </div>
+                                        <ul className="tool-list">
+                                            {mapProperties.map((p, i) => (
+                                                <li key={`map-prop-${p.id}`} className="tool-item map-list-item" onClick={()=> handlePointSelect(p)}>
+                                                    <div className="tool-icon">
+                                                        {p.type === "home" ? <img src="/icons/home-point.svg" alt="Home" /> : 
+                                                         p.type === "apartment" ? <img src="/icons/building-point.svg" alt="Apartment" /> : 
+                                                         p.type === "unit" ? <img src="/icons/unit-point.svg" alt="Unit" /> :
+                                                         "📍"}
+                                                    </div>
+                                                    <div className="map-list-item-content">
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1 }}>
+                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {p.name.replace("(Unsaved)", "").trim() || `Property ${p.id}`}
+                                                            </span>
+                                                            {p.name.includes("(Unsaved)") && (
+                                                                <div className="unsaved-dot-marker" style={{ 
+                                                                    width: '8px', 
+                                                                    height: '8px', 
+                                                                    backgroundColor: '#f59e0b', 
+                                                                    borderRadius: '50%',
+                                                                    flexShrink: 0
+                                                                }} title="Unsaved changes" />
+                                                            )}
+                                                        </div>
+                                                        {p.source === "canvas" && <div className="unsaved-dot" title="Unsaved changes"></div>}
+                                                        <button className="inline-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCanvasObjects(p.id); }}>🗑️</button>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    <div className="menu-tools-section">
+                                        <div className="menu-item-title-row">
+                                            <h4 className="user-select-none">Points</h4>
+                                            <img src="/icons/down-arrow.svg" className="menu-section-icon" alt="Expand" />
+                                        </div>
+                                        <ul className="tool-list">
+                                            {mapPoints.map((p, i) => (
+                                                <li key={`map-point-${p.id}`} className="tool-item map-list-item" onClick={()=> handlePointSelect(p)}>
+                                                    <div className="tool-icon">
+                                                        {p.type === "radius" ? "⭕" : 
+                                                         p.type === "line" ? "📏" : 
+                                                         (p.icon && p.icon.includes("/")) ? <img src={p.icon} alt="Marker" style={{width: '20px', height: '20px', display: 'block'}} /> : 
+                                                         (p.icon || "📍")}
+                                                    </div>
+                                                    <div className="map-list-item-content">
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1 }}>
+                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'white' }}>
+                                                                {(p.name || (p.type === "marker" || p.type === "icon" ? "Icon" : `Point ${p.id}`)).replace("(Unsaved)", "").trim()}
+                                                            </span>
+                                                            {p.name?.includes("(Unsaved)") && (
+                                                                <div className="unsaved-dot-marker" style={{ 
+                                                                    width: '8px', 
+                                                                    height: '8px', 
+                                                                    backgroundColor: '#f59e0b', 
+                                                                    borderRadius: '50%',
+                                                                    flexShrink: 0
+                                                                }} title="Unsaved changes" />
+                                                            )}
+                                                        </div>
+                                                        {p.source === "canvas" && <div className="unsaved-dot" title="Unsaved changes"></div>}
+                                                        <button className="inline-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCanvasObjects(p.id); }}>🗑️</button>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <li className="menu-item-container hidden" id="menu-item-draw">
+                                    <div className="menu-tools-section">
+                                        <h4 className="user-select-none">Primary Tools</h4>
+                                        <ul className="tool-list">
+                                            <li className={`tool-item ${(canvasSelect.type === "marker" || canvasSelect.type === "icon") ? "tool-active" : ""}`} onClick={() => selectCanvasAddon("/icons/geo-alt-fill.svg", "Marker", "marker")}>
+                                                <div className="tool-icon"><img src="/icons/geo-alt-fill.svg" alt="Marker" /></div>
+                                                <span>Marker</span>
+                                            </li>
+                                            <li className={`tool-item ${canvasSelect.type === "home" ? "tool-active" : ""}`} onClick={() => selectCanvasAddon(null, "Home", "home")}>
+                                                <div className="tool-icon"><img src="/icons/home-point.svg" alt="Home" /></div>
+                                                <span>Home</span>
+                                            </li>
+                                            <li className={`tool-item ${canvasSelect.type === "apartment" ? "tool-active" : ""}`} onClick={() => selectCanvasAddon(null, "Apartment", "apartment")}>
+                                                <div className="tool-icon"><img src="/icons/building-point.svg" alt="Apartment" /></div>
+                                                <span>Apartment</span>
+                                            </li>
+                                            <li className={`tool-item ${canvasSelect.type === "unit" ? "tool-active" : ""}`} onClick={() => selectCanvasAddon(null, "Unit", "unit")}>
+                                                <div className="tool-icon"><img src="/icons/unit-point.svg" alt="Unit" /></div>
+                                                <span>Unit</span>
+                                            </li>
+
+                                            {savedTypesStore.data.map(type => (
+                                                <li
+                                                    key={`saved-type-${type.id}`}
+                                                    className={`tool-item tool-marker ${canvasSelect.savedTypeId === type.id ? "tool-active" : ""}`}
+                                                    onClick={() => setCanvasSelect({
+                                                        type: "icon",
+                                                        savedTypeId: type.id,
+                                                        name: type.name,
+                                                        icon: type.type
+                                                    })}
+                                                >
+                                                    <div className="tool-icon">
+                                                        {type.type.length > 5 ? <img src={type.type} alt={type.name} /> : type.type}
+                                                    </div>
+                                                    <span className="user-select-none">{type.name}</span>
+                                                </li>
+                                            ))}
+
+                                            <ModalItem
+                                                itemText={
+                                                    <li className="tool-item tool-marker add-custom-point">
+                                                        <div className="tool-icon">+</div>
+                                                        <span className="user-select-none">Custom Icon</span>
+                                                    </li>
+                                                }
+                                                modalComponent={<CustomPointModal />}
+                                            />
+                                        </ul>
+                                    </div>
+
+                                    <div className="menu-tools-section">
+                                        <h4 className="user-select-none">Measures</h4>
+                                        <ul className="tool-list">
+                                            <li
+                                                className={`tool-item tool-marker ${canvasSelect.type === "radius" ? "tool-active" : ""}`}
+                                                onClick={() => selectCanvasAddon(null, "Radius", "radius")}
+                                            >
+                                                <div className="tool-icon">⭕</div>
+                                                <span className="user-select-none">Radius</span>
+                                            </li>
+                                            <li
+                                                className={`tool-item tool-marker ${canvasSelect.type === "line" ? "tool-active" : ""}`}
+                                                onClick={() => selectCanvasAddon(null, "Line", "line")}
+                                            >
+                                                <div className="tool-icon">📏</div>
+                                                <span className="user-select-none">Line</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <li className="hidden menu-item-container" id="menu-item-exports">
+                                    <div className="menu-tools-section">
+                                        <h4>Data Export</h4>
+                                        <p className="empty-section-text">Coming Soon...</p>
+                                    </div>
+                                </li>
+
+                                <li className="hidden menu-item-container" id="menu-item-settings">
+                                    {menu === "settings" && <SettingsPanel onClose={(e) => selectMenu(e, "settings")} />}
+                                </li>
+                            </ul>
+                        </aside>
+
+                        {selectedPoint && (
+                            <aside className="app-slider-right">
+                                <PropertyDetailsSidebar
+                                    point={selectedPoint}
+                                    onClose={handleCloseSidebar}
+                                    onUpdate={addCanvasObjects}
+                                    onDelete={(id) => { deleteCanvasObjects(id); setSelectedPoint(null); }}
+                                    allPoints={Object.values(canvasObjects)}
+                                    isPinned={isPinned}
+                                    onPinToggle={() => setIsPinned(!isPinned)}
+                                />
+                            </aside>
+                        )}
+
+                        <MapComponent
+                            layer={settings.map_layer}
+                            lngLat={lngLat}
+                            markers={memoMarkers}
+                            canvasTool={canvasSelect}
+                            createdCanvasObject={addCanvasObjects}
+                            deletedCanvasObject={deleteCanvasObjects}
+                            getMetadata={getMetadata}
+                            onSelect={handlePointSelect}
+                            onCloseSidebar={handleCloseSidebar}
+                        />
+                    </section>
+                </div>
+            )}
         </div>
-    </div>
-    )}
-    </>)
+    )
 }

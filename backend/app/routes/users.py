@@ -28,7 +28,7 @@ def get_all_users():
 def get_user_by_id(id: int):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE id=%s", (id,))
+    cursor.execute("SELECT email, name, phone_number FROM users WHERE id=%s", (id,))
     user = cursor.fetchone()
     conn.close()
     if not user:
@@ -60,7 +60,7 @@ def edit_basic_info(user_info: UserInfo, current_user = Depends(get_current_user
         (user_info.name, user_info.phone, current_user["id"],)
     )
     conn.commit()
-    cursor.execute("SELECT * FROM users WHERE id=%s", (current_user["id"],))
+    cursor.execute("SELECT email, name, phone_number FROM users WHERE id=%s", (current_user["id"],))
     user = cursor.fetchone()
     conn.close()
     return ResponseModel(True, "", {"user": user})

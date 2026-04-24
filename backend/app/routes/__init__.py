@@ -6,6 +6,7 @@ from app.routes.users import router as users_router
 from app.routes.floors import router as floors_router
 from app.routes.points import router as point_router
 from app.routes.saved_types import router as saved_types_router
+from app.routes.settings import router as settings_router
 
 router = APIRouter(prefix="/api", tags=["API"])
 
@@ -16,6 +17,7 @@ router.include_router(users_router)
 router.include_router(floors_router)
 router.include_router(point_router)
 router.include_router(saved_types_router)
+router.include_router(settings_router)
 
 @router.get("/")
 def health_check():

@@ -12,4 +12,6 @@ class Property(BaseModel):
     zip: Optional[str] = None
     lat: float
     lng: float
+    type: Optional[str] = "home"
+    icon: Optional[str] = None
     details: Optional[Dict[str, Any]] = None

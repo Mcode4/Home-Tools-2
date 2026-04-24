@@ -22,7 +22,7 @@ def prepare_point_data(point: Point, is_patch=False):
     endLat = point.endLat
     
     # Validation based on type
-    allowed_types = ["point", "home", "apartment", "unit", "radius", "line"]
+    allowed_types = ["icon", "home", "apartment", "unit", "radius", "line"]
     if point.type not in allowed_types:
         raise HTTPException(status_code=400, detail=f"Invalid point type: '{point.type}'. Allowed types are: {', '.join(allowed_types)}")
 

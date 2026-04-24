@@ -1,9 +1,9 @@
 import "./UnsavedIndicator.css";
 
-export default function UnsavedIndicator() {
+export default function UnsavedIndicator({ pulseOnly = false }) {
     return (
         <div className="unsaved-dot-container">
-            <div className="unsaved-dot" />
+            {!pulseOnly && <div className="unsaved-dot" />}
             <div className="unsaved-dot-pulse" />
         </div>
     );

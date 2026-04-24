@@ -1,6 +1,7 @@
 import { configureStore, combineReducers} from "@reduxjs/toolkit"
 
 import sessionReducer from "./session"
+import settingsReducer from "./settings"
 import usersReducer from "./users"
 import propertiesReducer from "./properties"
 import floorsReducer from "./floors"
@@ -19,6 +20,7 @@ import savedTypesReducer from "./savedTypes"
 export const reduxStore = configureStore({
     reducer: {
         session: sessionReducer,
+        settings: settingsReducer,
         users: usersReducer,
         properties: propertiesReducer,
         floors: floorsReducer,

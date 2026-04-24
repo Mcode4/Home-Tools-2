@@ -212,8 +212,8 @@
 }
 
 .btn-save:disabled {
-    background: #e9ecef;
-    color: #adb5bd;
+    /* background: #e9ecef;
+    color: #adb5bd; */
     cursor: not-allowed;
 }
 
@@ -222,7 +222,7 @@ li.tool-item.add-custom-point {
     margin: 0 !important;
     padding: 8px 12px !important;
     border: 2px dashed #ddd;
-    background: #fafafa;
+    /* background: #fafafa; */
     transition: all 0.2s;
 }
 

@@ -151,6 +151,31 @@ def init_db():
             parent_id INTEGER,
             extra_info jsonb
         );
+
+        CREATE TABLE IF NOT EXISTS settings (
+            user_id INTEGER PRIMARY KEY,
+            theme TEXT DEFAULT 'dark',
+            map_layer TEXT DEFAULT 'osm-layer',
+            icon_size INTEGER DEFAULT 24,
+            text_size INTEGER DEFAULT 12,
+            text_color TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        -- Migration: Ensure property table has type, icon, and zip is TEXT
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='property' AND column_name='type') THEN
+                ALTER TABLE property ADD COLUMN type TEXT DEFAULT 'home';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='property' AND column_name='icon') THEN
+                ALTER TABLE property ADD COLUMN icon TEXT;
+            END IF;
+            IF (SELECT data_type FROM information_schema.columns WHERE table_name='property' AND column_name='zip') = 'integer' THEN
+                ALTER TABLE property ALTER COLUMN zip TYPE TEXT USING zip::text;
+            END IF;
+        END $$;
     """)
 
     conn.commit()

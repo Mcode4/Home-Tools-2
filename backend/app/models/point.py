@@ -8,7 +8,8 @@ class PointType(str, Enum):
     home = "home"
     apartment = "apartment"
     unit = "unit"
-    point = "point"
+    icon = "icon"
+    marker = "marker"
 
 class Point(BaseModel):
     type: PointType

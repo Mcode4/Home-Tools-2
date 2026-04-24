@@ -114,11 +114,11 @@ function CustomPointModal() {
     return (
         <div className="custom-point-modal-container">
             <div className="custom-point-modal">
-                <h2>Custom Point</h2>
+                <h2>Custom Icon</h2>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                     <div className="input-row">
                         <div className="input-group">
-                            <label>Point Name</label>
+                            <label>Icon Name</label>
                             <input 
                                 type="text" 
                                 value={name} 
@@ -128,7 +128,7 @@ function CustomPointModal() {
                             />
                         </div>
                         <div className="input-group">
-                            <label>Point Type</label>
+                            <label>Icon Type</label>
                             <select 
                                 value={baseType}
                                 onChange={(e) => setBaseType(e.target.value)}
@@ -196,7 +196,7 @@ function CustomPointModal() {
                             className="btn-save" 
                             disabled={!name || !selectedIcon}
                         >
-                            Save Point
+                            Save Icon
                         </button>
                     </div>
                 </form>

@@ -7,6 +7,56 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root {
+  --font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  
+  /* Default Theme (Dark) */
+  --bg-main: #121212;
+  --bg-panel: #1e1e1e;
+  --bg-sidebar: rgba(15, 23, 42, 0.95);
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --text-main: #f8fafc;
+  --text-dim: #94a3b8;
+  --border: rgba(255, 255, 255, 0.1);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.theme-light {
+  --bg-main: #ffffff;
+  --bg-panel: #f3f4f6;
+  --bg-sidebar: rgba(255, 255, 255, 0.95);
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --text-main: #111827;
+  --text-dim: #4b5563;
+  --border: rgba(0, 0, 0, 0.1);
+}
+
+.theme-dark {
+  --bg-main: #0a0a0a;
+  --bg-panel: #141414;
+  --bg-sidebar: rgba(10, 10, 10, 0.98);
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --text-main: #f8fafc;
+  --text-dim: #94a3b8;
+  --border: rgba(255, 255, 255, 0.08);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.theme-blueprint {
+  --bg-main: #020617;
+  --bg-panel: #0f172a;
+  --bg-sidebar: rgba(15, 23, 42, 0.98);
+  --accent: #00e5ff;
+  --accent-hover: #00d2eb;
+  --text-main: #f8fafc;
+  --text-dim: #94a3b8;
+  --border: rgba(0, 229, 255, 0.25);
+  --shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

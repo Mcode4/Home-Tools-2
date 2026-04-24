@@ -1,10 +1,9 @@
 .sidebar-container {
-    background: rgba(15, 23, 42, 0.95);
+    background: var(--bg-sidebar);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 12px;
+    border-left: 1px solid var(--border);
     width: 280px;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow);
     padding: 16px;
     height: 100%;
     display: flex;
@@ -17,7 +16,7 @@
     justify-content: space-between;
     align-items: center;
     padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border);
     margin-bottom: 8px;
 }
 
@@ -30,13 +29,13 @@
 .sidebar-main-title {
     font-size: 16px;
     font-weight: 700;
-    color: #f8fafc;
+    color: var(--text-main);
     margin: 0;
 }
 
 .sidebar-subtitle {
     font-size: 11px;
-    color: #94a3b8;
+    color: var(--text-dim);
     margin: 0;
 }
 
@@ -68,16 +67,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    color: var(--text-dim);
 }
 
 .pin-button:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--border);
 }
 
 .pin-button.active {
-    color: #6366f1;
+    color: var(--accent);
     background: rgba(99, 102, 241, 0.15);
-    filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
+    filter: drop-shadow(0 0 8px var(--accent));
 }
 
 .unsaved-status-badge {
@@ -110,39 +110,45 @@
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .sidebar-input, .sidebar-select, .sidebar-textarea {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 10px 12px;
-    color: #e2e8f0;
+    color: var(--text-main);
     font-size: 13px;
     transition: all 0.2s ease;
     width: 100%;
 }
 
-.sidebar-input:focus, .sidebar-select:focus, .sidebar-textarea:focus {
-    outline: none;
-    border-color: #6366f1;
-    background: rgba(99, 102, 241, 0.04);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+.sidebar-coords {
+    display: flex;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, 0.15);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid var(--border);
 }
 
-.sidebar-input:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.sidebar-readonly {
+    opacity: 0.7;
+    cursor: default;
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .sidebar-footer {
-    margin-top: 12px;
     padding-top: 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     gap: 10px;
+    flex-shrink: 0;
 }
 
 .apply-action-btn {

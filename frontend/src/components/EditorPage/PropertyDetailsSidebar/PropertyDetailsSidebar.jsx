@@ -20,6 +20,7 @@ export default function PropertyDetailsSidebar({
     const [length, setLength] = useState(0);
     const [unitList, setUnitList] = useState("");
     const [parentId, setParentId] = useState("");
+    const [floors, setFloors] = useState(1);
     const [loaded, setLoaded] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [hasStagedChanges, setHasStagedChanges] = useState(false);
@@ -33,15 +34,16 @@ export default function PropertyDetailsSidebar({
             cleanName = cleanName.split("(Unsaved)")[1].trim();
             setHasStagedChanges(true);
         } else {
-            setHasStagedChanges(point.source === "canvas");
+            setHasStagedChanges(point.source === "canvas" || point.source === "mod");
         }
 
         setName(cleanName);
-        setType(point.type || "point");
+        setType(point.type === "icon" ? "marker" : (point.type || "marker"));
         setIcon(point.icon || "");
         setRadius(point.radius || 0);
         setLength(point.length || 0);
         setUnitList(point.extra_info?.units?.join(", ") || "");
+        setFloors(point.extra_info?.floors || 1);
         setParentId(point.parent_id || "");
         setConfirmingDelete(false);
 
@@ -65,14 +67,20 @@ export default function PropertyDetailsSidebar({
     // Handle Live Updates
     const handleChange = (field, value) => {
         const update = { [field]: value };
-        
+
         // Semantic sync for complex objects
         if (field === "unitList") {
-            update.extra_info = { 
-                ...point.extra_info, 
-                units: value.split(",").map(u => u.trim()).filter(u => u) 
+            update.extra_info = {
+                ...point.extra_info,
+                units: value.split(",").map(u => u.trim()).filter(u => u)
             };
             delete update.unitList;
+        }
+        if (field === "floors") {
+            update.extra_info = {
+                ...point.extra_info,
+                floors: parseInt(value) || 1
+            };
         }
 
         onUpdate({ ...point, ...update });
@@ -95,8 +103,8 @@ export default function PropertyDetailsSidebar({
                     </h3>
                     <p className="sidebar-subtitle">Editing {point.name || "Unnamed Point"}</p>
                 </div>
-                <button 
-                    className={`pin-button ${isPinned ? "active" : ""}`} 
+                <button
+                    className={`pin-button ${isPinned ? "active" : ""}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onPinToggle();
@@ -113,8 +121,8 @@ export default function PropertyDetailsSidebar({
             <div className="sidebar-form">
                 <div className="sidebar-group">
                     <label className="sidebar-label">Name</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         className="sidebar-input"
                         value={name}
                         onChange={(e) => {
@@ -125,18 +133,26 @@ export default function PropertyDetailsSidebar({
                 </div>
 
                 <div className="sidebar-group">
-                    <label className="sidebar-label">Location</label>
-                    <input 
-                        type="text" 
-                        className="sidebar-input"
-                        value={location || "Loading..."}
+                    <label className="sidebar-label">Location (Coordinates)</label>
+                    <div className="sidebar-coords">
+                        <span>LAT: {point.lat?.toFixed(6) || point.lngLat?.[1]?.toFixed(6)}</span>
+                        <span>LNG: {point.lng?.toFixed(6) || point.lngLat?.[0]?.toFixed(6)}</span>
+                    </div>
+                </div>
+
+                <div className="sidebar-group">
+                    <label className="sidebar-label">Reverse Lookup Address</label>
+                    <input
+                        type="text"
+                        className="sidebar-input sidebar-readonly"
+                        value={location || "No address found"}
                         disabled
                     />
                 </div>
 
                 <div className="sidebar-group">
                     <label className="sidebar-label">Type</label>
-                    <select 
+                    <select
                         className="sidebar-select"
                         value={type}
                         onChange={(e) => {
@@ -144,15 +160,15 @@ export default function PropertyDetailsSidebar({
                             handleChange("type", e.target.value);
                         }}
                     >
-                        {["home", "apartment", "unit"].includes(point.type) ? (
+                        {["marker", "icon", "home", "apartment", "unit"].includes(point.type) ? (
                             <>
+                                <option value="marker">Marker</option>
                                 <option value="home">Home</option>
                                 <option value="apartment">Apartment</option>
                                 <option value="unit">Unit</option>
                             </>
                         ) : (
                             <>
-                                <option value="point">Point</option>
                                 <option value="radius">Radius</option>
                                 <option value="line">Line</option>
                             </>
@@ -160,10 +176,27 @@ export default function PropertyDetailsSidebar({
                     </select>
                 </div>
 
+                {["home", "apartment", "unit"].includes(type) && (
+                    <div className="sidebar-group">
+                        <label className="sidebar-label">Number of Floors</label>
+                        <input
+                            type="number"
+                            className="sidebar-input"
+                            value={floors}
+                            onChange={(e) => {
+                                setFloors(e.target.value);
+                                handleChange("floors", e.target.value);
+                            }}
+                            min="1"
+                            max="163"
+                        />
+                    </div>
+                )}
+
                 {type === "apartment" && (
                     <div className="sidebar-group">
                         <label className="sidebar-label">Units / Rooms (CSV)</label>
-                        <textarea 
+                        <textarea
                             className="sidebar-textarea"
                             value={unitList}
                             onChange={(e) => {
@@ -178,7 +211,7 @@ export default function PropertyDetailsSidebar({
                 {type === "unit" && (
                     <div className="sidebar-group">
                         <label className="sidebar-label">Parent Property</label>
-                        <select 
+                        <select
                             className="sidebar-select"
                             value={parentId}
                             onChange={(e) => {
@@ -197,8 +230,8 @@ export default function PropertyDetailsSidebar({
                 {type === "radius" && (
                     <div className="sidebar-group">
                         <label className="sidebar-label">Radius (meters)</label>
-                        <input 
-                            type="number" 
+                        <input
+                            type="number"
                             className="sidebar-input"
                             value={radius}
                             onChange={(e) => {
@@ -210,11 +243,11 @@ export default function PropertyDetailsSidebar({
                     </div>
                 )}
 
-                {type === "point" && (
+                {type === "icon" && (
                     <div className="sidebar-group">
                         <label className="sidebar-label">Icon / Emoji</label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             className="sidebar-input"
                             value={icon}
                             onChange={(e) => {
@@ -227,29 +260,29 @@ export default function PropertyDetailsSidebar({
             </div>
 
             <div className="sidebar-footer">
-                <button 
+                <button
                     className="apply-action-btn"
                     onClick={onClose}
                 >
                     Apply Changes
                 </button>
-                
+
                 {!confirmingDelete ? (
-                    <button 
+                    <button
                         className="delete-action-btn"
                         onClick={() => setConfirmingDelete(true)}
                     >
-                        Delete Property
+                        Delete {["home", "apartment", "unit", "icon"].includes(type) ? "Property" : "Tool"}
                     </button>
                 ) : (
                     <div className="confirm-delete-row">
-                        <button 
+                        <button
                             className="confirm-cancel-btn"
                             onClick={() => setConfirmingDelete(false)}
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
                             className="confirm-delete-btn"
                             onClick={() => onDelete(point.id)}
                         >

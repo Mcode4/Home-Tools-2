@@ -11,7 +11,7 @@ PROJECT_ENV = os.environ.get("PROJECT_ENV", "development")
 app = FastAPI(title="API")
 
 frontend_port = os.environ.get("FRONTEND", "3000")
-backend_port = os.environ.get("BACKEND", "8888")
+backend_port = os.environ.get("BACKEND", "8000")
 origins = [
     "http://localhost",
     f"http://localhost:{frontend_port}",

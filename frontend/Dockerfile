@@ -1,17 +1,9 @@
 FROM node:20-alpine AS build
 WORKDIR /app
-# COPY package*.json ./
-COPY . .
-
-# ----------------------------
-# File Testing
-# ----------------------------
-RUN pwd && ls -la
-RUN find /app -maxdepth 3 -type d
-RUN which python || true
-RUN python --version || true
-
+COPY package*.json ./
 RUN npm install
+
+COPY . .
 RUN npm run build
 
 FROM nginx:stable-alpine

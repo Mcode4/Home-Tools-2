@@ -78,13 +78,14 @@ def create_property(property: Property, current_user = Depends(get_current_user)
         cursor.execute(
             """
                 INSERT INTO property
-                (name, address, city, county, state, country, zip, owner_id, lat, lng, details)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (name, address, city, county, state, country, zip, owner_id, lat, lng, type, icon, details)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING *
             """,
             (
                 property.name, property.address, property.city, property.county, property.state,
-                property.country, property.zip, current_user["id"], property.lat, property.lng, details,
+                property.country, property.zip, current_user["id"], property.lat, property.lng,
+                property.type, property.icon, details
             )
         )
         prop = cursor.fetchone()
@@ -126,7 +127,7 @@ def edit_property(id: int, property: Property, current_user = Depends(get_curren
         cursor.execute(
             """
             UPDATE property
-            SET name=%s, address=%s, city=%s, county=%s, state=%s, zip=%s, lat=%s, lng=%s, details=%s
+            SET name=%s, address=%s, city=%s, county=%s, state=%s, zip=%s, lat=%s, lng=%s, type=%s, icon=%s, details=%s
             WHERE id=%s
             """,
             (
@@ -138,6 +139,8 @@ def edit_property(id: int, property: Property, current_user = Depends(get_curren
                 property.zip,
                 property.lat,
                 property.lng,
+                property.type,
+                property.icon,
                 details,
                 id,
             )

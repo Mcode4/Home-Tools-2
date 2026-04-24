@@ -2,3 +2,9 @@
 package-lock.json
 node_modules
 postgres_data
+.planning
+start_local.sh
+start_local.bat
+start_local.ps1
+start_local.cmd
+start_local.command

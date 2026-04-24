@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { thunkSessions as sessions } from "../redux/session";
+import { thunkGetSettings } from "../redux/settings";
 import { Outlet } from "react-router-dom";
 
 import { ModalProvider, Modal } from "../context/Modal"
@@ -9,23 +10,25 @@ import Footer from "../components/Footer"
 
 export default function Layout() {
     const dispatch = useDispatch();
+    const settings = useSelector(state => state.settings);
     const [isLoaded, setIsLoaded] = useState(false);
+    
     useEffect(()=> {
-        dispatch(sessions()).then(()=> setIsLoaded(true));
-    }, []);
-
-    useEffect(()=> {
-        console.log("IS LOADED CHANGED", isLoaded);
-    }, [isLoaded])
+        dispatch(sessions())
+            .then(() => dispatch(thunkGetSettings()))
+            .then(()=> setIsLoaded(true));
+    }, [dispatch]);
 
     return (
             <ModalProvider>
-                <Navbar isLoaded={isLoaded} />
-                <main>
-                    {isLoaded && <Outlet />}
-                </main>
-                <Footer />
-                <Modal />
+                <div className={`app-container theme-${settings.theme || 'dark'}`}>
+                    <Navbar isLoaded={isLoaded} />
+                    <main>
+                        {isLoaded && <Outlet />}
+                    </main>
+                    <Footer />
+                    <Modal />
+                </div>
             </ModalProvider>
     )
 }
