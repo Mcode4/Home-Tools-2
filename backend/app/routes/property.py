@@ -1,11 +1,11 @@
 import os
-import json
 from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
-from psycopg2 import IntegrityError
 
-from app.db.db import get_db
-from app.models.property import Property
+from app.db.session import get_db_session
+from app.models.property import Property, PropertySchema
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 from app.utils.image_utils import delete_image
@@ -17,177 +17,109 @@ router = APIRouter(prefix="/property", tags=["Property"])
 
 # GET METHODS - ALL, BY ID
 @router.get("/all")
-def all_properties(current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM property WHERE owner_id=%s", (current_user["id"],))
-    properties = cursor.fetchall()
-    conn.close()
+def all_properties(current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    properties = db.query(Property).filter(Property.owner_id == current_user["id"]).all()
     
     if not properties:
         raise HTTPException(status_code=404, detail="User properties not found")
         
-    results = []
-    for row in properties:
-        p = dict(row)
-        if p.get("details"):
-            # Postgres jsonb is already a dict if using RealDictCursor, 
-            # but let's be safe if it comes as string
-            if isinstance(p["details"], str):
-                try:
-                    p["details"] = json.loads(p["details"])
-                except:
-                    pass
-        results.append(p)
-    return ResponseModel(True, "", {"properties": results})
+    return ResponseModel(True, "", {"properties": properties})
 
 
 @router.get("/{id}")
-def get_property_by_id(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM property WHERE id=%s", (id,))
-    curr_prop = cursor.fetchone()
-    conn.close()
+def get_property_by_id(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    prop = db.query(Property).filter(Property.id == id).first()
     
-    if not curr_prop:
+    if not prop:
         raise HTTPException(status_code=404, detail=f"Property with ID {id} not found")
-    if curr_prop["owner_id"] != current_user["id"]:
+    if prop.owner_id != current_user["id"]:
         raise HTTPException(status_code=403, detail="User does not have permission to access this property")
         
-    prop = dict(curr_prop)
-    if prop.get("details") and isinstance(prop["details"], str):
-        try:
-            prop["details"] = json.loads(prop["details"])
-        except:
-            pass
     return ResponseModel(True, "", {"property": prop})
 
 
 # CREATE PROPERTY
 @router.post("")
-def create_property(property: Property, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def create_property(property_schema: PropertySchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        # Pydantic dict handles json conversion if needed for jsonb
-        details = None
-        if property.details is not None:
-            details = json.dumps(property.details)
-            
-        cursor.execute(
-            """
-                INSERT INTO property
-                (name, address, city, county, state, country, zip, owner_id, lat, lng, type, icon, details)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING *
-            """,
-            (
-                property.name, property.address, property.city, property.county, property.state,
-                property.country, property.zip, current_user["id"], property.lat, property.lng,
-                property.type, property.icon, details
-            )
+        new_prop = Property(
+            owner_id=current_user["id"],
+            name=property_schema.name,
+            address=property_schema.address,
+            city=property_schema.city,
+            county=property_schema.county,
+            state=property_schema.state,
+            country=property_schema.country,
+            zip=property_schema.zip,
+            lat=property_schema.lat,
+            lng=property_schema.lng,
+            type=property_schema.type,
+            icon=property_schema.icon,
+            details=property_schema.details,
+            hierarchy=property_schema.hierarchy
         )
-        prop = cursor.fetchone()
-        conn.commit()
-        conn.close()
         
-        if prop.get("details") and isinstance(prop["details"], str):
-            try:
-                prop["details"] = json.loads(prop["details"])
-            except:
-                pass
-        return ResponseModel(True, "", {"property": prop})
+        db.add(new_prop)
+        db.commit()
+        db.refresh(new_prop)
+        
+        return ResponseModel(True, "", {"property": new_prop})
     except IntegrityError as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Edit Property
 @router.patch("/{id}")
-def edit_property(id: int, property: Property, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def edit_property(id: int, property_schema: PropertySchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        cursor.execute("SELECT * FROM property WHERE id=%s", (id,))
-        curr_prop = cursor.fetchone()
-        if not curr_prop:
-            conn.close()
+        prop = db.query(Property).filter(Property.id == id).first()
+        if not prop:
             raise HTTPException(status_code=404, detail=f"Property with ID {id} not found")
-        if curr_prop["owner_id"] != current_user["id"]:
-            conn.close()
+        if prop.owner_id != current_user["id"]:
             raise HTTPException(status_code=403, detail="You do not have permission to access this property")
             
-        details = None
-        if property.details is not None:
-            details = json.dumps(property.details)
+        update_data = property_schema.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(prop, key, value)
 
-        cursor.execute(
-            """
-            UPDATE property
-            SET name=%s, address=%s, city=%s, county=%s, state=%s, zip=%s, lat=%s, lng=%s, type=%s, icon=%s, details=%s
-            WHERE id=%s
-            """,
-            (
-                property.name,
-                property.address,
-                property.city,
-                property.county,
-                property.state,
-                property.zip,
-                property.lat,
-                property.lng,
-                property.type,
-                property.icon,
-                details,
-                id,
-            )
-        )
-        conn.commit()
-        cursor.execute("SELECT * FROM property WHERE id=%s", (id,))
-        curr_prop = cursor.fetchone()
-        conn.close()
-        return ResponseModel(True, "Property edited successfully", {"property": curr_prop})
+        db.commit()
+        db.refresh(prop)
+        return ResponseModel(True, "Property edited successfully", {"property": prop})
     except IntegrityError as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Delete Property
 @router.delete("/{id}")
-def delete_property(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def delete_property(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        cursor.execute("SELECT * FROM property WHERE id=%s AND owner_id=%s", (id, current_user["id"],))
-        prop = cursor.fetchone()
+        prop = db.query(Property).filter(Property.id == id, Property.owner_id == current_user["id"]).first()
         if not prop:
-            conn.close()
             raise HTTPException(status_code=404, detail="Property to delete not found")
             
-        cursor.execute("SELECT * FROM images WHERE property_id=%s", (id,))
-        images = cursor.fetchall()
-        if images:
-            for img in images:
+        # Handle image deletion
+        if prop.images:
+            for img in prop.images:
                 try:
-                    # Logic here might need verification (filepath vs id)
-                    delete_image(img["filepath"]) 
+                    if img.filepath:
+                        delete_image(img.filepath) 
                 except:
                     pass
                     
-        cursor.execute("DELETE FROM property WHERE id=%s", (id,))
-        conn.commit()
-        conn.close()
+        db.delete(prop)
+        db.commit()
         return ResponseModel(True, "Property successfully deleted")
     except IntegrityError as e:
-        if conn and not conn.closed: conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        if conn and not conn.closed:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
