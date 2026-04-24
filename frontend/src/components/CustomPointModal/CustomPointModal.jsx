@@ -72,6 +72,34 @@ const EMOJI_CATEGORIES = [
             { char: '🍸', name: 'cocktail' }, { char: '🍹', name: 'tropical' }, { char: '🍺', name: 'beer' }, 
             { char: '🥃', name: 'whiskey' }, { char: '🥤', name: 'drink soda' }
         ]
+    },
+    {
+        name: 'Emojicons',
+        emojis: [
+            { char: '😂', name: 'laughing face' }, { char: '🤖', name: 'robot' }, { char: '🧛', name: 'vampire' },
+            { char: '🛸', name: 'ufo saucer' }, { char: '👾', name: 'alien monster' }, { char: '👻', name: 'ghost' },
+            { char: '🎃', name: 'pumpkin' }, { char: '😺', name: 'grin cat' }, { char: '🤡', name: 'clown' },
+            { char: '☠️', name: 'skull bones' }, { char: '👽', name: 'alien' }, { char: '🌋', name: 'volcano' }
+        ]
+    },
+    {
+        name: 'People & Animals',
+        emojis: [
+            { char: '🧍', name: 'person standing' }, { char: '🏃', name: 'runner' }, { char: '🚶', name: 'walker' },
+            { char: '🐕', name: 'dog' }, { char: '🐈', name: 'cat' }, { char: '🐎', name: 'horse' },
+            { char: '🐂', name: 'ox' }, { char: '🐄', name: 'cow' }, { char: '🐖', name: 'pig' },
+            { char: '🐑', name: 'sheep' }, { char: '🐐', name: 'goat' }, { char: '🐓', name: 'rooster' },
+            { char: '🐦', name: 'bird' }, { char: '🦜', name: 'parrot' }
+        ]
+    },
+    {
+        name: 'Symbols',
+        emojis: [
+            { char: '❓', name: 'question' }, { char: '❗', name: 'exclamation' }, { char: '⚠️', name: 'warning' },
+            { char: '🚩', name: 'red flag' }, { char: '🏳️', name: 'white flag' }, { char: '🏁', name: 'finish flag' },
+            { char: '🛑', name: 'stop sign' }, { char: '💡', name: 'lightbulb' }, { char: '💎', name: 'gem' },
+            { char: '🔔', name: 'bell' }, { char: '📎', name: 'paperclip' }, { char: '📌', name: 'pushpin' }
+        ]
     }
 ];
 
@@ -114,7 +142,7 @@ function CustomPointModal() {
     return (
         <div className="custom-point-modal-container">
             <div className="custom-point-modal">
-                <h2>Custom Icon</h2>
+                <h2>Custom Marker</h2>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                     <div className="input-row">
                         <div className="input-group">
@@ -136,6 +164,7 @@ function CustomPointModal() {
                                 <option value="home">Home</option>
                                 <option value="apartment">Apartment</option>
                                 <option value="unit">Unit</option>
+                                <option value="icon">Icon</option>
                             </select>
                         </div>
                     </div>
@@ -196,7 +225,7 @@ function CustomPointModal() {
                             className="btn-save" 
                             disabled={!name || !selectedIcon}
                         >
-                            Save Icon
+                            Save Marker
                         </button>
                     </div>
                 </form>

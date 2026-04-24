@@ -1,10 +1,12 @@
 import os
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
-from app.db.db import get_db
-from app.models.image import Image
+from app.db.session import get_db_session
+from app.models.image import Image, ImageSchema
+from app.models.property import Property
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 from app.utils.image_utils import upload_image, delete_image
@@ -16,101 +18,79 @@ router = APIRouter(prefix="/images", tags=["Images"])
 
 # Get Image By ID
 @router.get("/{id}")
-def get_image_by_id(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT filepath, property_id FROM images WHERE id=%s AND owner_id=%s", (id, current_user["id"],))
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
+def get_image_by_id(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    image = db.query(Image).filter(Image.id == id, Image.owner_id == current_user["id"]).first()
+    if not image:
         raise HTTPException(status_code=404, detail="Image not found")
-    if not os.path.exists(row["filepath"]):
+    if not os.path.exists(image.filepath):
         raise HTTPException(status_code=404, detail="File missing")
-    return FileResponse(row["filepath"])
+    return FileResponse(image.filepath)
 
 
 # Upload Images
 @router.post("")
-def add_image(image: Image, file: UploadFile = File(...), current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    if image.type == "property":
-        cursor.execute("SELECT * FROM property WHERE id=%s", (image.property_id,))
-        curr_prop = cursor.fetchone()
-        if not curr_prop:
-            conn.close()
+def add_image(image_schema: ImageSchema = Depends(), file: UploadFile = File(...), current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    # Note: image_schema = Depends() is for form-data if needed, but the original code used it.
+    # Actually, the original used image: Image which might have been a Pydantic model parsed from JSON in a field?
+    # No, FastAPI handles it. But for file uploads often you use individual fields or a class with Depends.
+    
+    if image_schema.type == "property":
+        prop = db.query(Property).filter(Property.id == image_schema.property_id).first()
+        if not prop:
             raise HTTPException(status_code=404, detail="Property not found")
-        if curr_prop["owner_id"] != current_user["id"]:
-            conn.close()
+        if prop.owner_id != current_user["id"]:
             raise HTTPException(status_code=401, detail="User not authorized to add image to property")
             
-    uploaded_img = upload_image(image, file)
+    uploaded_img = upload_image(image_schema, file)
     if not uploaded_img:
-        conn.close()
         return ResponseModel(False, "Failed to upload image")
         
-    cursor.execute(
-        """
-            INSERT INTO images (owner_id, property_id, default_filename, filename, filepath, content_type, size, type)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """,
-        (
-            current_user["id"],
-            image.property_id,
-            image.default_filename,
-            uploaded_img["filename"],
-            uploaded_img["filepath"],
-            file.content_type,
-            os.path.getsize(uploaded_img["filepath"]),
-            image.type,
-        )
+    new_image = Image(
+        owner_id=current_user["id"],
+        property_id=image_schema.property_id,
+        default_filename=image_schema.default_filename,
+        filename=uploaded_img["filename"],
+        filepath=uploaded_img["filepath"],
+        content_type=file.content_type,
+        size=os.path.getsize(uploaded_img["filepath"]),
+        type=image_schema.type,
     )
-    conn.commit()
-    id = cursor.fetchone()["id"]
-    conn.close()
+    db.add(new_image)
+    db.commit()
+    db.refresh(new_image)
+    
     return ResponseModel(True, "", data={
-        "id": id, 
-        "property_id": image.property_id,
-        "filename": uploaded_img["filename"]
+        "id": new_image.id, 
+        "property_id": new_image.property_id,
+        "filename": new_image.filename
     })
 
 
 # Replace Image
 @router.put("/{id}")
-def replace_image(id: int, image: Image, file: UploadFile = File(...), current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM images WHERE id=%s AND owner_id=%s", (id, current_user["id"],))
-    curr_image = cursor.fetchone()
-    if not curr_image:
-        conn.close()
+def replace_image(id: int, image_schema: ImageSchema = Depends(), file: UploadFile = File(...), current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    image = db.query(Image).filter(Image.id == id, Image.owner_id == current_user["id"]).first()
+    if not image:
         raise HTTPException(status_code=404, detail="Image not found")
         
-    deleted = delete_image(curr_image["filepath"])
+    deleted = delete_image(image.filepath)
     if deleted:
-        cursor.execute("DELETE FROM images WHERE id=%s", (id,))
-        conn.commit()
-        conn.close()
-        return add_image(image, file, current_user)
+        db.delete(image)
+        db.commit()
+        return add_image(image_schema, file, current_user, db)
     return ResponseModel(False, "Failed to replace image")
 
 
 # Delete Image
 @router.delete("/{id}")
-def remove_image(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM images WHERE id=%s AND owner_id=%s", (id, current_user["id"],))
-    image = cursor.fetchone()
+def remove_image(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    image = db.query(Image).filter(Image.id == id, Image.owner_id == current_user["id"]).first()
     if not image:
-        conn.close()
         raise HTTPException(status_code=404, detail="Image not found")
         
-    deleted = delete_image(image["filepath"])
+    deleted = delete_image(image.filepath)
     if deleted:
-        cursor.execute("DELETE FROM images WHERE id=%s", (id,))
-        conn.commit()
-        conn.close()
+        db.delete(image)
+        db.commit()
         return ResponseModel(True, "Image successfully deleted")
     return ResponseModel(False, "Failed to delete image")

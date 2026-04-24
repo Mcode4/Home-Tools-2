@@ -1,10 +1,11 @@
 import os
 from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
-from psycopg2 import IntegrityError
 
-from app.db.db import get_db
-from app.models.point import Point
+from app.db.session import get_db_session
+from app.models.point import Point, PointSchema
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 
@@ -15,165 +16,103 @@ router = APIRouter(prefix="/points", tags=["Points"])
 
 
 # Common logic for point validation and variable setup
-def prepare_point_data(point: Point, is_patch=False):
-    icon = point.icon
-    radius = point.radius
-    endLng = point.endLng
-    endLat = point.endLat
-    
+def validate_point_data(point_schema: PointSchema, is_patch=False):
     # Validation based on type
     allowed_types = ["icon", "home", "apartment", "unit", "radius", "line"]
-    if point.type not in allowed_types:
-        raise HTTPException(status_code=400, detail=f"Invalid point type: '{point.type}'. Allowed types are: {', '.join(allowed_types)}")
+    if point_schema.type not in allowed_types:
+        raise HTTPException(status_code=400, detail=f"Invalid point type: '{point_schema.type}'. Allowed types are: {', '.join(allowed_types)}")
 
-    if point.type in ["home", "apartment", "unit"]:
-        # These types use predefined icons, but can also store custom icons if passed
-        pass
-    elif point.type == "radius":
-        if not is_patch and point.radius is None:
+    if point_schema.type == "radius":
+        if not is_patch and point_schema.radius is None:
             raise HTTPException(status_code=400, detail="Missing radius for point type: 'radius'")
-    elif point.type == "line":
+    elif point_schema.type == "line":
         if not is_patch:
-            if point.endLng is None or point.endLat is None:
-                raise HTTPException(status_code=400, detail="Missing endLng and/or endLat for point type: 'line'")
+            if point_schema.endlng is None or point_schema.endlat is None:
+                raise HTTPException(status_code=400, detail="Missing endlng and/or endlat for point type: 'line'")
         
-        if point.endLng is not None and not (-180 <= point.endLng <= 180):
+        if point_schema.endlng is not None and not (-180 <= point_schema.endlng <= 180):
             raise HTTPException(status_code=400, detail="Invalid end longitude")
-        if point.endLat is not None and not (-90 <= point.endLat <= 90):
+        if point_schema.endlat is not None and not (-90 <= point_schema.endlat <= 90):
             raise HTTPException(status_code=400, detail="Invalid end latitude")
             
-    if not (-90 <= point.lat <= 90):
+    if not (-90 <= point_schema.lat <= 90):
         raise HTTPException(status_code=400, detail="Invalid latitude")
-        
-    return icon, radius, endLng, endLat, point.parent_id, point.extra_info
 
 
 # Get All Points By User
 @router.get("/all")
-def get_all_points(current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM points WHERE owner_id=%s", (current_user["id"],))
-    points = cursor.fetchall()
-    conn.close()
+def get_all_points(current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    points = db.query(Point).filter(Point.owner_id == current_user["id"]).all()
     return ResponseModel(True, "", {"points": points})
 
 
 # Create Point
 @router.post("")
-def create_point(point: Point, current_user = Depends(get_current_user)):
-    icon, radius, endLng, endLat, parent_id, extra_info = prepare_point_data(point)
+def create_point(point_schema: PointSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    validate_point_data(point_schema)
     
-    conn = get_db()
-    cursor = conn.cursor()
     try:
-        cursor.execute(
-            """
-                INSERT INTO points
-                (owner_id, type, name, icon, lng, lat, radius, endLng, endLat, parent_id, extra_info)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING *
-            """,
-            (
-                current_user["id"],
-                point.type,
-                point.name,
-                icon,
-                point.lng,
-                point.lat,
-                radius,
-                endLng,
-                endLat,
-                parent_id,
-                json.dumps(extra_info) if extra_info else None
-            )
+        new_point = Point(
+            owner_id=current_user["id"],
+            type=point_schema.type,
+            name=point_schema.name,
+            icon=point_schema.icon,
+            lng=point_schema.lng,
+            lat=point_schema.lat,
+            radius=point_schema.radius,
+            endlng=point_schema.endlng,
+            endlat=point_schema.endlat,
+            parent_id=point_schema.parent_id,
+            extra_info=point_schema.extra_info
         )
-        conn.commit()
-        res_point = cursor.fetchone()
-        conn.close()
-        return ResponseModel(True, "Point created", {"point": res_point})
+        db.add(new_point)
+        db.commit()
+        db.refresh(new_point)
+        return ResponseModel(True, "Point created", {"point": new_point})
     except IntegrityError as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Edit Point
 @router.patch("/{id}")
-def edit_point(id: int, point: Point, current_user = Depends(get_current_user)):
-    icon, radius, endLng, endLat, parent_id, extra_info = prepare_point_data(point, is_patch=True)
+def edit_point(id: int, point_schema: PointSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    validate_point_data(point_schema, is_patch=True)
     
-    conn = get_db()
-    cursor = conn.cursor()
     try:
-        # Check if point exists and belongs to user
-        cursor.execute("SELECT * FROM points WHERE id=%s AND owner_id=%s", (id, current_user["id"]))
-        existing = cursor.fetchone()
-        if not existing:
-            conn.close()
+        point = db.query(Point).filter(Point.id == id, Point.owner_id == current_user["id"]).first()
+        if not point:
             raise HTTPException(status_code=404, detail="Point not found")
 
-        # For PATCH, we should probably only update what's changed, but using the model values is fine
-        # as long as we handle NULLs correctly. If the model has None, should we keep existing?
-        # Actually, let's just update everything with what the frontend sends.
-        
-        cursor.execute(
-            """
-                UPDATE points
-                SET type=%s, name=%s, icon=%s, lng=%s, lat=%s, radius=%s, endLng=%s, endLat=%s, parent_id=%s, extra_info=%s
-                WHERE id=%s AND owner_id=%s
-            """,
-            (
-                point.type,
-                point.name,
-                icon,
-                point.lng,
-                point.lat,
-                radius,
-                endLng,
-                endLat,
-                parent_id,
-                json.dumps(extra_info) if extra_info else None,
-                id,
-                current_user["id"]
-            )
-        )
-        conn.commit()
-        cursor.execute("SELECT * FROM points WHERE id=%s", (id,))
-        res_point = cursor.fetchone()
-        print(f"BACKEND: Success editing point {id}. Owner: {current_user['id']}")
-        conn.close()
-        return ResponseModel(True, "Point updated", {"point": res_point})
+        update_data = point_schema.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(point, key, value)
+            
+        db.commit()
+        db.refresh(point)
+        return ResponseModel(True, "Point updated", {"point": point})
     except IntegrityError as e:
-        print(f"BACKEND ERROR: IntegrityError editing point {id}: {e}")
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        print(f"BACKEND ERROR: Exception editing point {id}: {e}")
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Delete Point
 @router.delete("/{id}")
-def delete_point(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def delete_point(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        cursor.execute("DELETE FROM points WHERE id=%s AND owner_id=%s", (id, current_user["id"],))
-        conn.commit()
-        print(f"BACKEND: Successfully deleted point {id} for user {current_user['id']}")
-        conn.close()
+        point = db.query(Point).filter(Point.id == id, Point.owner_id == current_user["id"]).first()
+        if not point:
+            raise HTTPException(status_code=404, detail="Point not found")
+            
+        db.delete(point)
+        db.commit()
         return ResponseModel(True, "Point deleted successfully")
     except Exception as e:
-        print(f"BACKEND ERROR: Exception deleting point {id}: {e}")
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

@@ -20,6 +20,27 @@ import { ModalButton, ModalItem } from "../../context/Modal";
 import ManagePointsModal from "../ManagePointsModal";
 import { NavigateModal } from "../PopupModals";
 
+const EARTH_R = 6378137;
+function lngLatToMercator(lng, lat) {
+    const x = lng * Math.PI / 180 * EARTH_R;
+    const y = Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * EARTH_R;
+    return { x, y };
+}
+function mercatorToLngLat(x, y) {
+    const lng = x / EARTH_R * 180 / Math.PI;
+    const lat = (2 * Math.atan(Math.exp(y / EARTH_R)) - Math.PI / 2) * 180 / Math.PI;
+    return { lng, lat };
+}
+function mercatorDistance(lng1, lat1, lng2, lat2) {
+    const a = lngLatToMercator(lng1, lat1);
+    const b = lngLatToMercator(lng2, lat2);
+    return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+}
+function getHandlePosition(centerLng, centerLat, radiusMeters) {
+    const c = lngLatToMercator(centerLng, centerLat);
+    return mercatorToLngLat(c.x + radiusMeters, c.y);
+}
+
 // OUTSIDE component — stable across all renders, no stale closures
 const debounce = (fn, delay) => {
     let timer;
@@ -126,7 +147,7 @@ export default function EditorPage() {
         // 1. Saved Properties from Redux
         (propertyStore.data || []).forEach(p => {
             const stagedId = `prop-${p.id}`;
-            if (deletedProperties.includes(p.id) || canvasObjects[stagedId]) return;
+            if (deletedProperties.includes(p.id) || deletedProperties.includes(Number(p.id)) || deletedProperties.includes(String(p.id)) || canvasObjects[stagedId]) return;
             
             allMarkers.push({
                 ...p,
@@ -136,10 +157,9 @@ export default function EditorPage() {
             });
         });
 
-        // 2. Saved Points from Redux
         (pointStore.data || []).forEach(p => {
             const stagedId = `point-${p.id}`;
-            if (deletedPoints.includes(p.id) || canvasObjects[stagedId]) return;
+            if (deletedPoints.includes(p.id) || deletedPoints.includes(Number(p.id)) || deletedPoints.includes(String(p.id)) || canvasObjects[stagedId]) return;
 
             allMarkers.push({
                 ...p,
@@ -243,24 +263,32 @@ export default function EditorPage() {
     // Merges Redux data as the base, then overlays localStorage edits on top
     // This way local unsaved changes always win over the raw DB values
     useEffect(() => {
-        if (!initialized || !propertyStore || !pointStore) return;
+        if (!initialized || !propertyStore?.data || !pointStore?.data) return;
 
-        const reduxProperties = {};
-        const reduxPoints = {};
+        setCanvasObjects(prev => {
+            const merged = { ...prev };
+            
+            // 1. Add Properties from Redux if not already staged
+            propertyStore.data.forEach(p => {
+                const id = `prop-${p.id}`;
+                if (deletedProperties.includes(p.id)) return;
+                if (!merged[id]) {
+                    merged[id] = { ...p, id, propertyId: p.id, source: 'db' };
+                }
+            });
 
-        propertyStore?.data?.forEach(prev => {
-            const prefixedKey = `prop-${prev.id}`;
-            if (deletedProperties.includes(prev.id)) return;
-            reduxProperties[prefixedKey] = { ...prev, id: prefixedKey, propertyId: prev.id };
+            // 2. Add Points from Redux if not already staged
+            pointStore.data.forEach(p => {
+                const id = `point-${p.id}`;
+                if (deletedPoints.includes(p.id)) return;
+                if (!merged[id]) {
+                    merged[id] = { ...p, id, pointId: p.id, source: 'db' };
+                }
+            });
+
+            return merged;
         });
 
-        pointStore?.data?.forEach(prev => {
-            const prefixedKey = `point-${prev.id}`;
-            if (deletedPoints.includes(prev.id)) return;
-            reduxPoints[prefixedKey] = { ...prev, id: prefixedKey, pointId: prev.id };
-        });
-
-        // localStorage edits override Redux (user's unsaved changes take priority)
         setLoaded(true);
         setInitialized(false); // Only hydrate once
         pendingHistoryRef.current = false;
@@ -467,29 +495,146 @@ export default function EditorPage() {
         setCanvasSelect({ icon, name, type });
     };
 
-    const addCanvasObjects = (obj) => {
-        if (!obj || !obj.id) return;
+    const addCanvasObjects = (originalObj) => {
+        if (!originalObj || !originalObj.id) return;
+        const obj = { ...originalObj }; // Clone to prevent mutation of source state
         const idStr = String(obj.id);
+        const split = idStr.split("-");
         const isNumeric = !isNaN(idStr) && !idStr.includes("-");
+        const isTemp = split[0] === "temp";
         
+        // numId extraction: 
+        // prop-123 -> 123
+        // temp-radius-123 -> 123
+        const numId = isTemp ? split[2] : (split[1] || idStr);
+
+        let oldPrefix = split[0];
+        let subType = split[1];
+
         let targetId = idStr;
-        if (isNumeric) {
-            // "Promote" numeric DB IDs to prefixed staging IDs immediately
-            const isProp = ["home", "apartment", "unit"].includes(obj.type) || 
-                           (propertyStore.data || []).some(p => p.id === Number(idStr));
-            targetId = isProp ? `prop-${idStr}` : `point-${idStr}`;
+
+        // 0. Normalize Casing from backend/db (endlng -> endLng)
+        obj.endLng = obj.endLng || obj.endlng;
+        obj.endLat = obj.endLat || obj.endlat;
+        obj.handleLng = obj.handleLng || obj.handlelng;
+        obj.handleLat = obj.handleLat || obj.handlelat;
+        obj.radius = (obj.radius !== undefined && obj.radius !== null) ? obj.radius : obj.extra_info?.radius;
+
+        // 1. Handle Measurement Math for type conversions
+        const isCurrentlyRadius = (obj.type === "radius" || oldPrefix === "radius" || subType === "radius" || obj.radius);
+        const isCurrentlyLine = (obj.type === "line" || oldPrefix === "line" || subType === "line" || obj.endLng);
+
+        if (isCurrentlyRadius && obj.type === "line") {
+            // Precise logic: Line start = Handle. Direction = towards Center. Length = Diameter.
+            const r = obj.radius || 500;
+            const cPos = { lng: obj.lng, lat: obj.lat };
+            
+            // Use ACTUAL handle position if available for orientation stability
+            let hLng = obj.handleLng;
+            let hLat = obj.handleLat;
+            
+            // Fallback to default if handle is missing or exactly on center (which shouldn't happen now)
+            if (hLng === undefined || hLat === undefined || (hLng === cPos.lng && hLat === cPos.lat)) {
+               const h = getHandlePosition(cPos.lng, cPos.lat, r);
+               hLng = h.lng; hLat = h.lat;
+            }
+            
+            const a = lngLatToMercator(cPos.lng, cPos.lat);
+            const b = lngLatToMercator(hLng, hLat);
+            
+            // Vector from Center to Handle
+            const vx = b.x - a.x;
+            const vy = b.y - a.y;
+            
+            // Diameter point is opposite to Handle: Start = Handle, End = opposite point
+            const end = mercatorToLngLat(a.x - vx, a.y - vy);
+            
+            obj.lng = hLng; 
+            obj.lat = hLat;
+            obj.endLng = end.lng;
+            obj.endLat = end.lat;
+        } else if (isCurrentlyLine && obj.type === "radius") {
+            // Precise logic: Radius center = Midpoint. Handle = Old Start point.
+            const oldStartLng = obj.lng;
+            const oldStartLat = obj.lat;
+
+            const a = lngLatToMercator(oldStartLng, oldStartLat);
+            const b = lngLatToMercator(obj.endLng || oldStartLng, obj.endLat || oldStartLat);
+            
+            const mid = mercatorToLngLat((a.x + b.x) / 2, (a.y + b.y) / 2);
+            const r = mercatorDistance(mid.lng, mid.lat, oldStartLng, oldStartLat);
+            
+            obj.lng = mid.lng;
+            obj.lat = mid.lat;
+            obj.radius = r;
+            obj.handleLng = oldStartLng; // ORIENTATION: Handle strictly at the line's old start
+            obj.handleLat = oldStartLat;
+            
+            // Clean up old endpoint keys
+            delete obj.endLng;
+            delete obj.endLat;
         }
 
-        // Apply default naming
-        const finalObj = { ...obj, id: targetId, source: isNumeric ? 'mod' : 'canvas' };
-        if (!finalObj.name || finalObj.name === finalObj.type) {
-            finalObj.name = (finalObj.type || 'Point').charAt(0).toUpperCase() + (finalObj.type || 'Point').slice(1);
+        // 1.5 Scrubbing: Remove irrelevant fields when converting from measurements to properties
+        if (["home", "apartment", "unit", "marker", "icon"].includes(obj.type)) {
+            if (isCurrentlyRadius || isCurrentlyLine) {
+                delete obj.radius;
+                delete obj.endLng;
+                delete obj.endLat;
+            }
         }
 
-        setCanvasObjects(prev => ({
-            ...prev,
-            [targetId]: finalObj
-        }));
+        // 2. Determine Prefix (and handle shifting)
+        if (isNumeric || isTemp || (["point", "prop"].includes(oldPrefix))) {
+            const isProp = ["home", "apartment", "unit"].includes(obj.type);
+            const wasProp = ["home", "apartment", "unit"].includes(subType || oldPrefix);
+            
+            // VISUAL PERSISTENCE: If we are shifting away from a semantic property but have no icon,
+            // "Burn in" the current default icon of the old type so it doesn't reset to a generic dot.
+            if (wasProp && !isProp && !obj.icon) {
+                const typeKey = (subType || oldPrefix).toLowerCase();
+                obj.icon = typeKey === "home" ? "/icons/home-point.svg" : 
+                           typeKey === "apartment" ? "/icons/building-point.svg" : 
+                           typeKey === "unit" ? "/icons/unit-point.svg" : null;
+            }
+
+            let newPrefix = isProp ? "prop" : (isTemp ? `temp-${obj.type}` : "point");
+            targetId = isNumeric ? `${isProp ? "prop" : "point"}-${numId}` : (isTemp ? `${newPrefix}-${numId}` : `${newPrefix}-${numId}`);
+
+            // 3. ID BRIDGE DELETION: If the category shifted (e.g. prop-1 -> point-1), 
+            // we MUST explicitly delete the old category ID from the manifest and DB tracking.
+            if (idStr !== targetId) {
+                console.log(`BRIDGE: Shifting category from ${idStr} to ${targetId}`);
+                
+                // Remove old key from canvasObjects
+                setCanvasObjects(prev => {
+                    const copy = { ...prev };
+                    delete copy[idStr];
+                    return copy;
+                });
+
+                // Flag DB deletion bridge
+                if (!isTemp && isNumeric) {
+                    if (oldPrefix === "prop" && !isProp) {
+                        setDeletedProperties(prev => Array.from(new Set([...prev, parseInt(numId)])));
+                    } else if (oldPrefix === "point" && isProp) {
+                        setDeletedPoints(prev => Array.from(new Set([...prev, parseInt(numId)])));
+                    }
+                }
+
+                // Update selection if active
+                if (selectedPoint && String(selectedPoint.id) === idStr) {
+                    setSelectedPoint({ ...obj, id: targetId });
+                }
+            } else if (selectedPoint && String(selectedPoint.id) === targetId) {
+                // Metadata update to selection
+                setSelectedPoint({ ...obj, id: targetId });
+            }
+        }
+
+        // Final Commit
+        const finalObj = { ...obj, id: targetId, source: (isNumeric || (!isTemp && !targetId.startsWith("temp-"))) ? 'mod' : 'canvas' };
+        setCanvasObjects(prev => ({ ...prev, [targetId]: finalObj }));
     };
 
     const deleteCanvasObjects = (id) => {
@@ -566,7 +711,8 @@ export default function EditorPage() {
             state: point.state ?? null,
             country: point.country ?? null,
             zip: point.zip ?? null,
-            details: point.extra_info ?? null
+            details: point.extra_info ?? null,
+            hierarchy: point.hierarchy ?? null
         }
 
         if (
@@ -668,17 +814,30 @@ export default function EditorPage() {
 
             Object.values(currentCanvas).forEach(obj => {
                 const idStr = String(obj.id);
+                const isNumeric = !isNaN(idStr) && !idStr.includes("-");
                 const isProperty = ["home", "apartment", "unit"].includes(obj.type);
 
                 if (idStr.startsWith("temp-")) {
                     if (isProperty) propCreates.push(obj);
                     else pointCreates.push(obj);
                 } else if (idStr.startsWith("prop-")) {
-                    const numId = Number(idStr.split("-")[1]);
-                    propUpdates.push({ id: numId, data: obj });
+                    const numIdStr = idStr.split("-")[1];
+                    // If it's a timestamp (long) it's likely a new canvas prop
+                    if (numIdStr.length >= 12) {
+                        propCreates.push(obj);
+                    } else {
+                        propUpdates.push({ id: Number(numIdStr), data: obj });
+                    }
                 } else if (idStr.startsWith("point-")) {
-                    const numId = Number(idStr.split("-")[1]);
-                    pointUpdates.push({ id: numId, data: obj });
+                    const numIdStr = idStr.split("-")[1];
+                    if (numIdStr.length >= 12) {
+                        pointCreates.push(obj);
+                    } else {
+                        pointUpdates.push({ id: Number(numIdStr), data: obj });
+                    }
+                } else if (isNumeric) {
+                    if (isProperty) propUpdates.push({ id: Number(idStr), data: obj });
+                    else pointUpdates.push({ id: Number(idStr), data: obj });
                 }
             });
 
@@ -866,7 +1025,9 @@ export default function EditorPage() {
                                             {mapProperties.map((p, i) => (
                                                 <li key={`map-prop-${p.id}`} className="tool-item map-list-item" onClick={()=> handlePointSelect(p)}>
                                                     <div className="tool-icon">
-                                                        {p.type === "home" ? <img src="/icons/home-point.svg" alt="Home" /> : 
+                                                        {(p.icon && (p.icon.startsWith("http") || p.icon.startsWith("/") || p.icon.startsWith("data:"))) ? <img src={p.icon} alt="Icon" style={{width: '20px', height: '20px', display: 'block'}} /> : 
+                                                         p.icon ? <span style={{fontSize: '18px'}}>{p.icon}</span> :
+                                                         p.type === "home" ? <img src="/icons/home-point.svg" alt="Home" /> : 
                                                          p.type === "apartment" ? <img src="/icons/building-point.svg" alt="Apartment" /> : 
                                                          p.type === "unit" ? <img src="/icons/unit-point.svg" alt="Unit" /> :
                                                          "📍"}
@@ -905,8 +1066,8 @@ export default function EditorPage() {
                                                     <div className="tool-icon">
                                                         {p.type === "radius" ? "⭕" : 
                                                          p.type === "line" ? "📏" : 
-                                                         (p.icon && p.icon.includes("/")) ? <img src={p.icon} alt="Marker" style={{width: '20px', height: '20px', display: 'block'}} /> : 
-                                                         (p.icon || "📍")}
+                                                         (p.icon && (p.icon.startsWith("http") || p.icon.startsWith("/") || p.icon.startsWith("data:"))) ? <img src={p.icon} alt="Marker" style={{width: '20px', height: '20px', display: 'block'}} /> : 
+                                                         (p.icon ? <span style={{fontSize: '18px'}}>{p.icon}</span> : "📍")}
                                                     </div>
                                                     <div className="map-list-item-content">
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1 }}>
@@ -975,7 +1136,7 @@ export default function EditorPage() {
                                                 itemText={
                                                     <li className="tool-item tool-marker add-custom-point">
                                                         <div className="tool-icon">+</div>
-                                                        <span className="user-select-none">Custom Icon</span>
+                                                        <span className="user-select-none">Custom Marker</span>
                                                     </li>
                                                 }
                                                 modalComponent={<CustomPointModal />}

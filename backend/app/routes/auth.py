@@ -1,11 +1,12 @@
 import os
-from fastapi import APIRouter, HTTPException, Response, Cookie
-from psycopg2 import IntegrityError
+from fastapi import APIRouter, HTTPException, Response, Cookie, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 
-from app.db.db import get_db
-from app.models.user import User
+from app.db.session import get_db_session
+from app.models.user import User, UserCreate
 from app.models.response_model import ResponseModel
 from app.utils.jwt import create_access_token, decode_access_token
 
@@ -54,23 +55,24 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # Register
 @router.post("/register")
-def register(user: User):
-    password = user.password
+def register(user_schema: UserCreate, db: Session = Depends(get_db_session)):
+    password = user_schema.password
     if not validate_password(password):
         return
     
-    conn = get_db()
-    cursor = conn.cursor()
+    hashed_password = hash_password(user_schema.password)
+    new_user = User(
+        email=user_schema.email.strip(), 
+        password=hashed_password, 
+        name=user_schema.name,
+        phone_number=user_schema.phone
+    )
+    
     try:
-        hashed_password = hash_password(user.password)
-        cursor.execute(
-            "INSERT INTO users (email, password, name) VALUES (%s, %s, %s)",
-            (user.email.strip(), hashed_password, "User",)
-        )
-        conn.commit()
-        conn.close()
+        db.add(new_user)
+        db.commit()
     except IntegrityError as e:
-        conn.rollback()
+        db.rollback()
         if 'unique constraint' in str(e).lower():
             raise HTTPException(status_code=500, detail="User already exists")
         raise HTTPException(status_code=500, detail="Server error please try again")
@@ -81,22 +83,15 @@ def register(user: User):
 
 # Login
 @router.post("/login")
-def login(user: User, response: Response):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM users WHERE email=%s",
-        (user.email.strip(),)
-    )
-    db_user = cursor.fetchone()
-    conn.close()
+def login(user_schema: UserCreate, response: Response, db: Session = Depends(get_db_session)):
+    db_user = db.query(User).filter(User.email == user_schema.email.strip()).first()
     
     if not db_user:
         raise HTTPException(status_code=404, detail="User doesn't exist")
-    if not verify_password(user.password, db_user["password"]):
+    if not verify_password(user_schema.password, db_user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    access_token = create_access_token({"user_id": db_user["id"]})
+    access_token = create_access_token({"user_id": db_user.id})
     
     # Cookie security settings
     cookie_kwargs = {
@@ -114,34 +109,66 @@ def login(user: User, response: Response):
         
     response.set_cookie(**cookie_kwargs)
     
-    user_obj = {k: v for k, v in dict(db_user).items() if k != "password"}
-    return ResponseModel(True, "User logged in successfully", {"db_user": user_obj})
+    user_obj = {
+        "id": db_user.id,
+        "email": db_user.email,
+        "name": db_user.name,
+        "phone_number": db_user.phone_number,
+        "bio": db_user.bio,
+        "profile_icon": db_user.profile_icon
+    }
+    return ResponseModel(True, "User logged in successfully", {"db_user": user_obj, "token": access_token})
 
 
 # Verify User
-@router.get("/session")
 def get_current_user(
-    response: Response, 
-    access_token: str | None = Cookie(None, alias="access_token")
+    response: Response | None = None, 
+    access_token: str | None = Cookie(None, alias="access_token"),
+    authorization: str | None = Depends(lambda x=None: x), # Placeholder for Header support
+    db: Session = Depends(get_db_session)
 ):
-    if not access_token:
+    from fastapi import Header
+    def get_token(auth_header: str | None, cookie_token: str | None):
+        if cookie_token:
+            return cookie_token
+        if auth_header and auth_header.startswith("Bearer "):
+            return auth_header.split(" ")[1]
+        return None
+
+    # We need a way to get the Header in a dependency that might be called with or without it
+    # FastAPI handles this better with security schemes, but let's keep it simple for now.
+    pass
+
+# Actually, let's use a cleaner approach for get_current_user
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+security = HTTPBearer(auto_error=False)
+
+@router.get("/session")
+def get_session_user(
+    access_token: str | None = Cookie(None, alias="access_token"),
+    auth: HTTPAuthorizationCredentials | None = Depends(security),
+    db: Session = Depends(get_db_session)
+):
+    token = access_token
+    if not token and auth:
+        token = auth.credentials
+        
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated session")
-    payload = decode_access_token(access_token)
+        
+    payload = decode_access_token(token)
     if not payload:
-        response.delete_cookie("access_token", path="/")
         raise HTTPException(status_code=401, detail="Invalid token")
     
     user_id = payload.get("user_id")
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE id=%s", (user_id,))
-    user = cursor.fetchone()
-    conn.close()
+    user = db.query(User).filter(User.id == user_id).first()
     
     if not user:
-        response.delete_cookie("access_token", path="/")
         raise HTTPException(status_code=401, detail="User not found")
-    return {"id": user["id"], "email": user["email"]}
+    return {"id": user.id, "email": user.email, "name": user.name}
+
+# Export get_current_user for other routes
+get_current_user = get_session_user
 
 
 @router.delete("/session")

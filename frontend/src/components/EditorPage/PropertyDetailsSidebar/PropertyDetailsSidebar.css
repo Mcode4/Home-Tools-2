@@ -325,3 +325,49 @@
     font-size: 12px;
     width: 100%;
 }
+
+/* Node Editor Details */
+.node-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.editor-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+}
+
+.dimensions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.note-editor-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.milkdown-editor {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    min-height: 200px;
+}
+
+.node-edit-input {
+    background: var(--bg-panel);
+    border: 1px solid var(--accent);
+    color: var(--text-main);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 13px;
+    width: 100%;
+}

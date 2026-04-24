@@ -1,10 +1,11 @@
 import os
 from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
-from psycopg2 import IntegrityError
 
-from app.db.db import get_db
-from app.models.notification import Notification
+from app.db.session import get_db_session
+from app.models.notification import Notification, NotificationSchema
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 
@@ -16,72 +17,57 @@ router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 # Get Notifications By User
 @router.get("")
-def get_notifications(current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM notifications WHERE recipient_id=%s", (current_user["id"],))
-    notifications = cursor.fetchall()
-    conn.close()
+def get_notifications(current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    notifications = db.query(Notification).filter(Notification.recipient_id == current_user["id"]).all()
     return ResponseModel(True, "", {"notifications": notifications})
 
 
 # Post Notification
 @router.post("")
-def post_notification(notification: Notification, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def post_notification(notification_schema: NotificationSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        cursor.execute(
-            """
-                INSERT INTO notifications (sender_id, recipient_id, title, message)
-                VALUES (%s, %s, %s, %s)
-                RETURNING *
-            """,
-            (current_user["id"], notification.recipient_id, notification.title, notification.message)
+        new_notif = Notification(
+            sender_id=current_user["id"],
+            recipient_id=notification_schema.recipient_id,
+            title=notification_schema.title,
+            message=notification_schema.message,
+            read=0
         )
-        conn.commit()
-        curr_notif = cursor.fetchone()
-        conn.close()
-        return ResponseModel(True, "Notification sent", {"notification": curr_notif})
+        db.add(new_notif)
+        db.commit()
+        db.refresh(new_notif)
+        return ResponseModel(True, "Notification sent", {"notification": new_notif})
     except IntegrityError as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Deleted Notification By Read
 @router.delete("/read")
-def delete_read_notifications(current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def delete_read_notifications(current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        cursor.execute("DELETE FROM notifications WHERE recipient_id=%s AND read=1", (current_user["id"],))
-        conn.commit()
-        conn.close()
+        db.query(Notification).filter(Notification.recipient_id == current_user["id"], Notification.read == 1).delete()
+        db.commit()
         return ResponseModel(True, "Read notifications deleted")
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Deleted Notification By ID
 @router.delete("/{id}")
-def delete_notification_by_id(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def delete_notification_by_id(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        cursor.execute("DELETE FROM notifications WHERE id=%s AND recipient_id=%s", (id, current_user["id"]))
-        conn.commit()
-        conn.close()
+        notif = db.query(Notification).filter(Notification.id == id, Notification.recipient_id == current_user["id"]).first()
+        if not notif:
+            raise HTTPException(status_code=404, detail="Notification not found")
+            
+        db.delete(notif)
+        db.commit()
         return ResponseModel(True, "Notification deleted")
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

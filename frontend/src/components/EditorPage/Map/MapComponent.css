@@ -1,4 +1,5 @@
 #map-container {
     position: absolute;
     inset: 0;
+    background-color: #1a1a1a; /* Visual diagnostic - map should fill this */
 }

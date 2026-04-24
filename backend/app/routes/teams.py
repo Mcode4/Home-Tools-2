@@ -1,10 +1,13 @@
 import os
 from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
-from psycopg2 import IntegrityError
 
-from app.db.db import get_db
-from app.models.team import Team
+from app.db.session import get_db_session
+from app.models.team import Team, TeamSchema
+from app.models.user import User
+from app.models.user_team import UserTeam
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 
@@ -14,38 +17,34 @@ PROJECT_ENV = os.environ.get("PROJECT_ENV", "development")
 router = APIRouter(prefix="/teams", tags=["Teams"])
 
 # Help Functions
-def verify_team_and_member(cursor, team_id: int, current_id: int):
-    cursor.execute("SELECT * FROM teams WHERE id=%s", (team_id,))
-    team = cursor.fetchone()
+def verify_team_and_member(db: Session, team_id: int, current_id: int):
+    team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         return {"success": False, "message": "Team not found", "status": 404}
         
-    cursor.execute("SELECT user_id FROM user_teams WHERE team_id=%s", (team_id,))
-    member_rows = cursor.fetchall()
+    user_team_entry = db.query(UserTeam).filter(UserTeam.team_id == team_id, UserTeam.user_id == current_id).first()
     
-    is_member = False
-    members = []
-    for row in member_rows:
-        if row["user_id"] == current_id:
-            is_member = True
-        
-        cursor.execute("SELECT email, name, phone_number, profile_icon FROM users WHERE id=%s", (row["user_id"],))
-        mem = cursor.fetchone()
-        if mem:
-            members.append(mem)
-            
-    if not is_member:
+    if not user_team_entry:
         return {"success": False, "message": "User not authorized to view team", "status": 403}
         
+    members = []
+    # Use relationship to get members if defined, or query user_teams
+    for ut in team.user_teams:
+        u = ut.user
+        if u:
+            members.append({
+                "email": u.email,
+                "name": u.name,
+                "phone_number": u.phone_number,
+                "profile_icon": u.profile_icon
+            })
+            
     return {"success": True, "data": {"members": members}}
 
 # Get Members From Team 
 @router.get("/{id}")
-def get_team_members(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    verify = verify_team_and_member(cursor, id, current_user["id"])
-    conn.close()
+def get_team_members(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    verify = verify_team_and_member(db, id, current_user["id"])
     
     if not verify["success"]:
         raise HTTPException(status_code=verify["status"], detail=verify["message"])
@@ -55,46 +54,38 @@ def get_team_members(id: int, current_user = Depends(get_current_user)):
 
 # Create Team
 @router.post("/")
-def create_team(team: Team, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def create_team(team_schema: TeamSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
         # Default name if not provided
-        name = team.name if hasattr(team, 'name') and team.name else f"{current_user['name']}'s Team"
-        rules = team.rules if hasattr(team, 'rules') else None
+        name = team_schema.name if team_schema.name else f"{current_user['name']}'s Team"
+        rules = team_schema.rules
         
-        cursor.execute(
-            """
-                INSERT INTO teams 
-                (name, rules)
-                VALUES (%s, %s)
-                RETURNING *
-            """, (name, rules)
-        )
-        curr_team = cursor.fetchone()
+        new_team = Team(name=name, rules=rules)
+        db.add(new_team)
+        db.flush() # Get the generated ID
         
-        cursor.execute(
-            """
-                INSERT INTO user_teams
-                (user_id, team_id, roles)
-                VALUES (%s, %s, %s)
-            """, (current_user["id"], curr_team["id"], "Admin/Owner")
+        # Add current user as admin
+        admin_member = UserTeam(
+            user_id=current_user["id"],
+            team_id=new_team.id,
+            roles="Admin/Owner"
         )
-        conn.commit()
-        conn.close()
-        return ResponseModel(True, "", {"team": curr_team})
+        db.add(admin_member)
+        db.commit()
+        db.refresh(new_team)
+        
+        team_data = {"id": new_team.id, "name": new_team.name, "rules": new_team.rules}
+        return ResponseModel(True, "", {"team": team_data})
     except IntegrityError as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.patch("/{id}/{action}")
-def edit_team(id: int, action: str, team: Team, current_user = Depends(get_current_user)):
+def edit_team(id: int, action: str, team_schema: TeamSchema, current_user = Depends(get_current_user)):
     # Placeholder for team editing logic
     return ResponseModel(True, "Team update logic not implemented")
 

@@ -3,6 +3,7 @@ import { Tree } from "react-arborist";
 import UnsavedIndicator from "./UnsavedIndicator";
 import { reverseLookupAddress } from "../../../functions/search/search";
 import { useLocalStorageWithTTL } from "../../../hooks/useLocalStorageWithTTL";
+import NodeDetailsEditor from "./NodeDetailsEditor";
 import "./PropertyDetailsSidebar.css";
 
 export default function PropertyDetailsSidebar({
@@ -141,6 +142,66 @@ export default function PropertyDetailsSidebar({
     const handleHierarchyChange = (newHierarchy) => {
         setHierarchy(newHierarchy);
         onUpdate({ ...point, hierarchy: newHierarchy });
+    };
+
+    const selectedNodeData = useMemo(() => {
+        if (!selectedNodeId) return null;
+        if (selectedNodeId === 'root') return { id: 'root', name: name, type: 'property', dimensions: hierarchy.dimensions };
+
+        // Search in floors
+        for (const f of hierarchy.floors) {
+            if (f.id === selectedNodeId) return { ...f, type: 'floor' };
+            for (const r of f.rooms) {
+                if (r.id === selectedNodeId) return { ...r, type: 'room' };
+                for (const n of r.notes) {
+                    if (n.id === selectedNodeId) return { ...n, type: 'note' };
+                }
+            }
+            for (const n of f.notes) {
+                if (n.id === selectedNodeId) return { ...n, type: 'note' };
+            }
+        }
+        // Search in root notes
+        for (const n of hierarchy.notes) {
+            if (n.id === selectedNodeId) return { ...n, type: 'note' };
+        }
+        return null;
+    }, [selectedNodeId, hierarchy, name]);
+
+    const handleNodeUpdate = (updatedNode) => {
+        const newHierarchy = { ...hierarchy };
+        if (updatedNode.id === 'root') {
+            newHierarchy.dimensions = updatedNode.dimensions;
+        } else {
+            let found = false;
+            newHierarchy.floors = newHierarchy.floors.map(f => {
+                if (f.id === updatedNode.id) { found = true; return { ...f, ...updatedNode }; }
+                if (!found) {
+                    f.rooms = f.rooms.map(r => {
+                        if (r.id === updatedNode.id) { found = true; return { ...r, ...updatedNode }; }
+                        if (!found) {
+                            r.notes = r.notes.map(n => {
+                                if (n.id === updatedNode.id) { found = true; return { ...n, ...updatedNode }; }
+                                return n;
+                            });
+                        }
+                        return r;
+                    });
+                    f.notes = f.notes.map(n => {
+                        if (n.id === updatedNode.id) { found = true; return { ...n, ...updatedNode }; }
+                        return n;
+                    });
+                }
+                return f;
+            });
+            if (!found) {
+                newHierarchy.notes = newHierarchy.notes.map(n => {
+                    if (n.id === updatedNode.id) { found = true; return { ...n, ...updatedNode }; }
+                    return n;
+                });
+            }
+        }
+        handleHierarchyChange(newHierarchy);
     };
 
     const handleCreateChild = (parentId, type) => {
@@ -424,8 +485,11 @@ export default function PropertyDetailsSidebar({
 
                 {activeTab === "details" && (
                     <div className="sidebar-group">
-                        {selectedNodeId ? (
-                            <p>Editing Node: {selectedNodeId}</p>
+                        {selectedNodeData ? (
+                            <NodeDetailsEditor 
+                                nodeData={selectedNodeData} 
+                                onUpdate={handleNodeUpdate} 
+                            />
                         ) : (
                             <p className="sidebar-subtitle">Select a node in Structure to edit details</p>
                         )}

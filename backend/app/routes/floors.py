@@ -1,11 +1,13 @@
 import os
 import json
 from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
-from psycopg2 import IntegrityError
 
-from app.db.db import get_db
-from app.models.floor import Floor
+from app.db.session import get_db_session
+from app.models.floor import Floor, FloorSchema
+from app.models.property import Property
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 
@@ -16,143 +18,102 @@ router = APIRouter(prefix="/floors", tags=["Floors"])
 
 # Get floors belonging to property at ID
 @router.get("/{id}/all")
-def get_floors_by_prop_id(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM floors WHERE property_id=%s AND owner_id=%s", (id, current_user["id"],))
-    floors = cursor.fetchall()
-    conn.close()
+def get_floors_by_prop_id(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    floors = db.query(Floor).filter(Floor.property_id == id, Floor.owner_id == current_user["id"]).all()
     
     if not floors:
         raise HTTPException(status_code=404, detail="Floors not found")
         
     for f in floors:
-        try:
-            extra = f.get("extra_rooms")
-            if extra and isinstance(extra, str):
-                f["extra_rooms"] = json.loads(extra)
-        except:
-            pass
+        if f.extra_rooms and isinstance(f.extra_rooms, str):
+            try:
+                f.extra_rooms = json.loads(f.extra_rooms)
+            except:
+                pass
     return ResponseModel(True, "", {"floors": floors})
 
 
 # Create floor
 @router.post("")
-def add_floor(floor: Floor, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM property WHERE id=%s", (floor.property_id,))
-    p_id = cursor.fetchone()
-    if not p_id:
-        conn.close()
+def add_floor(floor_schema: FloorSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    prop = db.query(Property).filter(Property.id == floor_schema.property_id).first()
+    if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
         
     try:
         extra = None
-        if floor.extra_rooms:
-            extra = json.dumps(floor.extra_rooms)
+        if floor_schema.extra_rooms:
+            extra = json.dumps(floor_schema.extra_rooms)
             
-        cursor.execute(
-            """
-                INSERT INTO floors
-                (owner_id, property_id, name, bedrooms, bathrooms, extra_rooms)
-                VALUES(%s, %s, %s, %s, %s, %s)
-                RETURNING *
-            """,
-            (
-                current_user["id"],
-                floor.property_id,
-                floor.name,
-                floor.bedrooms,
-                floor.bathrooms,
-                extra
-            )
+        new_floor = Floor(
+            owner_id=current_user["id"],
+            property_id=floor_schema.property_id,
+            name=floor_schema.name,
+            bedrooms=floor_schema.bedrooms,
+            bathrooms=floor_schema.bathrooms,
+            extra_rooms=extra
         )
-        conn.commit()
-        curr_floor = cursor.fetchone()
-        conn.close()
+        db.add(new_floor)
+        db.commit()
+        db.refresh(new_floor)
         
-        if curr_floor.get("extra_rooms") and isinstance(curr_floor["extra_rooms"], str):
-            curr_floor["extra_rooms"] = json.loads(curr_floor["extra_rooms"])
-        return ResponseModel(True, "", {"floor": curr_floor})
+        if new_floor.extra_rooms and isinstance(new_floor.extra_rooms, str):
+            try:
+                new_floor.extra_rooms = json.loads(new_floor.extra_rooms)
+            except:
+                pass
+        return ResponseModel(True, "", {"floor": new_floor})
     except IntegrityError as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Edit floor at ID
 @router.patch("/{id}")
-def edit_floor(id: int, floor: Floor, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM floors WHERE id=%s AND owner_id=%s", (id, current_user["id"],))
-    target = cursor.fetchone()
-    if not target:
-        conn.close()
+def edit_floor(id: int, floor_schema: FloorSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    floor = db.query(Floor).filter(Floor.id == id, Floor.owner_id == current_user["id"]).first()
+    if not floor:
         raise HTTPException(status_code=404, detail="Floor not found")
         
     try:
-        extra = None
-        if floor.extra_rooms:
-            extra = json.dumps(floor.extra_rooms)
+        if floor_schema.extra_rooms:
+            floor.extra_rooms = json.dumps(floor_schema.extra_rooms)
             
-        cursor.execute(
-            """
-                UPDATE floors
-                SET name=%s, bedrooms=%s, extra_rooms=%s
-                WHERE id=%s
-            """,
-            (
-                floor.name,
-                floor.bedrooms,
-                extra,
-                id
-            )
-        )
-        conn.commit()
-        cursor.execute("SELECT * FROM floors WHERE id=%s", (id,))
-        curr_floor = cursor.fetchone()
-        conn.close()
+        floor.name = floor_schema.name
+        floor.bedrooms = floor_schema.bedrooms
+        floor.bathrooms = floor_schema.bathrooms
+
+        db.commit()
+        db.refresh(floor)
         
-        if curr_floor.get("extra_rooms") and isinstance(curr_floor["extra_rooms"], str):
-            curr_floor["extra_rooms"] = json.loads(curr_floor["extra_rooms"])
-        return ResponseModel(True, "", {"floor": curr_floor})
+        if floor.extra_rooms and isinstance(floor.extra_rooms, str):
+            try:
+                floor.extra_rooms = json.loads(floor.extra_rooms)
+            except:
+                pass
+        return ResponseModel(True, "", {"floor": floor})
     except IntegrityError as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Delete floor at ID
 @router.delete("/{id}")
-def delete_floor(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM floors WHERE id=%s AND owner_id=%s", (id, current_user["id"],))
-    target = cursor.fetchone()
-    if not target:
-        conn.close()
+def delete_floor(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    floor = db.query(Floor).filter(Floor.id == id, Floor.owner_id == current_user["id"]).first()
+    if not floor:
         raise HTTPException(status_code=404, detail="Floor not found")
         
     try:
-        cursor.execute("DELETE FROM floors WHERE id=%s", (id,))
-        conn.commit()
-        conn.close()
+        db.delete(floor)
+        db.commit()
         return ResponseModel(True, "Floor successfully deleted")
-    except IntegrityError as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

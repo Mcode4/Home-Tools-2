@@ -1,10 +1,11 @@
 import os
 from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
-from psycopg2 import IntegrityError
 
-from app.db.db import get_db
-from app.models.home_group import HomeGroup
+from app.db.session import get_db_session
+from app.models.home_group import HomeGroup, HomeGroupSchema
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 
@@ -14,78 +15,62 @@ PROJECT_ENV = os.environ.get("PROJECT_ENV", "development")
 router = APIRouter(prefix="/groups", tags=["HomeGroups"])
 
 
-# Get All Groups By User ID (Note: Schema doesn't have user_id, assuming global or needs update)
+# Get All Groups
 @router.get("")
-def get_home_group(current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM home_groups")
-    groups = cursor.fetchall()
-    conn.close()
+def get_home_group(current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    groups = db.query(HomeGroup).all()
     return ResponseModel(True, "", {"groups": groups})
 
 
 # Create Home Group
 @router.post("")
-def create_home_group(group: HomeGroup, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def create_home_group(group_schema: HomeGroupSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        cursor.execute(
-            """
-                INSERT INTO home_groups (name, type, pinned)
-                VALUES (%s, %s, %s)
-                RETURNING *
-            """,
-            (group.name, group.type, group.pinned)
+        new_group = HomeGroup(
+            name=group_schema.name,
+            type=group_schema.type,
+            pinned=1 if group_schema.pinned else 0
         )
-        conn.commit()
-        curr_group = cursor.fetchone()
-        conn.close()
-        return ResponseModel(True, "Group created", {"group": curr_group})
+        db.add(new_group)
+        db.commit()
+        db.refresh(new_group)
+        return ResponseModel(True, "Group created", {"group": new_group})
     except IntegrityError as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # Edit Home Group
 @router.patch("/{id}")
-def edit_home_group(id: int, group: HomeGroup, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def edit_home_group(id: int, group_schema: HomeGroupSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        cursor.execute(
-            """
-                UPDATE home_groups
-                SET name=%s, type=%s, pinned=%s
-                WHERE id=%s
-            """,
-            (group.name, group.type, group.pinned, id)
-        )
-        conn.commit()
-        cursor.execute("SELECT * FROM home_groups WHERE id=%s", (id,))
-        curr_group = cursor.fetchone()
-        conn.close()
-        return ResponseModel(True, "Group updated", {"group": curr_group})
+        group = db.query(HomeGroup).filter(HomeGroup.id == id).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+            
+        group.name = group_schema.name
+        group.type = group_schema.type
+        group.pinned = 1 if group_schema.pinned else 0
+        
+        db.commit()
+        db.refresh(group)
+        return ResponseModel(True, "Group updated", {"group": group})
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Deleted Home Group
 @router.delete("/{id}")
-def delete_home_group(id: int, current_user = Depends(get_current_user)):
-    conn = get_db()
-    cursor = conn.cursor()
+def delete_home_group(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        cursor.execute("DELETE FROM home_groups WHERE id=%s", (id,))
-        conn.commit()
-        conn.close()
+        group = db.query(HomeGroup).filter(HomeGroup.id == id).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+            
+        db.delete(group)
+        db.commit()
         return ResponseModel(True, "Group deleted")
     except Exception as e:
-        if conn:
-            conn.rollback()
-            conn.close()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
