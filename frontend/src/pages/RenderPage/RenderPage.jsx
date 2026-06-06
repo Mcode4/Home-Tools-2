@@ -1255,6 +1255,7 @@ export default function RenderPage() {
             height = room.height || 100;
         }
         const { floor_id, roomType, fill } = room;
+        const hasGeo = room.lat != null && room.lng != null;
 
         const splitX = clampSplit(
             typeof linePos === "object" && linePos?.x != null ? linePos.x : x + Math.round(width / 2),
@@ -1265,24 +1266,27 @@ export default function RenderPage() {
             y + 10, y + height - 10
         );
 
-        const geoForRect = (rx, ry, rw, rh) => {
-            if (!proj || room.lat == null) return {};
-            const centerPt = proj.unproject(rx + rw / 2, ry + rh / 2);
-            return {
-                lat: centerPt.lat,
-                lng: centerPt.lng,
-                widthMeters: room.widthMeters ? room.widthMeters * (rw / width) : Math.abs(proj.pxToMetersX(rw, room.lng, room.lat)),
-                heightMeters: room.heightMeters ? room.heightMeters * (rh / height) : Math.abs(proj.pxToMetersY(rh, room.lng, room.lat)),
+        const makeRoom = (suffix, attrs) => {
+            const r = {
+                id: `room-${now}${suffix}`,
+                name: "Divided Room",
+                type: "room", sectionRole: "split", roomType, floor_id, fill,
+                stroke: "#fff", strokeWidth: 2,
+                ...attrs,
             };
+            if (hasGeo && proj) {
+                const rw = attrs.width || width;
+                const rh = attrs.height || height;
+                const rx = attrs.x ?? x;
+                const ry = attrs.y ?? y;
+                const centerPt = proj.unproject(rx + rw / 2, ry + rh / 2);
+                r.lat = centerPt.lat;
+                r.lng = centerPt.lng;
+                r.widthMeters = room.widthMeters ? room.widthMeters * (rw / width) : Math.abs(proj.pxToMetersX(rw, room.lng, room.lat));
+                r.heightMeters = room.heightMeters ? room.heightMeters * (rh / height) : Math.abs(proj.pxToMetersY(rh, room.lng, room.lat));
+            }
+            return r;
         };
-
-        const makeRoom = (suffix, attrs) => ({
-            id: `room-${now}${suffix}`,
-            name: "Divided Room",
-            type: "room", sectionRole: "split", roomType, floor_id, fill,
-            stroke: "#fff", strokeWidth: 2,
-            ...attrs,
-        });
 
         const makeDivider = (suffix, line) => ({
             id: `div-${now}${suffix}`,
@@ -1290,7 +1294,7 @@ export default function RenderPage() {
             floor_id,
             parent_id: roomId,
             ...line,
-            ...geoForDividerLine(proj, line),
+            ...(hasGeo ? geoForDividerLine(proj, line) : {}),
         });
 
         if (splitMode === "both") {
@@ -1299,10 +1303,10 @@ export default function RenderPage() {
             const topH = Math.max(10, splitY - y);
             const botH = Math.max(10, y + height - splitY);
             newRooms.push(
-                makeRoom("tl", { x, y, width: leftW, height: topH, ...geoForRect(x, y, leftW, topH) }),
-                makeRoom("tr", { x: splitX, y, width: rightW, height: topH, ...geoForRect(splitX, y, rightW, topH) }),
-                makeRoom("bl", { x, y: splitY, width: leftW, height: botH, ...geoForRect(x, splitY, leftW, botH) }),
-                makeRoom("br", { x: splitX, y: splitY, width: rightW, height: botH, ...geoForRect(splitX, splitY, rightW, botH) }),
+                makeRoom("tl", { x, y, width: leftW, height: topH }),
+                makeRoom("tr", { x: splitX, y, width: rightW, height: topH }),
+                makeRoom("bl", { x, y: splitY, width: leftW, height: botH }),
+                makeRoom("br", { x: splitX, y: splitY, width: rightW, height: botH }),
             );
             dividerLines.push(
                 makeDivider("h", { x1: x, y1: splitY, x2: x + width, y2: splitY }),
@@ -1312,16 +1316,16 @@ export default function RenderPage() {
             const topH = Math.max(10, splitY - y);
             const botH = Math.max(10, y + height - splitY);
             newRooms.push(
-                makeRoom("t", { x, y, width, height: topH, ...geoForRect(x, y, width, topH) }),
-                makeRoom("b", { x, y: splitY, width, height: botH, ...geoForRect(x, splitY, width, botH) }),
+                makeRoom("t", { x, y, width, height: topH }),
+                makeRoom("b", { x, y: splitY, width, height: botH }),
             );
             dividerLines.push(makeDivider("h", { x1: x, y1: splitY, x2: x + width, y2: splitY }));
         } else if (splitMode === "vertical") {
             const leftW = Math.max(10, splitX - x);
             const rightW = Math.max(10, x + width - splitX);
             newRooms.push(
-                makeRoom("l", { x, y, width: leftW, height, ...geoForRect(x, y, leftW, height) }),
-                makeRoom("r", { x: splitX, y, width: rightW, height, ...geoForRect(splitX, y, rightW, height) }),
+                makeRoom("l", { x, y, width: leftW, height }),
+                makeRoom("r", { x: splitX, y, width: rightW, height }),
             );
             dividerLines.push(makeDivider("v", { x1: splitX, y1: y, x2: splitX, y2: y + height }));
         }
@@ -1408,7 +1412,15 @@ export default function RenderPage() {
                     const next = centerY <= oldSplit
                         ? { ...room, height: Math.max(10, splitY - room.y) }
                         : { ...room, y: splitY, height: Math.max(10, room.y + room.height - splitY) };
-                    Object.assign(next, geoForScreenRect(proj, next.x, next.y, next.width, next.height));
+                    if (room.lat != null && room.lng != null && proj) {
+                        const rw = next.width || room.width;
+                        const rh = next.height || room.height;
+                        const centerPt = proj.unproject(next.x + rw / 2, next.y + rh / 2);
+                        next.lat = centerPt.lat;
+                        next.lng = centerPt.lng;
+                        next.widthMeters = room.widthMeters ? room.widthMeters * (rw / room.width) : Math.abs(proj.pxToMetersX(rw, room.lng, room.lat));
+                        next.heightMeters = room.heightMeters ? room.heightMeters * (rh / room.height) : Math.abs(proj.pxToMetersY(rh, room.lng, room.lat));
+                    }
                     roomUpdates[next.id] = next;
                 });
             } else if (axis === "vertical") {
@@ -1421,7 +1433,15 @@ export default function RenderPage() {
                     const next = centerX <= oldSplit
                         ? { ...room, width: Math.max(10, splitX - room.x) }
                         : { ...room, x: splitX, width: Math.max(10, room.x + room.width - splitX) };
-                    Object.assign(next, geoForScreenRect(proj, next.x, next.y, next.width, next.height));
+                    if (room.lat != null && room.lng != null && proj) {
+                        const rw = next.width || room.width;
+                        const rh = next.height || room.height;
+                        const centerPt = proj.unproject(next.x + rw / 2, next.y + rh / 2);
+                        next.lat = centerPt.lat;
+                        next.lng = centerPt.lng;
+                        next.widthMeters = room.widthMeters ? room.widthMeters * (rw / room.width) : Math.abs(proj.pxToMetersX(rw, room.lng, room.lat));
+                        next.heightMeters = room.heightMeters ? room.heightMeters * (rh / room.height) : Math.abs(proj.pxToMetersY(rh, room.lng, room.lat));
+                    }
                     roomUpdates[next.id] = next;
                 });
             }
