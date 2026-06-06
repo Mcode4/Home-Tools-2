@@ -300,27 +300,13 @@ function combinePreviewForDivider(divider, dividers, rooms, point) {
     if (touching.length < 2) return { mode: axis, rooms: [] };
 
     if (axis === "horizontal") {
-        const splitY = ((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2;
-        const clickY = point?.y ?? splitY;
-        const above = touching.filter(room => room.y + room.height / 2 <= splitY);
-        const below = touching.filter(room => room.y + room.height / 2 > splitY);
-        if (clickY <= splitY) {
-            return { mode: "horizontal", rooms: above.length > 0 ? above : touching.slice(0, 2) };
-        } else {
-            return { mode: "horizontal", rooms: below.length > 0 ? below : touching.slice(0, 2) };
-        }
+        const across = roomsAcrossDividerSegment(divider, rooms, point);
+        return { mode: "horizontal", rooms: across.length >= 2 ? across : touching.slice(0, 2) };
     }
 
     if (axis === "vertical") {
-        const splitX = ((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2;
-        const clickX = point?.x ?? splitX;
-        const left = touching.filter(room => room.x + room.width / 2 <= splitX);
-        const right = touching.filter(room => room.x + room.width / 2 > splitX);
-        if (clickX <= splitX) {
-            return { mode: "vertical", rooms: left.length > 0 ? left : touching.slice(0, 2) };
-        } else {
-            return { mode: "vertical", rooms: right.length > 0 ? right : touching.slice(0, 2) };
-        }
+        const across = roomsAcrossDividerSegment(divider, rooms, point);
+        return { mode: "vertical", rooms: across.length >= 2 ? across : touching.slice(0, 2) };
     }
 
     return { mode: axis, rooms: touching.slice(0, 2) };
