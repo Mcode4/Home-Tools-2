@@ -699,7 +699,7 @@ export default function RenderComponent({
     const positionRef = useRef({ x: 0, y: 0 });
     const drawingRef = useRef(false);
     const MIN_SCALE = 0.3;
-    const MAX_SCALE = 5;
+    const MAX_SCALE = 15;
 
     const activeFloor = activeFloorId ? floors.find(f => f.id === activeFloorId) : null;
     const gridBounds = activeFloor || { x: 0, y: 0, width: canvasSettings?.canvasWidth || 800, height: canvasSettings?.canvasHeight || 600 };

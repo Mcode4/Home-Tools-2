@@ -206,20 +206,22 @@ export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, o
                 </div>
             )}
 
-            <div className="menu-tools-section" style={{ marginTop: 12 }}>
-                <h4>Built-in Templates</h4>
-                <ul className="tool-list">
-                    {BUILTIN_TEMPLATES.map(template => (
-                        <li key={template.id}
-                            className="tool-item"
-                            onClick={() => onLoadBuiltin?.(template.id)}
-                            title={template.description}>
-                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 18, flexShrink: 0 }}>{template.icon}</span>
-                            <span>{template.name}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
+            {stage === "outline" && (
+                <div className="menu-tools-section" style={{ marginTop: 12 }}>
+                    <h4>Built-in Templates</h4>
+                    <ul className="tool-list">
+                        {BUILTIN_TEMPLATES.map(template => (
+                            <li key={template.id}
+                                className="tool-item"
+                                onClick={() => onLoadBuiltin?.(template.id)}
+                                title={template.description}>
+                                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 18, flexShrink: 0 }}>{template.icon}</span>
+                                <span>{template.name}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </li>
     );
 }

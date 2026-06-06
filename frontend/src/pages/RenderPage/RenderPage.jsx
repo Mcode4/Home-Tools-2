@@ -655,7 +655,27 @@ export default function RenderPage() {
         if (id && objects.length > 0) {
             await saveObjects(id);
         }
-    }, [handleSaveAll, id, outlines, objects, outlineHistory, saveObjects]);
+        if (id) {
+            const sectionItems = Object.values(stagedItems).filter(item =>
+                item.type === "divider_line" || item.type === "wall" || item.type === "opening"
+            );
+            if (sectionItems.length > 0 || Object.keys(stagedItems).length > 0) {
+                try {
+                    const token = localStorage.getItem("token");
+                    await fetch(`/api/renders/${id}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({
+                            has_sections: sectionItems.length > 0,
+                            sections_data: Object.values(stagedItems),
+                        }),
+                    });
+                } catch (err) {
+                    console.error("Failed to save sections data:", err);
+                }
+            }
+        }
+    }, [handleSaveAll, id, outlines, objects, outlineHistory, saveObjects, stagedItems]);
 
     const stageUndo = stage === "outline" ? outlineHistory.undo : stage === "objects" ? undoObjects : undo;
     const stageRedo = stage === "outline" ? outlineHistory.redo : stage === "objects" ? redoObjects : redo;
