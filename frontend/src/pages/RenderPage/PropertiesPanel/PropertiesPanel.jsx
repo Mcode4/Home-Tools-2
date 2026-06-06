@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import ObjectProperties from "./ObjectProperties";
+import { getOutlineArea, getOutlinePerimeter, metersToUnit, metersToAreaUnit } from "../../../functions/outlineValidation";
 
 const ROOM_TYPES = [
     { value: "bedroom", label: "Bedroom" },
@@ -23,6 +24,9 @@ export default function PropertiesPanel({
     objects, selectedObjectId, onSelectObject, onUpdateObject,
     vertexMode = false, selectedVertexIndex = -1, onSelectVertex,
     multiSelectIds = [],
+    validationResults = { isValid: true, warnings: [], measurements: [] },
+    showMeasurements = false,
+    unit = "metric",
 }) {
     const containerRef = useRef(null);
     const [splitHeight, setSplitHeight] = useState(250);
@@ -356,24 +360,42 @@ export default function PropertiesPanel({
                             </div>
                         )}
 
-                        {vertexMode && s && Array.isArray(s.points) && s.points.length >= 3 && (
-                            <div className="props-section" style={{ border: "none", background: "var(--accent-bg)", borderRadius: 4, padding: 8 }}>
-                                <div style={{ fontWeight: 600, marginBottom: 4 }}>Vertices: {s.points.length}</div>
-                                {s.points.map(([x, y], i) => (
-                                    <div key={i} style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 8, padding: 2 }}>
-                                        <span style={{ width: 20, color: selectedVertexIndex === i ? "var(--accent)" : "var(--text-dim)" }}>{i}</span>
-                                        <span>X: {Math.round(x)}</span>
-                                        <span>Y: {Math.round(y)}</span>
-                                        <button className="tb-btn" style={{ width: 16, height: 16, fontSize: 9 }} onClick={() => onSelectVertex?.(i)} title="Select">⌘</button>
+                        {validationResults.warnings.length > 0 && (
+                            <div className="props-section" style={{ border: "none", background: "#fee2e2", borderRadius: 4, padding: 8 }}>
+                                <div style={{ fontWeight: 600, marginBottom: 4, color: "#991b1b" }}>Validation Warnings</div>
+                                {validationResults.warnings.map((w, i) => (
+                                    <div key={i} style={{ fontSize: 12, marginBottom: 2, display: "flex", alignItems: "center", gap: 6, color: w.severity === "error" ? "#dc2626" : "#d97706" }}>
+                                        <span>{w.severity === "error" ? "✕" : "⚠"}</span>
+                                        <span>{w.message}</span>
                                     </div>
                                 ))}
-                                <div style={{ marginTop: 8, display: "flex", gap: 4 }}>
-                                    <button className="tb-btn" onClick={() => update({ points: [...s.points, [s.points[0][0] + 10, s.points[0][1] + 10]] })} title="Add Vertex">＋</button>
-                                    <button className="tb-btn" disabled={s.points.length <= 3} onClick={() => {
-                                        const idx = selectedVertexIndex >= 0 ? selectedVertexIndex : s.points.length - 1;
-                                        const newPoints = s.points.filter((_, i) => i !== idx);
-                                        update({ points: newPoints });
-                                    }} title="Remove Vertex">－</button>
+                            </div>
+                        )}
+
+                        {showMeasurements && s && (
+                            <div className="props-section" style={{ border: "none", background: "var(--accent-bg)", borderRadius: 4, padding: 8 }}>
+                                <div style={{ fontWeight: 600, marginBottom: 4 }}>Measurements</div>
+                                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <label style={{ fontWeight: 500 }}>Area:</label>
+                                        <span>
+                                            {(() => {
+                                                const area = getOutlineArea(s);
+                                                const { value, label } = metersToAreaUnit(area, unit);
+                                                return `${value.toFixed(2)} ${label}`;
+                                            })()}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <label style={{ fontWeight: 500 }}>Perimeter:</label>
+                                        <span>
+                                            {(() => {
+                                                const perimeter = getOutlinePerimeter(s);
+                                                const { value, label } = metersToUnit(perimeter, unit);
+                                                return `${value.toFixed(2)} ${label}`;
+                                            })()}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         )}

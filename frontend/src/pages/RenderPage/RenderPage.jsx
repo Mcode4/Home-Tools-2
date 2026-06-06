@@ -16,6 +16,7 @@ import useObjectsHistory from "../../hooks/useObjectsHistory";
 import { makeProjection, groundDistanceMeters } from "../../functions/geoProject";
 import { generateTemplate } from "../../functions/outlineTemplates";
 import { booleanUnion, booleanSubtract, booleanIntersect } from "../../functions/booleanOps";
+import { validateOutlines } from "../../functions/outlineValidation";
 import * as turf from "@turf/turf";
 import "./RenderPage.css"
 
@@ -392,6 +393,7 @@ export default function RenderPage() {
     const [showOffset, setShowOffset] = useState(false);
     const [vertexMode, setVertexMode] = useState(false);
     const [selectedVertexIndex, setSelectedVertexIndex] = useState(-1);
+    const [validationResults, setValidationResults] = useState({ isValid: true, warnings: [], measurements: [] });
     const mapRef = useRef(null);
     const [mapVersion, setMapVersion] = useState(0);
     const onMapViewChange = useCallback(() => setMapVersion(v => v + 1), []);
@@ -648,6 +650,8 @@ export default function RenderPage() {
         theme: "dark", gridActive: true, gridPixelSize: 50, gridColor: "#888",
         canvasWidth: 800, canvasHeight: 600, bgColor: "#2a2a3e",
         mapPanLimit: 500,
+        gridSnap: false, edgeSnap: false, alignmentGuides: true,
+        snapThreshold: 10, showMeasurements: true, unit: "metric",
     });
     const toolSettingsRef = useRef({
         line: { type: "line", width: 2, color: "#000", draggable: true, snap: false },
@@ -678,6 +682,21 @@ export default function RenderPage() {
             if ((e.key === "Delete" || e.key === "Backspace") && stage === "objects" && selectedObjectId) {
                 e.preventDefault();
                 deleteObject(selectedObjectId);
+            }
+            if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+                const key = e.key.toLowerCase();
+                if (key === "g") {
+                    e.preventDefault();
+                    setCanvasSettings(s => ({ ...s, gridSnap: !s.gridSnap }));
+                }
+                if (key === "e") {
+                    e.preventDefault();
+                    setCanvasSettings(s => ({ ...s, edgeSnap: !s.edgeSnap }));
+                }
+                if (key === "a") {
+                    e.preventDefault();
+                    setCanvasSettings(s => ({ ...s, alignmentGuides: !s.alignmentGuides }));
+                }
             }
         };
         window.addEventListener("keydown", handleKeyDown);
@@ -711,6 +730,15 @@ export default function RenderPage() {
     useEffect(() => {
         handlePendingPlacement(pendingPlacement);
     }, [pendingPlacement, handlePendingPlacement]);
+
+    useEffect(() => {
+        if (stage !== "outline" || !outlines.length) return;
+        const timer = setTimeout(() => {
+            const results = validateOutlines(outlines, { minArea: 1, checkOverlaps: true });
+            setValidationResults(results);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [outlines, stage]);
 
     const startObjectPlacement = useCallback((item) => {
         if (!hasRooms || !item) return;
@@ -1242,6 +1270,9 @@ export default function RenderPage() {
                     selectedVertexIndex={selectedVertexIndex}
                     onSelectVertex={setSelectedVertexIndex}
                     multiSelectIds={multiSelectIds}
+                    validationResults={validationResults}
+                    showMeasurements={canvasSettings.showMeasurements}
+                    unit={canvasSettings.unit}
                     deleteElement={(id) => {
                         const item = stage === "outline"
                             ? outlines.find(o => o.id === id)

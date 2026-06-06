@@ -20,6 +20,16 @@ export default function CanvasTab({ canvasSettings, setCanvasSettings, mapDistan
             value={canvasSettings[key]}
             onChange={e => setCanvasSettings(s => ({ ...s, [key]: Number(e.target.value) }))} />
     );
+    const toggleBtn = (key, labelText, shortcut) => (
+        <div className="props-section" style={{ border: "none" }}>
+            <label>{labelText} <span style={{ color: "var(--text-dim)", fontSize: 11 }}>({shortcut})</span></label>
+            <button className="theme-btn"
+                style={canvasSettings[key] ? { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" } : {}}
+                onClick={() => setCanvasSettings(s => ({ ...s, [key]: !s[key] }))}>
+                {canvasSettings[key] ? "On" : "Off"}
+            </button>
+        </div>
+    );
     const panLimit = canvasSettings?.mapPanLimit ?? 500;
 
     return (
@@ -93,6 +103,31 @@ export default function CanvasTab({ canvasSettings, setCanvasSettings, mapDistan
                         value={Math.min(10000, Math.max(100, panLimit))}
                         onChange={e => setCanvasSettings(s => ({ ...s, mapPanLimit: Number(e.target.value) }))}
                         style={{ marginTop: 6 }} />
+                </div>
+            </div>
+
+            <div className="menu-tools-section" style={{ marginTop: 12 }}>
+                <h4>Snapping</h4>
+                {toggleBtn("gridSnap", "Grid Snap", "G")}
+                {toggleBtn("edgeSnap", "Edge Snap", "E")}
+                {toggleBtn("alignmentGuides", "Alignment Guides", "A")}
+                <div className="props-section" style={{ border: "none" }}>
+                    {label("Snap Threshold")}
+                    {numInput("snapThreshold", 5, 50)}
+                </div>
+            </div>
+
+            <div className="menu-tools-section" style={{ marginTop: 12 }}>
+                <h4>Measurements</h4>
+                {toggleBtn("showMeasurements", "Show Measurements", "M")}
+                <div className="props-section" style={{ border: "none" }}>
+                    <label>Unit</label>
+                    <div style={{ display: "flex", gap: 4 }}>
+                        <button className={`theme-btn${canvasSettings.unit === "metric" ? " active" : ""}`}
+                            onClick={() => setCanvasSettings(s => ({ ...s, unit: "metric" }))}>Metric</button>
+                        <button className={`theme-btn${canvasSettings.unit === "imperial" ? " active" : ""}`}
+                            onClick={() => setCanvasSettings(s => ({ ...s, unit: "imperial" }))}>Imperial</button>
+                    </div>
                 </div>
             </div>
         </li>
