@@ -636,35 +636,42 @@ function roomContainsPoint(room, point, tolerance = 2) {
         && point.y <= room.y + room.height + tolerance;
 }
 
-function roomsForSingleDividerMerge(divider, rooms, point) {
+function roomsAcrossDividerSegment(divider, rooms, point, tolerance = 4) {
     const axis = getDividerAxis(divider);
-    const touching = roomsTouchingDivider(divider, rooms);
-    if (touching.length < 2) return [];
-
     if (axis === "horizontal") {
         const splitY = ((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2;
-        const clickY = point?.y ?? splitY;
-        const above = touching.filter(room => room.y + room.height / 2 <= splitY);
-        const below = touching.filter(room => room.y + room.height / 2 > splitY);
-        if (clickY <= splitY) {
-            return above.length > 0 ? above : touching.slice(0, 2);
-        } else {
-            return below.length > 0 ? below : touching.slice(0, 2);
-        }
+        const x = point?.x ?? (((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2);
+        const candidates = rooms.filter(room => x >= room.x - tolerance && x <= room.x + room.width + tolerance);
+        const above = candidates
+            .filter(room => Math.abs((room.y + room.height) - splitY) <= tolerance)
+            .sort((a, b) => (b.y + b.height) - (a.y + a.height))[0];
+        const below = candidates
+            .filter(room => Math.abs(room.y - splitY) <= tolerance)
+            .sort((a, b) => a.y - b.y)[0];
+        return [above, below].filter(Boolean);
     }
 
     if (axis === "vertical") {
         const splitX = ((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2;
-        const clickX = point?.x ?? splitX;
-        const left = touching.filter(room => room.x + room.width / 2 <= splitX);
-        const right = touching.filter(room => room.x + room.width / 2 > splitX);
-        if (clickX <= splitX) {
-            return left.length > 0 ? left : touching.slice(0, 2);
-        } else {
-            return right.length > 0 ? right : touching.slice(0, 2);
-        }
+        const y = point?.y ?? (((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2);
+        const candidates = rooms.filter(room => y >= room.y - tolerance && y <= room.y + room.height + tolerance);
+        const left = candidates
+            .filter(room => Math.abs((room.x + room.width) - splitX) <= tolerance)
+            .sort((a, b) => (b.x + b.width) - (a.x + a.width))[0];
+        const right = candidates
+            .filter(room => Math.abs(room.x - splitX) <= tolerance)
+            .sort((a, b) => a.x - b.x)[0];
+        return [left, right].filter(Boolean);
     }
 
+    return [];
+}
+
+function roomsForSingleDividerMerge(divider, rooms, point) {
+    const touching = roomsTouchingDivider(divider, rooms);
+    if (touching.length < 2) return [];
+    const across = roomsAcrossDividerSegment(divider, rooms, point);
+    if (across.length >= 2) return across;
     return touching.slice(0, 2);
 }
 
@@ -2026,23 +2033,6 @@ export default function RenderPage() {
             removeItem(dividerId);
         }
 
-        if (mergedGeometry.x != null && mergedGeometry.y != null && mergedGeometry.width && mergedGeometry.height) {
-            const mx = mergedGeometry.x, my = mergedGeometry.y;
-            const mw = mergedGeometry.width, mh = mergedGeometry.height;
-            Object.values(stagedItems).forEach(el => {
-                if (el.type !== "divider_line" || el.floor_id !== floor_id) return;
-                const divScreen = screenDivider(el, proj);
-                if (!divScreen) return;
-                const dx1 = divScreen.x1 ?? 0, dy1 = divScreen.y1 ?? 0;
-                const dx2 = divScreen.x2 ?? 0, dy2 = divScreen.y2 ?? 0;
-                const insideStart = dx1 >= mx - 2 && dx1 <= mx + mw + 2 && dy1 >= my - 2 && dy1 <= my + mh + 2;
-                const insideEnd = dx2 >= mx - 2 && dx2 <= mx + mw + 2 && dy2 >= my - 2 && dy2 <= my + mh + 2;
-                if (insideStart && insideEnd) {
-                    removeItem(el.id);
-                }
-            });
-        }
-
         const merged = {
             id: `room-${Date.now()}`, name: "Combined Room", type: "room", sectionRole: "combined",
             roomType: roomsToMerge[0].roomType, floor_id,
@@ -2054,22 +2044,31 @@ export default function RenderPage() {
 
     }, [stagedItems, removeItem, addItem]);
 
-    const moveDividerLine = useCallback((dividerId, newAttrs) => {
+    const moveDividerLine = useCallback((dividerId, newAttrs = {}) => {
         const proj = makeProjection(mapRef.current);
         const sourceDiv = stagedItems[dividerId];
         if (!sourceDiv || sourceDiv.type !== "divider_line") return;
         const sourceScreenDiv = screenDivider(sourceDiv, proj);
-        let updated = { ...sourceDiv, ...sourceScreenDiv, ...newAttrs };
+        const { _actionPoint, ...dividerAttrs } = newAttrs;
+        let updated = { ...sourceDiv, ...sourceScreenDiv, ...dividerAttrs };
         const axis = getDividerAxis(sourceScreenDiv);
         const floorRooms = Object.values(stagedItems).filter(
             room => isVisibleSectionRoom(room) && room.floor_id === sourceDiv.floor_id
         ).map(room => screenRoom(room, proj));
-        const adjacentRooms = roomsAdjacentToDivider(sourceScreenDiv, floorRooms);
+        const segmentRooms = _actionPoint ? roomsAcrossDividerSegment(sourceScreenDiv, floorRooms, _actionPoint) : [];
+        const adjacentRooms = segmentRooms.length >= 2
+            ? segmentRooms
+            : roomsAdjacentToDivider(sourceScreenDiv, floorRooms);
         const touchingRooms = roomsTouchingDivider(sourceScreenDiv, floorRooms);
         const affectedRooms = adjacentRooms.length >= 2
             ? adjacentRooms
             : (touchingRooms.length === 2 ? touchingRooms : []);
+        const actionSegment = _actionPoint && affectedRooms.length >= 2
+            ? dividerRemovalSegmentForRooms(sourceScreenDiv, affectedRooms)
+            : null;
+        const dividerAdds = {};
         const roomUpdates = {};
+        let movedDividerSegment = false;
         const updateRoomGeometry = (room) => {
             const next = { ...room };
             if (proj) Object.assign(next, geoForScreenRect(proj, next.x, next.y, next.width, next.height));
@@ -2086,13 +2085,16 @@ export default function RenderPage() {
                     const maxY = Math.min(...belowRooms.map(room => room.y + room.height - 10));
                     if (minY < maxY) {
                         const splitY = clampSplit(((updated.y1 ?? 0) + (updated.y2 ?? 0)) / 2, minY, maxY);
+                        const nextX1 = actionSegment?.start ?? sourceScreenDiv.x1;
+                        const nextX2 = actionSegment?.end ?? sourceScreenDiv.x2;
                         updated = {
                             ...updated,
-                            x1: sourceScreenDiv.x1,
+                            x1: nextX1,
                             y1: splitY,
-                            x2: sourceScreenDiv.x2,
+                            x2: nextX2,
                             y2: splitY,
                         };
+                        movedDividerSegment = true;
                         aboveRooms.forEach(room => {
                             const next = updateRoomGeometry({ ...room, height: splitY - room.y });
                             roomUpdates[next.id] = next;
@@ -2113,13 +2115,16 @@ export default function RenderPage() {
                     const maxX = Math.min(...rightRooms.map(room => room.x + room.width - 10));
                     if (minX < maxX) {
                         const splitX = clampSplit(((updated.x1 ?? 0) + (updated.x2 ?? 0)) / 2, minX, maxX);
+                        const nextY1 = actionSegment?.start ?? sourceScreenDiv.y1;
+                        const nextY2 = actionSegment?.end ?? sourceScreenDiv.y2;
                         updated = {
                             ...updated,
                             x1: splitX,
-                            y1: sourceScreenDiv.y1,
+                            y1: nextY1,
                             x2: splitX,
-                            y2: sourceScreenDiv.y2,
+                            y2: nextY2,
                         };
+                        movedDividerSegment = true;
                         leftRooms.forEach(room => {
                             const next = updateRoomGeometry({ ...room, width: splitX - room.x });
                             roomUpdates[next.id] = next;
@@ -2134,11 +2139,25 @@ export default function RenderPage() {
             }
         }
 
+        if (actionSegment && movedDividerSegment) {
+            dividerRemaindersAfterRemoval(sourceScreenDiv, actionSegment).forEach((line, index) => {
+                const remId = `${dividerId}-rem-${index}`;
+                dividerAdds[remId] = {
+                    ...sourceDiv,
+                    ...line,
+                    id: remId,
+                    type: "divider_line",
+                    floor_id: sourceDiv.floor_id,
+                    ...(proj ? geoForDividerLine(proj, line) : {}),
+                };
+            });
+        }
+
         if (proj && updated.x1 != null && updated.y1 != null && updated.x2 != null && updated.y2 != null) {
             Object.assign(updated, geoForDividerLine(proj, updated));
         }
 
-        setStagedItems(prev => ({ ...prev, [dividerId]: updated, ...roomUpdates }));
+        setStagedItems(prev => ({ ...prev, [dividerId]: updated, ...dividerAdds, ...roomUpdates }));
     }, [stagedItems, setStagedItems]);
 
     const addWallPad = useCallback((wallType, floorId, parentId, point, room) => {

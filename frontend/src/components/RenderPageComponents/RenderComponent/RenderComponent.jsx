@@ -254,6 +254,37 @@ function crossingDividerAtPoint(divider, dividers, point, threshold = 14) {
     return null;
 }
 
+function roomsAcrossDividerSegment(divider, rooms, point, tolerance = 4) {
+    const axis = dividerOrientation(divider);
+    if (axis === "horizontal") {
+        const splitY = ((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2;
+        const x = point?.x ?? (((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2);
+        const candidates = rooms.filter(room => x >= room.x - tolerance && x <= room.x + room.width + tolerance);
+        const above = candidates
+            .filter(room => Math.abs((room.y + room.height) - splitY) <= tolerance)
+            .sort((a, b) => (b.y + b.height) - (a.y + a.height))[0];
+        const below = candidates
+            .filter(room => Math.abs(room.y - splitY) <= tolerance)
+            .sort((a, b) => a.y - b.y)[0];
+        return [above, below].filter(Boolean);
+    }
+
+    if (axis === "vertical") {
+        const splitX = ((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2;
+        const y = point?.y ?? (((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2);
+        const candidates = rooms.filter(room => y >= room.y - tolerance && y <= room.y + room.height + tolerance);
+        const left = candidates
+            .filter(room => Math.abs((room.x + room.width) - splitX) <= tolerance)
+            .sort((a, b) => (b.x + b.width) - (a.x + a.width))[0];
+        const right = candidates
+            .filter(room => Math.abs(room.x - splitX) <= tolerance)
+            .sort((a, b) => a.x - b.x)[0];
+        return [left, right].filter(Boolean);
+    }
+
+    return [];
+}
+
 function combinePreviewForDivider(divider, dividers, rooms, point) {
     const crossing = crossingDividerAtPoint(divider, dividers, point);
     if (crossing) {
@@ -684,6 +715,7 @@ export default function RenderComponent({
     const [polyVerts, setPolyVerts] = useState([]);
     const [polyCursor, setPolyCursor] = useState(null);
     const isDraggingRef = useRef(false);
+    const dividerDragPointRef = useRef({});
     const lastProjectedRef = useRef([]);
     const projectedMetricGeometryRef = useRef({});
     const [ghostPos, setGhostPos] = useState(null);
@@ -1430,6 +1462,7 @@ export default function RenderComponent({
                 y1: div.y1 + dy,
                 x2: div.x2 + dx,
                 y2: div.y2 + dy,
+                _actionPoint: dividerDragPointRef.current[div.id] || null,
             });
         };
         return (
@@ -1461,8 +1494,16 @@ export default function RenderComponent({
                         onSelectShape(div.id);
                     }}
                     draggable={stage === "sections" && activeTool?.type === "select"}
+                    onDragStart={(e) => {
+                        const stageNode = e.target.getStage();
+                        const pt = stageNode?.getRelativePointerPosition();
+                        dividerDragPointRef.current[div.id] = pt ? { x: pt.x, y: pt.y } : null;
+                    }}
                     onDragMove={moveDivider}
-                    onDragEnd={moveDivider}
+                    onDragEnd={(e) => {
+                        moveDivider(e);
+                        delete dividerDragPointRef.current[div.id];
+                    }}
                 />
                 {showHandles && renderDividerHandles(div)}
             </React.Fragment>
