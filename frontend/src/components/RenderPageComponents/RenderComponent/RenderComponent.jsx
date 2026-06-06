@@ -1217,7 +1217,7 @@ export default function RenderComponent({
         const delta = e.evt.deltaY;
         const zoomDiff = delta > 0 ? -0.5 : 0.5;
         const cur = mapRef.current.getZoom();
-        mapRef.current.zoomTo(Math.max(12, Math.min(20, cur + zoomDiff)), { duration: 0 });
+        mapRef.current.zoomTo(Math.max(12, Math.min(24, cur + zoomDiff)), { duration: 0 });
     }, [mapVisible, mapRef]);
 
     const handleCanvasMouseDown = useCallback((e) => {

@@ -40,7 +40,7 @@ export default function RenderMapBackground({ visible, layer, lng, lat, distance
             center: [lng, lat],
             zoom: 14,
             minZoom: 18.5,
-            maxZoom: 26,
+            maxZoom: 24,
             maxBounds,
             interactive: true,
             attributionControl: false,
