@@ -668,7 +668,7 @@ function renderShapeGroup(shape, shapeRef, isSelected, onSelect, onUpdate, activ
 }
 
 export default function RenderComponent({
-    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, onAddOpening, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape
+    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, onAddOpening, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape, onSelectFloor
 }) {
     const containerRef = useRef(null);
     const stageRef = useRef(null);
@@ -991,6 +991,18 @@ export default function RenderComponent({
         return null;
     };
 
+    const findOutlineAtPoint = (pt) => {
+        const allProj = projectedElements || elements;
+        const outlines = allProj.filter(el => el.floor_id == null && el.type !== "divider_line" && el.type !== "wall" && el.type !== "opening").slice().reverse();
+        for (const outline of outlines) {
+            const rx = outline.x || 0, ry = outline.y || 0, rw = outline.width || 100, rh = outline.height || 100;
+            if (pt.x >= rx && pt.x <= rx + rw && pt.y >= ry && pt.y <= ry + rh) {
+                return outline;
+            }
+        }
+        return null;
+    };
+
     const findSectionTargetAtPoint = (pt) => {
         const room = findRoomAtPoint(pt);
         if (room) return { ...room, floorTargetId: room.floor_id };
@@ -1065,7 +1077,12 @@ export default function RenderComponent({
             if (hit) {
                 onSelectShape(hit.divider.id);
             } else {
-                onSelectShape(null);
+                const outlineHit = findOutlineAtPoint(pt);
+                if (outlineHit) {
+                    onSelectFloor?.(outlineHit.id);
+                } else {
+                    onSelectShape(null);
+                }
             }
             return;
         }

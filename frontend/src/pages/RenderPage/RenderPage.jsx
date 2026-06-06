@@ -2066,6 +2066,7 @@ export default function RenderPage() {
                         onMoveDividerLine={moveDividerLine}
                         onAddWallPad={addWallPad}
                         onAddOpening={addOpening}
+                        onSelectFloor={setActiveFloorId}
                         objectsData={objects}
                         selectedObjectId={selectedObjectId}
                         onSelectObject={setSelectedObjectId}
