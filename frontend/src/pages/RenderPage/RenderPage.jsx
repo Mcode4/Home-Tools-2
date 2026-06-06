@@ -1065,6 +1065,50 @@ export default function RenderPage() {
         handleSectionValidation();
     }, [handleSectionValidation]);
 
+    const batchMerge = useCallback(() => {
+        if (multiSelectIds.length < 2) return;
+        const rooms = multiSelectIds.map(id => stagedItems[id]).filter(el => el?.type === "room");
+        if (rooms.length < 2) return;
+        const minX = Math.min(...rooms.map(r => r.x));
+        const minY = Math.min(...rooms.map(r => r.y));
+        const maxX = Math.max(...rooms.map(r => r.x + r.width));
+        const maxY = Math.max(...rooms.map(r => r.y + r.height));
+        rooms.forEach(room => removeItem(room.id));
+        Object.values(stagedItems).forEach(item => {
+            if (item.type !== "divider_line") return;
+            if (item.floor_id !== rooms[0].floor_id) return;
+            const touching = roomsTouchingDivider(item, rooms);
+            if (touching.length >= 2) removeItem(item.id);
+        });
+        const mergedId = `room-${Date.now()}`;
+        addItem(mergedId, {
+            id: mergedId, name: "Merged Room", type: "room", roomType: "other",
+            floor_id: rooms[0].floor_id, x: minX, y: minY,
+            width: maxX - minX, height: maxY - minY,
+            fill: rooms[0].fill, stroke: "#fff", strokeWidth: 2,
+        });
+        setMultiSelectIds([]);
+        setSelectedShapeId(mergedId);
+    }, [multiSelectIds, stagedItems, removeItem, addItem, roomsTouchingDivider]);
+
+    const batchDelete = useCallback(() => {
+        if (multiSelectIds.length === 0) return;
+        multiSelectIds.forEach(id => removeItem(id));
+        setMultiSelectIds([]);
+        setSelectedShapeId(null);
+    }, [multiSelectIds, removeItem]);
+
+    const batchChangeType = useCallback((newType) => {
+        if (multiSelectIds.length === 0) return;
+        multiSelectIds.forEach(id => {
+            const item = stagedItems[id];
+            if (item?.type === "room") {
+                updateShape({ ...item, roomType: newType });
+            }
+        });
+        setMultiSelectIds([]);
+    }, [multiSelectIds, stagedItems, updateShape]);
+
     const startObjectPlacement = useCallback((item) => {
         if (!hasRooms || !item) return;
         setTool(null);
@@ -1615,6 +1659,10 @@ export default function RenderPage() {
                             setTimeout(() => addShape({ ...shapeData }), i * 50);
                         });
                     }}
+                    onBatchMerge={batchMerge}
+                    onBatchDelete={batchDelete}
+                    onBatchChangeType={batchChangeType}
+                    multiSelectIds={multiSelectIds}
                 />
                 <PropertiesPanel
                     stage={stage}

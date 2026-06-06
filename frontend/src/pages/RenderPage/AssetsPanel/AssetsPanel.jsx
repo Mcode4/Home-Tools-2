@@ -28,6 +28,15 @@ export default function AssetsPanel({
     onLoadTemplate,
     onLoadBuiltin,
     onImport,
+    onSearchAddress,
+    searchResults,
+    onSelectResult,
+    onPlaceAtCursor,
+    isSearching,
+    onBatchMerge,
+    onBatchDelete,
+    onBatchChangeType,
+    multiSelectIds,
 }) {
     const [tab, setTab] = useState("tools");
 
@@ -70,7 +79,7 @@ export default function AssetsPanel({
                     </li>
                 </ul>
                 <ul id="menu-tools" style={{ width: 220 }}>
-                    {activeTab === "tools" && <SectionsTab activeTool={activeTool} onSelectTool={onSelectTool} canCombine={canCombine} canSelect={canSelect} />}
+                    {activeTab === "tools" && <SectionsTab activeTool={activeTool} onSelectTool={onSelectTool} canCombine={canCombine} canSelect={canSelect} onBatchMerge={onBatchMerge} onBatchDelete={onBatchDelete} onBatchChangeType={onBatchChangeType} multiSelectIds={multiSelectIds} />}
                     {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
                 </ul>
             </aside>
