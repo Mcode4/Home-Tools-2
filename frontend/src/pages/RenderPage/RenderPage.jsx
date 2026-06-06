@@ -1731,6 +1731,8 @@ export default function RenderPage() {
                     onBatchChangeType={batchChangeType}
                     multiSelectIds={multiSelectIds}
                     onApplyTemplate={applyRoomTemplate}
+                    selectedShape={selectedShape}
+                    onUpdateShape={updateShape}
                 />
                 <PropertiesPanel
                     stage={stage}

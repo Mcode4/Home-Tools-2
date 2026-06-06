@@ -9,23 +9,26 @@ const WALL_TOOLS = [
     { type: "wall_line", label: "Section Wall", icon: "╱", desc: "Pad a specific room side" },
 ];
 
-const OPENING_TOOLS = [
-    { type: "door", label: "Door", icon: "🚪", desc: "Place a door opening", disabled: true },
-    { type: "window", label: "Window", icon: "🪟", desc: "Place a window opening", disabled: true },
-];
-
 const BATCH_TOOLS = [
     { type: "batch_merge", label: "Merge All", icon: "⊞", desc: "Merge selected rooms" },
     { type: "batch_delete", label: "Delete All", icon: "🗑", desc: "Delete selected rooms" },
     { type: "batch_type", label: "Change Type", icon: "📋", desc: "Change type for all selected" },
 ];
 
-const CONFIGURE_TOOLS = [
-    { type: "room_type", label: "Room Type", icon: "🏷", desc: "Quick-assign room type" },
-    { type: "room_color", label: "Room Color", icon: "🎨", desc: "Quick-assign room color" },
+const ROOM_TYPES = [
+    { value: "bedroom", label: "Bedroom", color: "#6366f1" },
+    { value: "bathroom", label: "Bathroom", color: "#06b6d4" },
+    { value: "kitchen", label: "Kitchen", color: "#10b981" },
+    { value: "living_room", label: "Living Room", color: "#f59e0b" },
+    { value: "dining_room", label: "Dining Room", color: "#ef4444" },
+    { value: "office", label: "Office", color: "#8b5cf6" },
+    { value: "garage", label: "Garage", color: "#6b7280" },
+    { value: "closet", label: "Closet", color: "#ec4899" },
+    { value: "hallway", label: "Hallway", color: "#14b8a6" },
+    { value: "other", label: "Other", color: "#6b7280" },
 ];
 
-export default function SectionsTab({ activeTool, onSelectTool, canCombine, canSelect, onBatchMerge, onBatchDelete, onBatchChangeType, multiSelectIds }) {
+export default function SectionsTab({ activeTool, onSelectTool, canCombine, canSelect, onBatchMerge, onBatchDelete, onBatchChangeType, multiSelectIds, selectedShape, onUpdateShape }) {
     const isBatchMode = multiSelectIds && multiSelectIds.length >= 2;
 
     const handleToolClick = (tool) => {
@@ -34,6 +37,11 @@ export default function SectionsTab({ activeTool, onSelectTool, canCombine, canS
         if (tool.type === "batch_delete") { onBatchDelete?.(); return; }
         if (tool.type === "batch_type") { onBatchChangeType?.(); return; }
         onSelectTool(tool.type);
+    };
+
+    const handleRoomType = (type) => {
+        if (!selectedShape || selectedShape.type !== "room") return;
+        onUpdateShape?.({ ...selectedShape, roomType: type.value, fill: type.color });
     };
 
     return (
@@ -54,19 +62,6 @@ export default function SectionsTab({ activeTool, onSelectTool, canCombine, canS
                             </li>
                         );
                     })}
-                </ul>
-            </div>
-            <div className="menu-tools-section" style={{ marginTop: 12 }}>
-                <h4>Openings</h4>
-                <ul className="tool-list">
-                    {OPENING_TOOLS.map(tool => (
-                        <li key={tool.type}
-                            className={`tool-item tool-item-disabled`}
-                            title="Coming soon">
-                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 18, flexShrink: 0 }}>{tool.icon}</span>
-                            <span>{tool.label}</span>
-                        </li>
-                    ))}
                 </ul>
             </div>
             <div className="menu-tools-section" style={{ marginTop: 12 }}>
@@ -100,15 +95,15 @@ export default function SectionsTab({ activeTool, onSelectTool, canCombine, canS
                 </div>
             )}
             <div className="menu-tools-section" style={{ marginTop: 12 }}>
-                <h4>Configure</h4>
+                <h4>Room Type</h4>
                 <ul className="tool-list">
-                    {CONFIGURE_TOOLS.map(tool => (
-                        <li key={tool.type}
-                            className={`tool-item${activeTool?.type === tool.type ? " tool-item-active" : ""}`}
-                            onClick={() => onSelectTool(tool.type)}
-                            title={tool.desc}>
-                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 18, flexShrink: 0 }}>{tool.icon}</span>
-                            <span>{tool.label}</span>
+                    {ROOM_TYPES.map(type => (
+                        <li key={type.value}
+                            className={`tool-item${selectedShape?.roomType === type.value ? " tool-item-active" : ""}`}
+                            onClick={() => handleRoomType(type)}
+                            title={`Set room type to ${type.label}`}>
+                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 18, flexShrink: 0, color: type.color }}>●</span>
+                            <span>{type.label}</span>
                         </li>
                     ))}
                 </ul>
