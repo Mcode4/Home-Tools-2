@@ -130,6 +130,16 @@
 Plans:
 - [ ] TBD (run /gsd-plan-phase 5.2 to break down)
 
+### Phase 6.1: Objects Stage Enhancements — Furniture Selection, Templates, Doors/Windows/Walls, Imports, 2.5D improvements
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 6.1 to break down)
+
 ---
 
 ## Summary
