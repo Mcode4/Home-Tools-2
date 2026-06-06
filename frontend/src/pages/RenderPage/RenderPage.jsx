@@ -15,6 +15,7 @@ import useOutlineHistory from "../../hooks/useOutlineHistory";
 import useObjectsHistory from "../../hooks/useObjectsHistory";
 import { makeProjection, groundDistanceMeters } from "../../functions/geoProject";
 import { generateTemplate } from "../../functions/outlineTemplates";
+import { booleanUnion, booleanSubtract, booleanIntersect } from "../../functions/booleanOps";
 import * as turf from "@turf/turf";
 import "./RenderPage.css"
 
@@ -72,6 +73,36 @@ function lineIntersectionPoint(a, b) {
 
 function pointDistance(a, b) {
     return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+
+function pointToLineDistance(point, lineStart, lineEnd) {
+    const x = point[0], y = point[1];
+    const x1 = lineStart[0], y1 = lineStart[1];
+    const x2 = lineEnd[0], y2 = lineEnd[1];
+
+    const A = x - x1;
+    const B = y - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+    if (lenSq !== 0) param = dot / lenSq;
+
+    let xx, yy;
+    if (param < 0) {
+        xx = x1; yy = y1;
+    } else if (param > 1) {
+        xx = x2; yy = y2;
+    } else {
+        xx = x1 + param * C;
+        yy = y1 + param * D;
+    }
+
+    const dx = x - xx;
+    const dy = y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
 }
 
 function clonePoints(points) {
@@ -354,20 +385,157 @@ export default function RenderPage() {
 
     const [activeFloorId, setActiveFloorId] = useState(null);
     const [selectedShapeId, setSelectedShapeId] = useState(null);
+    const [multiSelectIds, setMultiSelectIds] = useState([]);
     const [selectedLevel, setSelectedLevel] = useState(1);
     const [mapLayer, setMapLayer] = useState("satellite");
     const [mapDistance, setMapDistance] = useState(200);
     const [showOffset, setShowOffset] = useState(false);
+    const [vertexMode, setVertexMode] = useState(false);
+    const [selectedVertexIndex, setSelectedVertexIndex] = useState(-1);
     const mapRef = useRef(null);
     const [mapVersion, setMapVersion] = useState(0);
     const onMapViewChange = useCallback(() => setMapVersion(v => v + 1), []);
     const baseRoomsCreatedRef = useRef(false);
 
-    const selectedCount = selectedShapeId ? 1 : 0;
+    const selectedCount = multiSelectIds.length > 0 ? multiSelectIds.length : (selectedShapeId ? 1 : 0);
 
-    const onBooleanOp = useCallback((opType) => {
-        console.log("Boolean op:", opType, "selected:", selectedShapeId);
-    }, [selectedShapeId]);
+    const handleCanvasSelect = useCallback((id, ctrlKey) => {
+        if (ctrlKey) {
+            setMultiSelectIds(prev =>
+                prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+            );
+            setSelectedShapeId(prev => prev === id ? null : id);
+        } else {
+            setMultiSelectIds([]);
+            setSelectedShapeId(id);
+        }
+    }, []);
+
+    const handleMultiSelectClear = useCallback(() => {
+        setMultiSelectIds([]);
+    }, []);
+
+    const handleBooleanOp = useCallback((opType) => {
+        if (multiSelectIds.length < 2) return;
+        const outlinesA = outlines.filter(o => multiSelectIds.includes(o.id));
+        if (outlinesA.length < 2) return;
+        let result = outlinesA[0];
+        for (let i = 1; i < outlinesA.length; i++) {
+            if (opType === "union") result = booleanUnion(result, outlinesA[i]);
+            else if (opType === "subtract") result = booleanSubtract(result, outlinesA[i]);
+            else if (opType === "intersect") result = booleanIntersect(result, outlinesA[i]);
+            if (!result) break;
+        }
+        if (result) {
+            const newId = `shape-${Date.now()}`;
+            result.id = newId;
+            setOutlines(prev => [...prev.filter(o => !multiSelectIds.includes(o.id)), result]);
+            setMultiSelectIds([]);
+            setSelectedShapeId(newId);
+        }
+    }, [multiSelectIds, outlines, setOutlines]);
+
+    const handleToggleVertexMode = useCallback(() => {
+        setVertexMode(prev => !prev);
+        if (!vertexMode) {
+            setSelectedVertexIndex(-1);
+        }
+    }, [vertexMode]);
+
+    const handleAddVertex = useCallback((point) => {
+        if (!selectedShapeId) return;
+        const outline = outlines.find(o => o.id === selectedShapeId);
+        if (!outline || !Array.isArray(outline.points) || outline.points.length < 3) return;
+
+        let minDist = Infinity;
+        let insertIndex = -1;
+
+        for (let i = 0; i < outline.points.length; i++) {
+            const p1 = outline.points[i];
+            const p2 = outline.points[(i + 1) % outline.points.length];
+            const dist = pointToLineDistance(point, p1, p2);
+            if (dist < minDist && dist < 15) {
+                minDist = dist;
+                insertIndex = i + 1;
+            }
+        }
+
+        if (insertIndex >= 0) {
+            const newPoints = [...outline.points];
+            newPoints.splice(insertIndex, 0, point);
+            updateShape({ ...outline, points: newPoints });
+        }
+    }, [selectedShapeId, outlines, updateShape]);
+
+    const handleRemoveVertex = useCallback(() => {
+        if (!selectedShapeId || selectedVertexIndex < 0) return;
+        const outline = outlines.find(o => o.id === selectedShapeId);
+        if (!outline || !Array.isArray(outline.points) || outline.points.length <= 3) return;
+
+        const newPoints = outline.points.filter((_, i) => i !== selectedVertexIndex);
+        updateShape({ ...outline, points: newPoints });
+        setSelectedVertexIndex(-1);
+    }, [selectedShapeId, selectedVertexIndex, outlines, updateShape]);
+
+    const handleChamfer = useCallback(() => {
+        if (!selectedShapeId || selectedVertexIndex < 0) return;
+        const outline = outlines.find(o => o.id === selectedShapeId);
+        if (!outline || !Array.isArray(outline.points) || outline.points.length < 3) return;
+
+        const chamferDist = 10;
+        const points = [...outline.points];
+        const idx = selectedVertexIndex;
+        const prevIdx = (idx - 1 + points.length) % points.length;
+        const nextIdx = (idx + 1) % points.length;
+
+        const v = points[idx];
+        const vPrev = points[prevIdx];
+        const vNext = points[nextIdx];
+
+        const dir1 = [v[0] - vPrev[0], v[1] - vPrev[1]];
+        const dir2 = [vNext[0] - v[0], vNext[1] - v[1]];
+        const len1 = Math.hypot(dir1[0], dir1[1]);
+        const len2 = Math.hypot(dir2[0], dir2[1]);
+        if (len1 === 0 || len2 === 0) return;
+
+        const chamfer1 = [v[0] - (dir1[0] / len1) * chamferDist, v[1] - (dir1[1] / len1) * chamferDist];
+        const chamfer2 = [v[0] + (dir2[0] / len2) * chamferDist, v[1] + (dir2[1] / len2) * chamferDist];
+
+        points.splice(idx, 1, chamfer1, chamfer2);
+        updateShape({ ...outline, points });
+        setSelectedVertexIndex(idx + 1);
+    }, [selectedShapeId, selectedVertexIndex, outlines, updateShape]);
+
+    const handleFillet = useCallback(() => {
+        if (!selectedShapeId || selectedVertexIndex < 0) return;
+        const outline = outlines.find(o => o.id === selectedShapeId);
+        if (!outline || !Array.isArray(outline.points) || outline.points.length < 3) return;
+
+        const filletDist = 10;
+        const points = [...outline.points];
+        const idx = selectedVertexIndex;
+        const prevIdx = (idx - 1 + points.length) % points.length;
+        const nextIdx = (idx + 1) % points.length;
+
+        const v = points[idx];
+        const vPrev = points[prevIdx];
+        const vNext = points[nextIdx];
+
+        const dir1 = [v[0] - vPrev[0], v[1] - vPrev[1]];
+        const dir2 = [vNext[0] - v[0], vNext[1] - v[1]];
+        const len1 = Math.hypot(dir1[0], dir1[1]);
+        const len2 = Math.hypot(dir2[0], dir2[1]);
+        if (len1 === 0 || len2 === 0) return;
+
+        const p1 = [v[0] - (dir1[0] / len1) * filletDist, v[1] - (dir1[1] / len1) * filletDist];
+        const p2 = [v[0] + (dir2[0] / len2) * filletDist, v[1] + (dir2[1] / len2) * filletDist];
+
+        points.splice(idx, 1, v, p1, p2);
+        updateShape({ ...outline, points });
+        setSelectedVertexIndex(idx + 2);
+    }, [selectedShapeId, selectedVertexIndex, outlines, updateShape]);
+
+    const onBooleanOp = handleBooleanOp;
 
     const onShowOffset = useCallback(() => {
         setShowOffset(prev => !prev);
@@ -691,10 +859,6 @@ export default function RenderPage() {
             setStagedItems(prev => ({ ...prev, [updated.id]: updated }));
         }
     }, [setStagedItems, stage, setOutlines]);
-
-    const handleCanvasSelect = useCallback((id) => {
-        setSelectedShapeId(id);
-    }, []);
 
     const handleGridSelect = useCallback(() => {
         setSelectedShapeId(null);
@@ -1074,6 +1238,10 @@ export default function RenderPage() {
                     selectedObjectId={selectedObjectId}
                     onSelectObject={setSelectedObjectId}
                     onUpdateObject={updateObject}
+                    vertexMode={vertexMode}
+                    selectedVertexIndex={selectedVertexIndex}
+                    onSelectVertex={setSelectedVertexIndex}
+                    multiSelectIds={multiSelectIds}
                     deleteElement={(id) => {
                         const item = stage === "outline"
                             ? outlines.find(o => o.id === id)
@@ -1135,7 +1303,22 @@ export default function RenderPage() {
                         if (el) updateShape({ ...el, floor_id: toFloorId });
                     }}
                 />
-                <Toolbar selectedShape={selectedShape} updateShape={updateShape} deleteShape={deleteShape} duplicateShape={duplicateShape} showOffset={showOffset} onOffset={handleOffset} />
+                <Toolbar
+                    selectedShape={selectedShape}
+                    updateShape={updateShape}
+                    deleteShape={deleteShape}
+                    duplicateShape={duplicateShape}
+                    showOffset={showOffset}
+                    onOffset={handleOffset}
+                    vertexMode={vertexMode}
+                    onToggleVertexMode={handleToggleVertexMode}
+                    onAddVertex={handleAddVertex}
+                    onRemoveVertex={handleRemoveVertex}
+                    onChamfer={handleChamfer}
+                    onFillet={handleFillet}
+                    multiSelectIds={multiSelectIds}
+                    onBooleanOp={handleBooleanOp}
+                />
                 <div className="top-bars">
                     <StageBar stage={stage} setStage={setStage} hasOutlines={outlines.length > 0} hasRooms={hasRooms} />
                     <MapToggle value={mapLayer} onChange={setMapLayer} />

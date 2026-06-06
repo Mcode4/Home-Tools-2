@@ -20,7 +20,9 @@ export default function PropertiesPanel({
     onSelectFloor, onSelectShape,
     addFloor, addRoomToFloor,
     deleteElement, moveElement, outlines, addLevel,
-    objects, selectedObjectId, onSelectObject, onUpdateObject
+    objects, selectedObjectId, onSelectObject, onUpdateObject,
+    vertexMode = false, selectedVertexIndex = -1, onSelectVertex,
+    multiSelectIds = [],
 }) {
     const containerRef = useRef(null);
     const [splitHeight, setSplitHeight] = useState(250);
@@ -339,6 +341,42 @@ export default function PropertiesPanel({
                             <label>Stroke Width</label><input type="number" min={0} max={20} step={0.5} value={s.strokeWidth || 2} onChange={e => update({ strokeWidth: Number(e.target.value) })} />
                             <label>Opacity</label><input type="range" min={0.1} max={1} step={0.1} value={s.opacity ?? 1} onChange={e => update({ opacity: Number(e.target.value) })} />
                         </div>
+
+                        {multiSelectIds.length >= 2 && (
+                            <div className="props-section" style={{ border: "none", background: "var(--accent-bg)", borderRadius: 4, padding: 8 }}>
+                                <div style={{ fontWeight: 600, marginBottom: 4 }}>Multi-select: {multiSelectIds.length} outlines</div>
+                                {multiSelectIds.map((id, i) => {
+                                    const o = outlines.find(x => x.id === id);
+                                    return o ? (
+                                        <div key={id} style={{ fontSize: 12, color: "var(--text-dim)" }}>
+                                            {i + 1}. {o.name || o.type || "outline"}
+                                        </div>
+                                    ) : null;
+                                })}
+                            </div>
+                        )}
+
+                        {vertexMode && s && Array.isArray(s.points) && s.points.length >= 3 && (
+                            <div className="props-section" style={{ border: "none", background: "var(--accent-bg)", borderRadius: 4, padding: 8 }}>
+                                <div style={{ fontWeight: 600, marginBottom: 4 }}>Vertices: {s.points.length}</div>
+                                {s.points.map(([x, y], i) => (
+                                    <div key={i} style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 8, padding: 2 }}>
+                                        <span style={{ width: 20, color: selectedVertexIndex === i ? "var(--accent)" : "var(--text-dim)" }}>{i}</span>
+                                        <span>X: {Math.round(x)}</span>
+                                        <span>Y: {Math.round(y)}</span>
+                                        <button className="tb-btn" style={{ width: 16, height: 16, fontSize: 9 }} onClick={() => onSelectVertex?.(i)} title="Select">⌘</button>
+                                    </div>
+                                ))}
+                                <div style={{ marginTop: 8, display: "flex", gap: 4 }}>
+                                    <button className="tb-btn" onClick={() => update({ points: [...s.points, [s.points[0][0] + 10, s.points[0][1] + 10]] })} title="Add Vertex">＋</button>
+                                    <button className="tb-btn" disabled={s.points.length <= 3} onClick={() => {
+                                        const idx = selectedVertexIndex >= 0 ? selectedVertexIndex : s.points.length - 1;
+                                        const newPoints = s.points.filter((_, i) => i !== idx);
+                                        update({ points: newPoints });
+                                    }} title="Remove Vertex">－</button>
+                                </div>
+                            </div>
+                        )}
                     </>
                 ) : (
                     <p style={{ fontSize: 13, color: "var(--text-dim)", textAlign: "center", padding: 20 }}>Select an outline to edit properties</p>
