@@ -42,12 +42,35 @@ export default function PropertiesPanel({
 
     const flyToOutline = useCallback((outline) => {
         if (!mapRef?.current || !outline) return;
-        if (outline.lat != null && outline.lng != null) {
-            mapRef.current.flyTo({ center: [outline.lng, outline.lat], zoom: 17, duration: 500 });
-        } else if (outline.x != null && outline.y != null && outline.width && outline.height) {
-            const cx = outline.x + outline.width / 2;
-            const cy = outline.y + outline.height / 2;
-            mapRef.current.flyTo({ center: mapRef.current.unproject([cx, cy]), zoom: 17, duration: 500 });
+        const map = mapRef.current;
+        
+        try {
+            let center = null;
+            let zoom = 17;
+            
+            if (outline.lat != null && outline.lng != null) {
+                center = [outline.lng, outline.lat];
+            } else if (outline.pointsGeo && outline.pointsGeo.length >= 2) {
+                const midIdx = Math.floor(outline.pointsGeo.length / 2);
+                center = [outline.pointsGeo[midIdx][1], outline.pointsGeo[midIdx][0]];
+            } else if (outline.x != null && outline.y != null && outline.width && outline.height) {
+                const cx = outline.x + outline.width / 2;
+                const cy = outline.y + outline.height / 2;
+                const unprojected = map.unproject([cx, cy]);
+                center = [unprojected.lng, unprojected.lat];
+            }
+            
+            if (center) {
+                map.flyTo({
+                    center: center,
+                    zoom: zoom,
+                    duration: 1200,
+                    curve: 1.5,
+                    easing: (t) => t * (2 - t),
+                });
+            }
+        } catch (e) {
+            console.error("flyTo failed:", e);
         }
     }, [mapRef]);
 
