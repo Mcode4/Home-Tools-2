@@ -21,6 +21,19 @@ import { getOutlineArea, getOutlinePerimeter } from "../../functions/outlineVali
 import * as turf from "@turf/turf";
 import "./RenderPage.css"
 
+const ROOM_TYPE_COLORS = {
+    bedroom: "#6366f1",
+    bathroom: "#06b6d4",
+    kitchen: "#10b981",
+    living_room: "#f59e0b",
+    dining_room: "#ef4444",
+    office: "#8b5cf6",
+    garage: "#6b7280",
+    closet: "#ec4899",
+    hallway: "#14b8a6",
+    other: "#6b7280",
+};
+
 function getShapePixelDimensions(shape) {
     const radius = shape.radius ?? (shape.sides || shape.type === "circle" ? 50 : null);
     if (shape.type === "circle" || shape.sides) {
@@ -1109,6 +1122,16 @@ export default function RenderPage() {
         setMultiSelectIds([]);
     }, [multiSelectIds, stagedItems, updateShape]);
 
+    const updateRoomType = useCallback((roomId, newType) => {
+        const room = stagedItems[roomId];
+        if (!room) return;
+        const updates = { roomType: newType };
+        if (canvasSettings.roomAutoColors) {
+            updates.fill = ROOM_TYPE_COLORS[newType] || "#6366f1";
+        }
+        updateShape({ ...room, ...updates });
+    }, [stagedItems, updateShape, canvasSettings.roomAutoColors]);
+
     const startObjectPlacement = useCallback((item) => {
         if (!hasRooms || !item) return;
         setTool(null);
@@ -1695,6 +1718,7 @@ export default function RenderPage() {
                         area: getOutlineArea(selectedShape),
                         perimeter: getOutlinePerimeter(selectedShape),
                     } : null}
+                    updateRoomType={updateRoomType}
                     deleteElement={(id) => {
                         const item = stage === "outline"
                             ? outlines.find(o => o.id === id)

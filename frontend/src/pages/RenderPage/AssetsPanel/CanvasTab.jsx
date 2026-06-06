@@ -129,6 +129,11 @@ export default function CanvasTab({
                     </div>
                 </div>
             </div>
+
+            <div className="menu-tools-section" style={{ marginTop: 12 }}>
+                <h4>Rooms</h4>
+                {toggleBtn("roomAutoColors", "Room Auto-Colors", "")}
+            </div>
         </li>
     );
 }

@@ -568,7 +568,13 @@ function renderShapeGroup(shape, shapeRef, isSelected, onSelect, onUpdate, activ
     }
 
     return (
-        <Group ref={shapeRef} x={shape.x} y={shape.y} rotation={shape.rotation || 0} draggable={draggable} listening={listening} {...events}>
+        <Group ref={shapeRef} x={shape.x} y={shape.y} rotation={shape.rotation || 0} draggable={draggable} listening={listening} {...events} onDblClick={(e) => {
+            e.cancelBubble = true;
+            const newName = window.prompt("Room name:", shape.name || "Room");
+            if (newName !== null) {
+                onUpdate({ ...shape, name: newName });
+            }
+        }}>
             {shapeEl}
             {innerContent}
         </Group>
