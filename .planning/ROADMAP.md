@@ -95,6 +95,31 @@
 7. Objects persist via API (objects_data column) and localStorage (6h TTL)
 8. Undo/redo works for all object operations
 
+## Phase 5.1: Outline Stage Enhancements — Boolean ops, vertex editing, templates, import/export, validation, geocoding, snapping/measurements
+
+**Goal:** Extend the Outline stage with advanced tools: boolean operations, vertex editing, templates, import/export, validation, geocoding, and snapping/measurements
+**Requirements:** (infrastructure — no REQ-IDs)
+**Depends on:** Phase 5
+**Plans:** 5 plans
+
+**Plans:**
+- [ ] 05.1-01-PLAN.md — Reorganize ShapesTab menu, create parametric template generators, add offset/buffer controls
+- [ ] 05.1-02-PLAN.md — Build TemplateTab with save/load/delete, GeoJSON/DXF import, GeoJSON/SVG/PDF export, copy/paste
+- [ ] 05.1-03-PLAN.md — Implement multi-select (Ctrl+click), vertex editing mode, boolean operations (Union/Subtract/Intersect)
+- [ ] 05.1-04-PLAN.md — Create validation engine (self-intersection, overlap, min-size), snapping settings, live measurements
+- [ ] 05.1-05-PLAN.md — Add geocoding search, right-click placement, template→sections validation, final integration
+
+**Success Criteria:**
+1. ShapesTab reorganized with Primitives (Polygon first), Templates, Configure sections
+2. TemplateTab with save/load/delete, GeoJSON/DXF import, GeoJSON/SVG/PDF export
+3. Multi-select with Ctrl+click and boolean operations (Union, Subtract, Intersect)
+4. Vertex editing mode with add/remove/chamfer/fillet on polygons
+5. Validation engine detects self-intersections, overlaps, min-size violations
+6. Snapping settings (grid, edge, alignment) with keyboard shortcuts G/E/A
+7. Geocoding search centers map, right-click places outline with reverse geocode
+8. Live measurements with metric/imperial toggle
+9. Template→sections validates room areas > 0 and no orphan spaces
+
 ---
 
 ## Summary
@@ -106,6 +131,7 @@
 | 3 | Component Restructuring | ✓ Complete | — |
 | 4 | Code Cleanup | ○ Pending | CLEAN-01, CLEAN-02, CLEAN-03 |
 | 5 | Render Page — 2D Tools | ○ Pending | RENDER-01 to RENDER-04 |
+| 5.1 | Outline Stage Enhancements | ○ Pending | (infrastructure) |
 | 6 | Objects Stage + 3D Render | ○ Pending | RENDER-05 |
 
-**10 requirements** across **3 pending phases** | All v1 requirements covered ✓
+**10 requirements** across **4 pending phases** | All v1 requirements covered ✓

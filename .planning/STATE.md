@@ -1,41 +1,31 @@
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-current_phase: 02
-status: discussing
-last_updated: "2026-04-24T14:41:00.000Z"
-progress:
-  total_phases: 6
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 16
----
+# Project State
 
-# Project State: Home Tools v2
+## Project Reference
 
-- **Current Phase:** 02
-- **Status:** Starting Phase 02: Database Layer Consolidation
-- **Progress:** 16%
-- **Last Update:** 2026-04-24
+See: `.planning/PROJECT.md` (updated 2026-06-04)
 
-## Active Work
+**Core value:** Users can visually manage property data on an interactive map with hierarchical floor/room organization.
 
-- **Phase 2: Database Layer Consolidation**
-    - Discussion: [/]
-    - Planning: [ ]
-    - Execution: [ ]
-    - Verification: [ ]
+**Current focus:** Phase 5 - Render Page 2D Tools
 
-## Recent Milestones
+## Phase Status
 
-- [x] Project Mission and Roadmap established.
-- [x] Property Sidebar requirements defined via `/gsd-explore`.
-- [x] Phase 1: Property Details Sidebar (stabilized map persistence and marker registry).
+| Phase | Name | Status | Plans |
+|-------|------|--------|-------|
+| 1 | Page Reorganization | ✓ Complete | 5/5 |
+| 2 | Import Audit & Cleanup | ✓ Complete | 3/3 |
+| 3 | Component Restructuring | ✓ Complete | — |
+| 3.1 | CSS Architecture & Theming | ✓ Complete | — |
+| 4 | Code Cleanup | ✓ Complete | 2/2 |
+| 5 | Render Page — 2D Tools | ◆ In Progress | — |
+| 6 | Render Page — 3D Addon | ○ Pending | — |
 
-## Notes
+## Session Info
 
-- TDD Mode is ENABLED.
-- Auto-research is ENABLED.
-- Auto-commits are ENABLED.
+- **Last session:** 2026-06-06 — Phase 5.1 Planning
+- **Stopped at:** Phase 5.1 plans created
+- **Resume file:** `.planning/ROADMAP.md`
+
+## Next Up
+
+Execute Phase 5.1: `/gsd-execute-phase 5.1`
