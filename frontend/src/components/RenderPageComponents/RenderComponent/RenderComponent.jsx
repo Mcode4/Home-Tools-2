@@ -254,7 +254,7 @@ function crossingDividerAtPoint(divider, dividers, point, threshold = 14) {
     return null;
 }
 
-function roomsAcrossDividerSegment(divider, rooms, point, tolerance = 4) {
+function roomsAcrossDividerSegment(divider, rooms, point, tolerance = 8) {
     const axis = dividerOrientation(divider);
     if (axis === "horizontal") {
         const splitY = ((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2;
