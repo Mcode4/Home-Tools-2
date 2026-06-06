@@ -450,6 +450,14 @@ export default function RenderPage() {
         }
     }, [vertexMode]);
 
+    const updateShape = useCallback((updated) => {
+        if (stage === "outline") {
+            setOutlines(prev => prev.map(o => o.id === updated.id ? updated : o));
+        } else {
+            setStagedItems(prev => ({ ...prev, [updated.id]: updated }));
+        }
+    }, [setStagedItems, stage, setOutlines]);
+
     const handleAddVertex = useCallback((point) => {
         if (!selectedShapeId) return;
         const outline = outlines.find(o => o.id === selectedShapeId);
@@ -960,14 +968,6 @@ export default function RenderPage() {
             ? outlines.find(o => o.id === selectedShapeId) || null
             : stagedItems[selectedShapeId] || null)
         : null;
-
-    const updateShape = useCallback((updated) => {
-        if (stage === "outline") {
-            setOutlines(prev => prev.map(o => o.id === updated.id ? updated : o));
-        } else {
-            setStagedItems(prev => ({ ...prev, [updated.id]: updated }));
-        }
-    }, [setStagedItems, stage, setOutlines]);
 
     const handleGridSelect = useCallback(() => {
         setSelectedShapeId(null);
