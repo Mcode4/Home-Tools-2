@@ -270,28 +270,26 @@ function combinePreviewForDivider(divider, dividers, rooms, point) {
 
     if (axis === "horizontal") {
         const splitY = ((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2;
-        const x = point?.x ?? (((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2);
-        const candidates = touching.filter(room => x >= room.x - 2 && x <= room.x + room.width + 2);
-        const above = candidates
-            .filter(room => room.y + room.height / 2 <= splitY)
-            .sort((a, b) => (b.y + b.height) - (a.y + a.height))[0];
-        const below = candidates
-            .filter(room => room.y + room.height / 2 > splitY)
-            .sort((a, b) => a.y - b.y)[0];
-        return { mode: "horizontal", rooms: [above, below].filter(Boolean) };
+        const clickY = point?.y ?? splitY;
+        const above = touching.filter(room => room.y + room.height / 2 <= splitY);
+        const below = touching.filter(room => room.y + room.height / 2 > splitY);
+        if (clickY <= splitY) {
+            return { mode: "horizontal", rooms: above.length > 0 ? above : touching.slice(0, 2) };
+        } else {
+            return { mode: "horizontal", rooms: below.length > 0 ? below : touching.slice(0, 2) };
+        }
     }
 
     if (axis === "vertical") {
         const splitX = ((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2;
-        const y = point?.y ?? (((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2);
-        const candidates = touching.filter(room => y >= room.y - 2 && y <= room.y + room.height + 2);
-        const left = candidates
-            .filter(room => room.x + room.width / 2 <= splitX)
-            .sort((a, b) => (b.x + b.width) - (a.x + a.width))[0];
-        const right = candidates
-            .filter(room => room.x + room.width / 2 > splitX)
-            .sort((a, b) => a.x - b.x)[0];
-        return { mode: "vertical", rooms: [left, right].filter(Boolean) };
+        const clickX = point?.x ?? splitX;
+        const left = touching.filter(room => room.x + room.width / 2 <= splitX);
+        const right = touching.filter(room => room.x + room.width / 2 > splitX);
+        if (clickX <= splitX) {
+            return { mode: "vertical", rooms: left.length > 0 ? left : touching.slice(0, 2) };
+        } else {
+            return { mode: "vertical", rooms: right.length > 0 ? right : touching.slice(0, 2) };
+        }
     }
 
     return { mode: axis, rooms: touching.slice(0, 2) };
@@ -866,6 +864,11 @@ export default function RenderComponent({
     useLayoutEffect(() => {
         const tr = transformerRef.current;
         if (!tr) return;
+        if (stage === "sections") {
+            tr.nodes([]);
+            tr.getLayer()?.batchDraw();
+            return;
+        }
         if (selectedShapeId && shapeNodesRef.current[selectedShapeId]) {
             tr.nodes([shapeNodesRef.current[selectedShapeId]]);
             tr.forceUpdate();
@@ -874,7 +877,7 @@ export default function RenderComponent({
             tr.nodes([]);
             tr.getLayer()?.batchDraw();
         }
-    }, [selectedShapeId, elements, projectedElements, mapVersion]);
+    }, [selectedShapeId, elements, projectedElements, mapVersion, stage]);
 
     const Grid = ({ bounds, gs, sc }) => {
         const g = [];
@@ -1417,6 +1420,18 @@ export default function RenderComponent({
 
     const renderDivider = (div, showHandles = true) => {
         const isSelected = selectedShapeId === div.id;
+        const moveDivider = (e) => {
+            const node = e.target;
+            const dx = node.x(), dy = node.y();
+            if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) return;
+            node.position({ x: 0, y: 0 });
+            onMoveDividerLine?.(div.id, {
+                x1: div.x1 + dx,
+                y1: div.y1 + dy,
+                x2: div.x2 + dx,
+                y2: div.y2 + dy,
+            });
+        };
         return (
             <React.Fragment key={div.id}>
                 <Line
@@ -1445,6 +1460,9 @@ export default function RenderComponent({
                         }
                         onSelectShape(div.id);
                     }}
+                    draggable={stage === "sections" && activeTool?.type === "select"}
+                    onDragMove={moveDivider}
+                    onDragEnd={moveDivider}
                 />
                 {showHandles && renderDividerHandles(div)}
             </React.Fragment>
@@ -1942,85 +1960,87 @@ export default function RenderComponent({
                         {activeTool?.type === "eraser" && cursor?.x && (
                             <Circle x={cursor.x} y={cursor.y} radius={activeTool.radius} stroke="rgba(255,0,0,0.2)" />
                         )}
-                        <Transformer ref={transformerRef}
-                            rotateEnabled={true}
-                            enabledAnchors={["top-left", "top-right", "bottom-left", "bottom-right", "top-center", "bottom-center", "middle-left", "middle-right"]}
-                            borderStroke="#fff"
-                            borderStrokeWidth={1.5}
-                            anchorFill="#6366f1"
-                            anchorStroke="#fff"
-                            anchorSize={8}
-                            rotateAnchorOffset={30}
-                            boundBoxFunc={(ob, nb) => {
-                                if (nb.width < 10 || nb.height < 10) return ob;
-                                return nb;
-                            }}
-                            onTransformEnd={(e) => {
-                                const node = e.target;
-                                if (!selectedShapeId) { node.scaleX(1); node.scaleY(1); return; }
-                                const shape = (projectedElements || elements || []).find(s => s.id === selectedShapeId);
-                                if (!shape) { node.scaleX(1); node.scaleY(1); return; }
-                                const sx = node.scaleX(), sy = node.scaleY();
-                                const rotation = node.rotation();
-                                const merged = { ...removeProjectedFields(shape), rotation };
-                                if (shape._isProjected && mapRef?.current) {
-                                    const proj = makeProjection(mapRef.current);
-                                    if (proj) {
-                                        const nodeX = node.x();
-                                        const nodeY = node.y();
-                                        const absSx = Math.abs(sx) || 1;
-                                        const absSy = Math.abs(sy) || 1;
-                                        if (getShapeRenderType(shape) === "polygon" && Array.isArray(shape._points) && shape._points.length >= 3) {
-                                            const screenPoints = shape._points.map(([px, py]) => [nodeX + px * sx, nodeY + py * sy]);
-                                            const bounds = getPointBounds(screenPoints);
-                                            const nextWidth = Math.max(bounds.maxX - bounds.minX, 1);
-                                            const nextHeight = Math.max(bounds.maxY - bounds.minY, 1);
-                                            const measured = measureScreenBox(proj, bounds.minX, bounds.minY, nextWidth, nextHeight);
+                        {stage !== "sections" && (
+                            <Transformer ref={transformerRef}
+                                rotateEnabled={true}
+                                enabledAnchors={["top-left", "top-right", "bottom-left", "bottom-right", "top-center", "bottom-center", "middle-left", "middle-right"]}
+                                borderStroke="#fff"
+                                borderStrokeWidth={1.5}
+                                anchorFill="#6366f1"
+                                anchorStroke="#fff"
+                                anchorSize={8}
+                                rotateAnchorOffset={30}
+                                boundBoxFunc={(ob, nb) => {
+                                    if (nb.width < 10 || nb.height < 10) return ob;
+                                    return nb;
+                                }}
+                                onTransformEnd={(e) => {
+                                    const node = e.target;
+                                    if (!selectedShapeId) { node.scaleX(1); node.scaleY(1); return; }
+                                    const shape = (projectedElements || elements || []).find(s => s.id === selectedShapeId);
+                                    if (!shape) { node.scaleX(1); node.scaleY(1); return; }
+                                    const sx = node.scaleX(), sy = node.scaleY();
+                                    const rotation = node.rotation();
+                                    const merged = { ...removeProjectedFields(shape), rotation };
+                                    if (shape._isProjected && mapRef?.current) {
+                                        const proj = makeProjection(mapRef.current);
+                                        if (proj) {
+                                            const nodeX = node.x();
+                                            const nodeY = node.y();
+                                            const absSx = Math.abs(sx) || 1;
+                                            const absSy = Math.abs(sy) || 1;
+                                            if (getShapeRenderType(shape) === "polygon" && Array.isArray(shape._points) && shape._points.length >= 3) {
+                                                const screenPoints = shape._points.map(([px, py]) => [nodeX + px * sx, nodeY + py * sy]);
+                                                const bounds = getPointBounds(screenPoints);
+                                                const nextWidth = Math.max(bounds.maxX - bounds.minX, 1);
+                                                const nextHeight = Math.max(bounds.maxY - bounds.minY, 1);
+                                                const measured = measureScreenBox(proj, bounds.minX, bounds.minY, nextWidth, nextHeight);
+                                                merged.lat = measured.center.lat;
+                                                merged.lng = measured.center.lng;
+                                                const nextPointsGeo = screenPoints.map(([px, py]) => {
+                                                    const p = proj.unproject(px, py);
+                                                    return [p.lat, p.lng];
+                                                });
+                                                merged.points = nextPointsGeo;
+                                                merged.pointsGeo = nextPointsGeo.map(point => [...point]);
+                                                merged.widthMeters = measured.widthMeters;
+                                                merged.heightMeters = measured.heightMeters;
+                                                delete merged.width;
+                                                delete merged.height;
+                                                onUpdateShape(merged);
+                                                node.scaleX(1); node.scaleY(1);
+                                                return;
+                                            }
+
+                                            const nextWidth = Math.max(10, (shape.width || 120) * absSx);
+                                            const nextHeight = Math.max(10, (shape.height || 80) * absSy);
+                                            const measured = measureScreenBox(proj, nodeX, nodeY, nextWidth, nextHeight);
                                             merged.lat = measured.center.lat;
                                             merged.lng = measured.center.lng;
-                                            const nextPointsGeo = screenPoints.map(([px, py]) => {
-                                                const p = proj.unproject(px, py);
-                                                return [p.lat, p.lng];
-                                            });
-                                            merged.points = nextPointsGeo;
-                                            merged.pointsGeo = nextPointsGeo.map(point => [...point]);
                                             merged.widthMeters = measured.widthMeters;
                                             merged.heightMeters = measured.heightMeters;
                                             delete merged.width;
                                             delete merged.height;
+                                            if (shape.radius !== undefined || shape.sides) {
+                                                merged.radiusMeters = Math.min(measured.widthMeters, measured.heightMeters) / 2;
+                                                delete merged.radius;
+                                            }
                                             onUpdateShape(merged);
                                             node.scaleX(1); node.scaleY(1);
                                             return;
                                         }
-
-                                        const nextWidth = Math.max(10, (shape.width || 120) * absSx);
-                                        const nextHeight = Math.max(10, (shape.height || 80) * absSy);
-                                        const measured = measureScreenBox(proj, nodeX, nodeY, nextWidth, nextHeight);
-                                        merged.lat = measured.center.lat;
-                                        merged.lng = measured.center.lng;
-                                        merged.widthMeters = measured.widthMeters;
-                                        merged.heightMeters = measured.heightMeters;
-                                        delete merged.width;
-                                        delete merged.height;
-                                        if (shape.radius !== undefined || shape.sides) {
-                                            merged.radiusMeters = Math.min(measured.widthMeters, measured.heightMeters) / 2;
-                                            delete merged.radius;
-                                        }
-                                        onUpdateShape(merged);
-                                        node.scaleX(1); node.scaleY(1);
-                                        return;
                                     }
-                                }
-                                if (shape.radius !== undefined || shape.sides) {
-                                    const avg = (Math.abs(sx) + Math.abs(sy)) / 2;
-                                    merged.radius = Math.max(10, (shape.radius || 50) * (avg || 1));
-                                } else {
-                                    merged.width = Math.max(10, (shape.width || 120) * Math.abs(sx));
-                                    merged.height = Math.max(10, (shape.height || 80) * Math.abs(sy));
-                                }
-                                onUpdateShape(merged);
-                                node.scaleX(1); node.scaleY(1);
-                            }} />
+                                    if (shape.radius !== undefined || shape.sides) {
+                                        const avg = (Math.abs(sx) + Math.abs(sy)) / 2;
+                                        merged.radius = Math.max(10, (shape.radius || 50) * (avg || 1));
+                                    } else {
+                                        merged.width = Math.max(10, (shape.width || 120) * Math.abs(sx));
+                                        merged.height = Math.max(10, (shape.height || 80) * Math.abs(sy));
+                                    }
+                                    onUpdateShape(merged);
+                                    node.scaleX(1); node.scaleY(1);
+                                }} />
+                        )}
                     </Layer>
                 </Stage>
             )}

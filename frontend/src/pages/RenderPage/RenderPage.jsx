@@ -468,6 +468,25 @@ function getDividerAxis(divider) {
 }
 
 function screenRoom(room, proj) {
+    if (proj && (room.outlineType === "polygon" || room.shapeType === "polygon")) {
+        const points = absoluteRoomPoints(room, proj);
+        if (Array.isArray(points) && points.length >= 3) {
+            const xs = points.map(([x]) => x);
+            const ys = points.map(([, y]) => y);
+            const minX = Math.min(...xs);
+            const minY = Math.min(...ys);
+            const maxX = Math.max(...xs);
+            const maxY = Math.max(...ys);
+            return {
+                ...room,
+                x: minX,
+                y: minY,
+                width: Math.max(1, maxX - minX),
+                height: Math.max(1, maxY - minY),
+                points: points.map(([x, y]) => [x - minX, y - minY]),
+            };
+        }
+    }
     if (room.lat != null && room.lng != null && proj) {
         const center = proj.project(room.lng, room.lat);
         const mw = room.widthMeters || (room.width ? proj.pxToMetersX(room.width, room.lng, room.lat) : 100);
@@ -624,28 +643,26 @@ function roomsForSingleDividerMerge(divider, rooms, point) {
 
     if (axis === "horizontal") {
         const splitY = ((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2;
-        const x = point?.x ?? (((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2);
-        const candidates = touching.filter(room => x >= room.x - 2 && x <= room.x + room.width + 2);
-        const above = candidates
-            .filter(room => room.y + room.height / 2 <= splitY)
-            .sort((a, b) => (b.y + b.height) - (a.y + a.height))[0];
-        const below = candidates
-            .filter(room => room.y + room.height / 2 > splitY)
-            .sort((a, b) => a.y - b.y)[0];
-        return [above, below].filter(Boolean);
+        const clickY = point?.y ?? splitY;
+        const above = touching.filter(room => room.y + room.height / 2 <= splitY);
+        const below = touching.filter(room => room.y + room.height / 2 > splitY);
+        if (clickY <= splitY) {
+            return above.length > 0 ? above : touching.slice(0, 2);
+        } else {
+            return below.length > 0 ? below : touching.slice(0, 2);
+        }
     }
 
     if (axis === "vertical") {
         const splitX = ((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2;
-        const y = point?.y ?? (((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2);
-        const candidates = touching.filter(room => y >= room.y - 2 && y <= room.y + room.height + 2);
-        const left = candidates
-            .filter(room => room.x + room.width / 2 <= splitX)
-            .sort((a, b) => (b.x + b.width) - (a.x + a.width))[0];
-        const right = candidates
-            .filter(room => room.x + room.width / 2 > splitX)
-            .sort((a, b) => a.x - b.x)[0];
-        return [left, right].filter(Boolean);
+        const clickX = point?.x ?? splitX;
+        const left = touching.filter(room => room.x + room.width / 2 <= splitX);
+        const right = touching.filter(room => room.x + room.width / 2 > splitX);
+        if (clickX <= splitX) {
+            return left.length > 0 ? left : touching.slice(0, 2);
+        } else {
+            return right.length > 0 ? right : touching.slice(0, 2);
+        }
     }
 
     return touching.slice(0, 2);
@@ -667,6 +684,221 @@ function crossingDividerAtPoint(divider, dividers, point, threshold = 14) {
 
 function roomsForCrossMerge(crossPoint, rooms) {
     return rooms.filter(room => roomContainsPoint(room, crossPoint, 2));
+}
+
+function closeScreenRing(points) {
+    if (!Array.isArray(points) || points.length < 3) return null;
+    const ring = points.map(([x, y]) => [Number(x), Number(y)])
+        .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+    if (ring.length < 3) return null;
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) ring.push([...first]);
+    return ring;
+}
+
+function polygonScreenArea(points) {
+    if (!Array.isArray(points) || points.length < 3) return 0;
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+        const [x1, y1] = points[i];
+        const [x2, y2] = points[(i + 1) % points.length];
+        area += x1 * y2 - x2 * y1;
+    }
+    return Math.abs(area) / 2;
+}
+
+function absoluteRoomPoints(room, proj) {
+    if (proj && Array.isArray(room.pointsGeo) && room.pointsGeo.length >= 3) {
+        return room.pointsGeo.map(([lat, lng]) => {
+            const point = proj.project(lng, lat);
+            return [point.x, point.y];
+        });
+    }
+    if (Array.isArray(room.points) && room.points.length >= 3 && (room.outlineType === "polygon" || room.shapeType === "polygon")) {
+        if (isLikelyGeoPoints(room.points) && proj) {
+            return room.points.map(([lat, lng]) => {
+                const point = proj.project(lng, lat);
+                return [point.x, point.y];
+            });
+        }
+        return room.points.map(([x, y]) => [(room.x || 0) + x, (room.y || 0) + y]);
+    }
+    const x = room.x || 0;
+    const y = room.y || 0;
+    const width = room.width || 0;
+    const height = room.height || 0;
+    return [
+        [x, y],
+        [x + width, y],
+        [x + width, y + height],
+        [x, y + height],
+    ];
+}
+
+function largestPolygonFeature(feature) {
+    if (!feature?.geometry) return null;
+    if (feature.geometry.type === "Polygon") return feature;
+    if (feature.geometry.type !== "MultiPolygon") return null;
+    let largest = null;
+    let maxArea = 0;
+    feature.geometry.coordinates.forEach(coords => {
+        const candidate = turf.polygon(coords);
+        const area = Math.abs(turf.area(candidate));
+        if (area > maxArea) {
+            largest = candidate;
+            maxArea = area;
+        }
+    });
+    return largest;
+}
+
+function roomFeature(room, proj) {
+    const ring = closeScreenRing(absoluteRoomPoints(room, proj));
+    if (!ring) return null;
+    return turf.polygon([ring]);
+}
+
+function buildMergedRoomGeometry(rooms, proj) {
+    const fallback = () => {
+        const minX = Math.min(...rooms.map(r => r.x));
+        const minY = Math.min(...rooms.map(r => r.y));
+        const maxX = Math.max(...rooms.map(r => r.x + r.width));
+        const maxY = Math.max(...rooms.map(r => r.y + r.height));
+        return {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+            ...geoForScreenRect(proj, minX, minY, maxX - minX, maxY - minY),
+        };
+    };
+
+    try {
+        const features = rooms.map(room => roomFeature(room, proj)).filter(Boolean);
+        if (features.length !== rooms.length || features.length === 0) return fallback();
+        let mergedFeature = features[0];
+        for (let i = 1; i < features.length; i++) {
+            const next = turf.union(turf.featureCollection([mergedFeature, features[i]]));
+            if (!next) return fallback();
+            mergedFeature = next;
+        }
+
+        const polygon = largestPolygonFeature(mergedFeature);
+        const coords = polygon?.geometry?.coordinates?.[0];
+        if (!Array.isArray(coords) || coords.length < 4) return fallback();
+        const absolutePoints = coords.slice(0, -1).map(([x, y]) => [x, y]);
+        const xs = absolutePoints.map(([x]) => x);
+        const ys = absolutePoints.map(([, y]) => y);
+        const minX = Math.min(...xs);
+        const minY = Math.min(...ys);
+        const maxX = Math.max(...xs);
+        const maxY = Math.max(...ys);
+        const width = Math.max(1, maxX - minX);
+        const height = Math.max(1, maxY - minY);
+        const normalizedPoints = absolutePoints.map(([x, y]) => [x - minX, y - minY]);
+        const bboxArea = width * height;
+        const unionArea = polygonScreenArea(absolutePoints);
+        const isRectangular = Math.abs(unionArea - bboxArea) <= 1;
+
+        if (isRectangular) {
+            return {
+                x: minX,
+                y: minY,
+                width,
+                height,
+                ...geoForScreenRect(proj, minX, minY, width, height),
+            };
+        }
+
+        const geometry = {
+            outlineType: "polygon",
+            x: minX,
+            y: minY,
+            width,
+            height,
+            points: normalizedPoints,
+            ...geoForScreenRect(proj, minX, minY, width, height),
+        };
+
+        if (proj) {
+            geometry.pointsGeo = absolutePoints.map(([x, y]) => {
+                const point = proj.unproject(x, y);
+                return [point.lat, point.lng];
+            });
+        }
+
+        return geometry;
+    } catch (e) {
+        console.error("Room merge geometry failed:", e);
+        return fallback();
+    }
+}
+
+function dividerRemovalSegmentForRooms(divider, rooms) {
+    const axis = getDividerAxis(divider);
+    if (axis === "horizontal") {
+        const splitY = ((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2;
+        const above = rooms.filter(room => room.y + room.height / 2 <= splitY);
+        const below = rooms.filter(room => room.y + room.height / 2 > splitY);
+        if (!above.length || !below.length) return null;
+        const start = Math.max(
+            Math.min(...above.map(room => room.x)),
+            Math.min(...below.map(room => room.x))
+        );
+        const end = Math.min(
+            Math.max(...above.map(room => room.x + room.width)),
+            Math.max(...below.map(room => room.x + room.width))
+        );
+        return end > start ? { axis, start, end } : null;
+    }
+
+    if (axis === "vertical") {
+        const splitX = ((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2;
+        const left = rooms.filter(room => room.x + room.width / 2 <= splitX);
+        const right = rooms.filter(room => room.x + room.width / 2 > splitX);
+        if (!left.length || !right.length) return null;
+        const start = Math.max(
+            Math.min(...left.map(room => room.y)),
+            Math.min(...right.map(room => room.y))
+        );
+        const end = Math.min(
+            Math.max(...left.map(room => room.y + room.height)),
+            Math.max(...right.map(room => room.y + room.height))
+        );
+        return end > start ? { axis, start, end } : null;
+    }
+
+    return null;
+}
+
+function dividerRemaindersAfterRemoval(divider, removal, minLength = 4) {
+    if (!removal) return [];
+    if (removal.axis === "horizontal") {
+        const lineStart = Math.min(divider.x1 ?? 0, divider.x2 ?? 0);
+        const lineEnd = Math.max(divider.x1 ?? 0, divider.x2 ?? 0);
+        const removeStart = Math.max(lineStart, Math.min(removal.start, lineEnd));
+        const removeEnd = Math.max(lineStart, Math.min(removal.end, lineEnd));
+        const y = ((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2;
+        return [
+            removeStart - lineStart > minLength ? { x1: lineStart, y1: y, x2: removeStart, y2: y } : null,
+            lineEnd - removeEnd > minLength ? { x1: removeEnd, y1: y, x2: lineEnd, y2: y } : null,
+        ].filter(Boolean);
+    }
+
+    if (removal.axis === "vertical") {
+        const lineStart = Math.min(divider.y1 ?? 0, divider.y2 ?? 0);
+        const lineEnd = Math.max(divider.y1 ?? 0, divider.y2 ?? 0);
+        const removeStart = Math.max(lineStart, Math.min(removal.start, lineEnd));
+        const removeEnd = Math.max(lineStart, Math.min(removal.end, lineEnd));
+        const x = ((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2;
+        return [
+            removeStart - lineStart > minLength ? { x1: x, y1: lineStart, x2: x, y2: removeStart } : null,
+            lineEnd - removeEnd > minLength ? { x1: x, y1: removeEnd, x2: x, y2: lineEnd } : null,
+        ].filter(Boolean);
+    }
+
+    return [];
 }
 
 export default function RenderPage() {
@@ -1763,28 +1995,60 @@ export default function RenderPage() {
             ? roomsForCrossMerge(crossing.point, rooms)
             : roomsForSingleDividerMerge(div, rooms, point);
         if (roomsToMerge.length < 2) return;
-        const minX = Math.min(...roomsToMerge.map(r => r.x));
-        const minY = Math.min(...roomsToMerge.map(r => r.y));
-        const maxX = Math.max(...roomsToMerge.map(r => r.x + r.width));
-        const maxY = Math.max(...roomsToMerge.map(r => r.y + r.height));
-        const geoAttrs = geoForScreenRect(proj, minX, minY, maxX - minX, maxY - minY);
+        const mergedGeometry = buildMergedRoomGeometry(roomsToMerge, proj);
+        const removalSegment = crossing ? null : dividerRemovalSegmentForRooms(div, roomsToMerge);
         roomsToMerge.forEach(r => {
             Object.values(stagedItems).forEach(el => {
                 if (el.parent_id === r.id) removeItem(el.id);
             });
             removeItem(r.id);
         });
-        if (crossing) removeItem(crossing.divider.id);
-        removeItem(dividerId);
+        if (crossing) {
+            removeItem(crossing.divider.id);
+            removeItem(dividerId);
+        } else if (removalSegment) {
+            const remainders = dividerRemaindersAfterRemoval(div, removalSegment);
+            removeItem(dividerId);
+            remainders.forEach((line, index) => {
+                const remId = `div-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 5)}`;
+                addItem(remId, {
+                    ...sourceDiv,
+                    ...line,
+                    id: remId,
+                    type: "divider_line",
+                    floor_id,
+                    ...(proj ? geoForDividerLine(proj, line) : {}),
+                });
+            });
+        } else {
+            removeItem(dividerId);
+        }
         const merged = {
             id: `room-${Date.now()}`, name: "Combined Room", type: "room", sectionRole: "combined",
             roomType: roomsToMerge[0].roomType, floor_id,
-            x: minX, y: minY, width: maxX - minX, height: maxY - minY,
+            ...mergedGeometry,
             fill: roomsToMerge[0].fill, stroke: "#fff", strokeWidth: 2,
-            ...geoAttrs,
         };
         addItem(merged.id, merged);
         setSelectedShapeId(merged.id);
+
+        if (mergedGeometry.x != null && mergedGeometry.y != null && mergedGeometry.width && mergedGeometry.height) {
+            const mx = mergedGeometry.x, my = mergedGeometry.y;
+            const mw = mergedGeometry.width, mh = mergedGeometry.height;
+            Object.values(stagedItems).forEach(el => {
+                if (el.type !== "divider_line" || el.floor_id !== floor_id) return;
+                if (el.id === dividerId) return;
+                const divScreen = screenDivider(el, proj);
+                if (!divScreen) return;
+                const dx1 = divScreen.x1 ?? 0, dy1 = divScreen.y1 ?? 0;
+                const dx2 = divScreen.x2 ?? 0, dy2 = divScreen.y2 ?? 0;
+                const insideStart = dx1 >= mx - 2 && dx1 <= mx + mw + 2 && dy1 >= my - 2 && dy1 <= my + mh + 2;
+                const insideEnd = dx2 >= mx - 2 && dx2 <= mx + mw + 2 && dy2 >= my - 2 && dy2 <= my + mh + 2;
+                if (insideStart && insideEnd) {
+                    removeItem(el.id);
+                }
+            });
+        }
     }, [stagedItems, removeItem, addItem]);
 
     const moveDividerLine = useCallback((dividerId, newAttrs) => {
