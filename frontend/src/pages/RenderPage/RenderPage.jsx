@@ -15,6 +15,7 @@ import useOutlineHistory from "../../hooks/useOutlineHistory";
 import useObjectsHistory from "../../hooks/useObjectsHistory";
 import { makeProjection, groundDistanceMeters } from "../../functions/geoProject";
 import { generateTemplate } from "../../functions/outlineTemplates";
+import { generateRoomTemplate } from "../../functions/roomTemplates";
 import { booleanUnion, booleanSubtract, booleanIntersect } from "../../functions/booleanOps";
 import { validateOutlines } from "../../functions/outlineValidation";
 import { getOutlineArea, getOutlinePerimeter } from "../../functions/outlineValidation";
@@ -1132,6 +1133,49 @@ export default function RenderPage() {
         updateShape({ ...room, ...updates });
     }, [stagedItems, updateShape, canvasSettings.roomAutoColors]);
 
+    const applyRoomTemplate = useCallback((templateId) => {
+        const outline = outlines.find(o => o.id === activeFloorId) || outlines[0];
+        if (!outline) return;
+        try {
+            const result = generateRoomTemplate(templateId, outline);
+            const baseId = `room-base-${outline.id}`;
+            addItem(baseId, createBaseRoomFromOutline(outline));
+            result.rooms.forEach((roomData, i) => {
+                const roomId = `room-${Date.now()}-${i}`;
+                addItem(roomId, {
+                    id: roomId,
+                    name: roomData.name,
+                    type: "room",
+                    roomType: roomData.roomType || "other",
+                    floor_id: outline.id,
+                    parent_id: baseId,
+                    x: roomData.x,
+                    y: roomData.y,
+                    width: roomData.width,
+                    height: roomData.height,
+                    fill: canvasSettings.roomAutoColors ? ROOM_TYPE_COLORS[roomData.roomType] || "#6366f1" : "#6366f1",
+                    stroke: "#fff",
+                    strokeWidth: 2,
+                });
+            });
+            result.dividers.forEach((dividerData, i) => {
+                const divId = `div-${Date.now()}-${i}`;
+                addItem(divId, {
+                    id: divId,
+                    type: "divider_line",
+                    floor_id: outline.id,
+                    parent_id: baseId,
+                    x1: dividerData.x1,
+                    y1: dividerData.y1,
+                    x2: dividerData.x2,
+                    y2: dividerData.y2,
+                });
+            });
+        } catch (e) {
+            console.error("Template application failed:", e);
+        }
+    }, [outlines, activeFloorId, addItem, createBaseRoomFromOutline, canvasSettings.roomAutoColors]);
+
     const startObjectPlacement = useCallback((item) => {
         if (!hasRooms || !item) return;
         setTool(null);
@@ -1686,6 +1730,7 @@ export default function RenderPage() {
                     onBatchDelete={batchDelete}
                     onBatchChangeType={batchChangeType}
                     multiSelectIds={multiSelectIds}
+                    onApplyTemplate={applyRoomTemplate}
                 />
                 <PropertiesPanel
                     stage={stage}

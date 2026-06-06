@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BUILTIN_TEMPLATES } from "../../../functions/outlineTemplates";
+import { BUILTIN_ROOM_TEMPLATES } from "../../../functions/roomTemplates";
 import { exportGeoJSON, exportSVG, exportPDF, parseGeoJSON, parseDXF } from "../../../functions/outlineExport";
 
-export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, onImport }) {
+export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, onImport, stage, onApplyTemplate }) {
     const [savedTemplates, setSavedTemplates] = useState([]);
     const [importError, setImportError] = useState(null);
     const geoJsonInputRef = useRef(null);
@@ -187,6 +188,23 @@ export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, o
                     <button className="panel-btn" onClick={() => handleExport("copy")}>Copy</button>
                 </div>
             </div>
+
+            {stage === "sections" && (
+                <div className="menu-tools-section" style={{ marginTop: 12 }}>
+                    <h4>Room Templates</h4>
+                    <ul className="tool-list">
+                        {BUILTIN_ROOM_TEMPLATES.map(template => (
+                            <li key={template.id}
+                                className="tool-item"
+                                onClick={() => onApplyTemplate?.(template.id)}
+                                title={template.description}>
+                                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 18, flexShrink: 0 }}>{template.icon}</span>
+                                <span>{template.name}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             <div className="menu-tools-section" style={{ marginTop: 12 }}>
                 <h4>Built-in Templates</h4>

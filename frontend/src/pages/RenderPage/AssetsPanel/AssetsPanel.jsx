@@ -37,6 +37,7 @@ export default function AssetsPanel({
     onBatchDelete,
     onBatchChangeType,
     multiSelectIds,
+    onApplyTemplate,
 }) {
     const [tab, setTab] = useState("tools");
 
@@ -107,7 +108,7 @@ export default function AssetsPanel({
             </ul>
             <ul id="menu-tools" style={{ width: 220 }}>
                 {activeTab === "shapes" && <ShapesTab setPendingPlacement={setPendingPlacement} activeTool={activeTool} selectedCount={selectedCount} onBooleanOp={onBooleanOp} />}
-                {activeTab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} />}
+                {activeTab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} stage={stage} onApplyTemplate={onApplyTemplate} />}
                 {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
             </ul>
         </aside>
