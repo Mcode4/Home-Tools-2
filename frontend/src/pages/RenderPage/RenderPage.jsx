@@ -450,6 +450,41 @@ export default function RenderPage() {
         }
     }, [vertexMode]);
 
+    const addShape = useCallback((shapeData) => {
+        const id = `shape-${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
+        if (stage === "outline" && mapRef.current) {
+            const dims = getShapePixelDimensions(shapeData);
+            const geo = screenToGeo(shapeData.x ?? 300, shapeData.y ?? 200, dims.width, dims.height);
+            if (geo) {
+                const newItem = {
+                    ...shapeData, id,
+                    lat: geo.lat, lng: geo.lng,
+                    widthMeters: geo.widthMeters,
+                    heightMeters: geo.heightMeters,
+                };
+                if (dims.radius != null) newItem.radiusMeters = dims.radius * geo.metersPerPixel;
+                delete newItem.x; delete newItem.y; delete newItem.width; delete newItem.height; delete newItem.radius;
+                if (Array.isArray(shapeData.points)) {
+                    const proj = makeProjection(mapRef.current);
+                    newItem.points = shapeData.points.map(([nx, ny]) => {
+                        const p = proj.unproject((shapeData.x ?? 0) + nx, (shapeData.y ?? 0) + ny);
+                        return [p.lat, p.lng];
+                    });
+                }
+                setOutlines(prev => [...prev, newItem]);
+                setSelectedShapeId(id);
+                return;
+            }
+        }
+        const newItem = { ...shapeData, id, x: shapeData.x ?? 300, y: shapeData.y ?? 200 };
+        if (stage === "outline") {
+            setOutlines(prev => [...prev, newItem]);
+        } else {
+            setStagedItems(prev => ({ ...prev, [id]: newItem }));
+        }
+        setSelectedShapeId(id);
+    }, [setStagedItems, stage, setOutlines, screenToGeo]);
+
     const updateShape = useCallback((updated) => {
         if (stage === "outline") {
             setOutlines(prev => prev.map(o => o.id === updated.id ? updated : o));
@@ -898,41 +933,6 @@ export default function RenderPage() {
             metersPerPixel: Math.min(widthMeters / (w || 1), heightMeters / (h || 1)),
         };
     }, [property]);
-
-    const addShape = useCallback((shapeData) => {
-        const id = `shape-${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
-        if (stage === "outline" && mapRef.current) {
-            const dims = getShapePixelDimensions(shapeData);
-            const geo = screenToGeo(shapeData.x ?? 300, shapeData.y ?? 200, dims.width, dims.height);
-            if (geo) {
-                const newItem = {
-                    ...shapeData, id,
-                    lat: geo.lat, lng: geo.lng,
-                    widthMeters: geo.widthMeters,
-                    heightMeters: geo.heightMeters,
-                };
-                if (dims.radius != null) newItem.radiusMeters = dims.radius * geo.metersPerPixel;
-                delete newItem.x; delete newItem.y; delete newItem.width; delete newItem.height; delete newItem.radius;
-                if (Array.isArray(shapeData.points)) {
-                    const proj = makeProjection(mapRef.current);
-                    newItem.points = shapeData.points.map(([nx, ny]) => {
-                        const p = proj.unproject((shapeData.x ?? 0) + nx, (shapeData.y ?? 0) + ny);
-                        return [p.lat, p.lng];
-                    });
-                }
-                setOutlines(prev => [...prev, newItem]);
-                setSelectedShapeId(id);
-                return;
-            }
-        }
-        const newItem = { ...shapeData, id, x: shapeData.x ?? 300, y: shapeData.y ?? 200 };
-        if (stage === "outline") {
-            setOutlines(prev => [...prev, newItem]);
-        } else {
-            setStagedItems(prev => ({ ...prev, [id]: newItem }));
-        }
-        setSelectedShapeId(id);
-    }, [setStagedItems, stage, setOutlines, screenToGeo]);
 
     useEffect(() => {
         if (stage !== "outline" || !mapRef.current || !property) return;
