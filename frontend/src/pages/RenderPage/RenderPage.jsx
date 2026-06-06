@@ -1925,6 +1925,7 @@ export default function RenderPage() {
                         perimeter: getOutlinePerimeter(selectedShape),
                     } : null}
                     updateRoomType={updateRoomType}
+                    mapRef={mapRef}
                     deleteElement={(id) => {
                         const item = stage === "outline"
                             ? outlines.find(o => o.id === id)

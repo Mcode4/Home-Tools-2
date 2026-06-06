@@ -30,6 +30,7 @@ export default function PropertiesPanel({
     sectionWarnings = [],
     liveMeasurements = null,
     updateRoomType,
+    mapRef,
 }) {
     const containerRef = useRef(null);
     const [splitHeight, setSplitHeight] = useState(250);
@@ -38,6 +39,17 @@ export default function PropertiesPanel({
 
     const toggleFloor = (fid) => setExpandedFloors(prev => ({ ...prev, [fid]: !(prev[fid] ?? true) }));
     const toggleLevel = (lvl) => setExpandedFloors(prev => ({ ...prev, [`level-${lvl}`]: !(prev[`level-${lvl}`] ?? true) }));
+
+    const flyToOutline = useCallback((outline) => {
+        if (!mapRef?.current || !outline) return;
+        if (outline.lat != null && outline.lng != null) {
+            mapRef.current.flyTo({ center: [outline.lng, outline.lat], zoom: 17, duration: 500 });
+        } else if (outline.x != null && outline.y != null && outline.width && outline.height) {
+            const cx = outline.x + outline.width / 2;
+            const cy = outline.y + outline.height / 2;
+            mapRef.current.flyTo({ center: mapRef.current.unproject([cx, cy]), zoom: 17, duration: 500 });
+        }
+    }, [mapRef]);
 
     const handleMouseDown = useCallback((e) => { setIsDragging(true); e.preventDefault(); }, []);
 
@@ -168,7 +180,7 @@ export default function PropertiesPanel({
                                                 return (
                                                     <div key={outline.id}>
                                                         <div className="render-tree-node"
-                                                            onClick={() => { onSelectFloor(outline.id); toggleFloor(outline.id); }}
+                                                            onClick={() => { onSelectFloor(outline.id); toggleFloor(outline.id); flyToOutline(outline); }}
                                                             style={isOutlineActive ? { background: "var(--active-bg)", color: "#fff" } : {}}>
                                                             <span style={{ fontSize: 11, width: 14 }}>{isOutlineExpanded ? "▼" : "▶"}</span>
                                                             <span style={{ flex: 1 }}>{outline.name || outline.type || "Outline"}</span>
@@ -375,7 +387,7 @@ export default function PropertiesPanel({
                 {elements.length === 0 && <p style={{ fontSize: 13, color: "var(--text-dim)", padding: 8 }}>Add outlines from the left panel</p>}
                 {elements.map(el => (
                     <div key={el.id} className="render-tree-node"
-                        onClick={(e) => onSelectShape?.(el.id, e.ctrlKey || e.metaKey)}
+                        onClick={(e) => { onSelectShape?.(el.id, e.ctrlKey || e.metaKey); flyToOutline(el); }}
                         style={(el.id === selectedShape?.id || multiSelectIds.includes(el.id)) ? { background: "var(--active-bg)", color: "#fff" } : {}}>
                         <span style={{ fontSize: 14, color: "var(--accent)", width: 20, textAlign: "center" }}>
                             {el.type === "circle" ? "○" : el.type === "rectangle" ? "▭" : "⬡"}
