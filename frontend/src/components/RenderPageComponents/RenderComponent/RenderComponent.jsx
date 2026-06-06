@@ -395,6 +395,29 @@ function removeProjectedObjectFields(object) {
     return source;
 }
 
+function templateScreenGeometry(template, center, projection) {
+    if (!template || !center) return null;
+    let pxPerMeterX = 4;
+    let pxPerMeterY = 4;
+
+    if (projection) {
+        const geo = projection.unproject(center.x, center.y);
+        const scale = projection.meterScaleAt(geo.lng, geo.lat);
+        pxPerMeterX = scale.pixelsPerMeterX;
+        pxPerMeterY = scale.pixelsPerMeterY;
+    }
+
+    const width = Math.max((template.width || 20) * pxPerMeterX, 8);
+    const height = Math.max((template.height || 20) * pxPerMeterY, 8);
+    return {
+        x: center.x - width / 2,
+        y: center.y - height / 2,
+        width,
+        height,
+        points: (template.points || []).map(([mx, my]) => [mx * pxPerMeterX, my * pxPerMeterY]),
+    };
+}
+
 function clampObjectCenterToRoom(point, item, room, padding = 6) {
     const width = item?.width || 40;
     const height = item?.height || 40;
@@ -449,7 +472,8 @@ function renderShapeGroup(shape, shapeRef, isSelected, onSelect, onUpdate, activ
     const dash = isSectionOutline ? [8, 6] : undefined;
 
     const events = {
-        onClick: () => onSelect(shape.id), onTap: () => onSelect(shape.id),
+        onClick: (e) => onSelect(shape.id, !!(e.evt?.ctrlKey || e.evt?.metaKey)),
+        onTap: () => onSelect(shape.id, false),
         onDragStart: () => { if (isDraggingRef) isDraggingRef.current = true; },
         onDragEnd: (e) => {
             if (isDraggingRef) isDraggingRef.current = false;
@@ -474,10 +498,12 @@ function renderShapeGroup(shape, shapeRef, isSelected, onSelect, onUpdate, activ
                         delete updatedShape.radius;
                     }
                     if (isCustomPoly) {
-                        updatedShape.points = (shape._points || shape.points).map(([px, py]) => {
+                        const nextPointsGeo = (shape._points || shape.points).map(([px, py]) => {
                             const p = proj.unproject(cx + px, cy + py);
                             return [p.lat, p.lng];
                         });
+                        updatedShape.points = nextPointsGeo;
+                        updatedShape.pointsGeo = nextPointsGeo.map(point => [...point]);
                     }
                     onUpdate(updatedShape);
                     e.target.position({ x: cx, y: cy });
@@ -550,7 +576,7 @@ function renderShapeGroup(shape, shapeRef, isSelected, onSelect, onUpdate, activ
 }
 
 export default function RenderComponent({
-    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement
+    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape
 }) {
     const containerRef = useRef(null);
     const stageRef = useRef(null);
@@ -677,6 +703,7 @@ export default function RenderComponent({
     const clampY = (val, h, floor) => floor ? Math.max(floor.y, Math.min(val, floor.y + floor.height - h)) : val;
 
     const isObjectPlacement = pendingPlacement?.active && pendingPlacement.kind === "object";
+    const isTemplatePlacing = pendingPlacement?.active && pendingPlacement.type === "template";
     const placementItem = pendingPlacement?.item;
     const isPolygonTool = activeTool?.type === "polygon" || pendingPlacement?.type === "polygon";
 
@@ -1001,20 +1028,32 @@ export default function RenderComponent({
             return;
         }
 
+        if (isTemplatePlacing) {
+            const stage = e.target.getStage();
+            const pt = stage.getRelativePointerPosition();
+            if (!pt) return;
+            onPlaceTemplate?.(pendingPlacement.templateId, pt);
+            setPendingPlacement(null);
+            setGhostPos(null);
+            return;
+        }
+
         if (pendingPlacement?.active && pendingPlacement.type !== "polygon") {
             const stage = e.target.getStage();
             const pt = stage.getRelativePointerPosition();
             if (!pt) return;
             const defaults = {
                 rectangle: { width: 100, height: 80, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
-                circle: { radius: 50, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
-                triangle: { sides: 3, radius: 50, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
-                pentagon: { sides: 5, radius: 50, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
-                hexagon: { sides: 6, radius: 50, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
-                octagon: { sides: 8, radius: 50, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
+                circle: { radius: 50, width: 100, height: 100, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
+                triangle: { sides: 3, radius: 50, width: 100, height: 100, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
+                pentagon: { sides: 5, radius: 50, width: 100, height: 100, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
+                hexagon: { sides: 6, radius: 50, width: 100, height: 100, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
+                octagon: { sides: 8, radius: 50, width: 100, height: 100, fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2 },
             };
             const shapeDefaults = defaults[pendingPlacement.type] || defaults.rectangle;
-            onPlaceShape?.({ ...shapeDefaults, type: pendingPlacement.type, x: pt.x, y: pt.y });
+            const width = shapeDefaults.width || (shapeDefaults.radius || 50) * 2;
+            const height = shapeDefaults.height || (shapeDefaults.radius || 50) * 2;
+            onPlaceShape?.({ ...shapeDefaults, type: pendingPlacement.type, x: pt.x - width / 2, y: pt.y - height / 2 });
             setPendingPlacement(null);
             setGhostPos(null);
             return;
@@ -1063,9 +1102,10 @@ export default function RenderComponent({
 
     const isPlacing = !!pendingPlacement?.active;
     const isPolygonPlacing = isPlacing && pendingPlacement.type === "polygon";
-    const isShapePlacing = isPlacing && !isPolygonPlacing;
+    const isShapePlacing = isPlacing && !isPolygonPlacing && !isObjectPlacement && !isTemplatePlacing;
     const hoverOrientation = hoverDivider?.combineMode || (hoverDivider?.crosses ? "both" : hoverDivider?.orientation);
-    const cursorClass = isShapePlacing || isPolygonPlacing ? "cursor-pad"
+    const cursorClass = isPolygonPlacing ? "cursor-crosshair"
+        : isShapePlacing || isTemplatePlacing ? "cursor-pad"
         : activeTool?.type === "divider" ? "cursor-divider"
         : activeTool?.type === "select" ? `cursor-select-${hoverOrientation || "free"}`
         : activeTool?.type === "combine" ? `cursor-combine-${hoverOrientation || "free"}`
@@ -1120,10 +1160,28 @@ export default function RenderComponent({
                 const next = room ? clampObjectCenterToRoom(pt, { ...placementItem, ...screenSize }, room) : pt;
                 setGhostPos({ ...next, ...screenSize, valid: !!room });
             }
+        } else if (isTemplatePlacing) {
+            const stage = e.target.getStage();
+            const pt = stage.getRelativePointerPosition();
+            if (pt) {
+                const geometry = templateScreenGeometry(pendingPlacement.template, pt, projection);
+                setGhostPos(geometry ? { x: pt.x, y: pt.y, ...geometry } : { x: pt.x, y: pt.y });
+            }
         } else if (isShapePlacing) {
             const stage = e.target.getStage();
             const pt = stage.getRelativePointerPosition();
-            if (pt) setGhostPos({ x: pt.x, y: pt.y });
+            if (pt) {
+                const defaults = {
+                    rectangle: { width: 100, height: 80 },
+                    circle: { width: 100, height: 100 },
+                    triangle: { width: 100, height: 100 },
+                    pentagon: { width: 100, height: 100 },
+                    hexagon: { width: 100, height: 100 },
+                    octagon: { width: 100, height: 100 },
+                };
+                const size = defaults[pendingPlacement.type] || defaults.rectangle;
+                setGhostPos({ x: pt.x, y: pt.y, width: size.width, height: size.height });
+            }
         }
         if (activeTool?.type === "divider") {
             const stage = e.target.getStage();
@@ -1163,13 +1221,22 @@ export default function RenderComponent({
             setDividerHover(null);
             setHoverDivider(null);
         }
-    }, [mapVisible, mapRef, isPolygonPlacing, isShapePlacing, isObjectPlacement, placementItem, projection, activeTool?.type, elements, dividerDraw, projectedElements]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [mapVisible, mapRef, isPolygonPlacing, isShapePlacing, isObjectPlacement, isTemplatePlacing, placementItem, pendingPlacement, projection, activeTool?.type, elements, dividerDraw, projectedElements]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleCanvasMouseUp = useCallback(() => {
         mapPanRef.current.active = false;
     }, []);
 
     const renderedElements = projectedElements || elements || [];
+    const projectedOffsetPreview = useMemo(() => {
+        if (!offsetPreviewShape || !projection) return null;
+        const pointsGeo = offsetPreviewShape.pointsGeo || (isLikelyGeoPoints(offsetPreviewShape.points) ? offsetPreviewShape.points : null);
+        if (!pointsGeo?.length) return null;
+        return pointsGeo.map(([lat, lng]) => {
+            const point = projection.project(lng, lat);
+            return [point.x, point.y];
+        });
+    }, [offsetPreviewShape, projection]);
     const isPlanStage = stage === "sections" || stage === "objects";
     const shapeElements = renderedElements.filter(el => el.type !== "divider_line" && el.type !== "wall");
     const sectionInteriorShapes = isPlanStage ? shapeElements.filter(el => el.floor_id) : [];
@@ -1183,10 +1250,11 @@ export default function RenderComponent({
         const isOutlineRender = stage === "outline" || isSectionTopOutline;
         const draggable = stage === "outline" || (stage === "sections" && el.type === "room" && el.sectionRole !== "base");
         const listening = stage !== "objects" && !isSectionTopOutline;
+        const isSelected = el.id === selectedShapeId || multiSelectIds.includes(el.id);
 
         return (
             <React.Fragment key={el.id}>
-                {renderShapeGroup(el, setShapeNodeRef(el.id), el.id === selectedShapeId, onSelectShape, onUpdateShape, activeFloor, clampX, clampY, savedStagePosRef, isOutlineRender, mapRef, isDraggingRef, draggable, isPlanStage, listening)}
+                {renderShapeGroup(el, setShapeNodeRef(el.id), isSelected, onSelectShape, onUpdateShape, activeFloor, clampX, clampY, savedStagePosRef, isOutlineRender, mapRef, isDraggingRef, draggable, isPlanStage, listening)}
             </React.Fragment>
         );
     };
@@ -1406,6 +1474,18 @@ export default function RenderComponent({
                         {activeFloor && <Rect x={gridBounds.x} y={gridBounds.y} width={gridBounds.width} height={gridBounds.height}
                             fill="transparent" stroke={gridColor} strokeWidth={2} dash={[10, 5]} listening={false} />}
 
+                        {projectedOffsetPreview && (
+                            <Line
+                                points={projectedOffsetPreview.flat()}
+                                closed
+                                fill="rgba(34, 197, 94, 0.22)"
+                                stroke="#22c55e"
+                                strokeWidth={2}
+                                dash={[8, 5]}
+                                listening={false}
+                            />
+                        )}
+
                         {isPlanStage ? (
                             <>
                                 {sectionOutlineShapes.map(outline => (
@@ -1434,7 +1514,47 @@ export default function RenderComponent({
                             normalShapes.map(renderElementShape)
                         )}
 
-                        {isShapePlacing && ghostPos && (
+                        {vertexMode && selectedShapeId && (() => {
+                            const shape = (projectedElements || elements || []).find(s => s.id === selectedShapeId);
+                            const pts = shape?._points || shape?.points;
+                            if (!shape || getShapeRenderType(shape) !== "polygon" || !Array.isArray(pts) || pts.length < 3) return null;
+                            return pts.map(([px, py], index) => {
+                                const x = (shape.x || 0) + px;
+                                const y = (shape.y || 0) + py;
+                                const isActive = index === selectedVertexIndex;
+                                return (
+                                    <Circle
+                                        key={`vertex-${shape.id}-${index}`}
+                                        x={x}
+                                        y={y}
+                                        radius={isActive ? 7 : 5}
+                                        fill={isActive ? "#22c55e" : "#fff"}
+                                        stroke={isActive ? "#fff" : "#22c55e"}
+                                        strokeWidth={2}
+                                        draggable
+                                        onClick={(e) => {
+                                            e.cancelBubble = true;
+                                            onSelectVertex?.(index);
+                                        }}
+                                        onTap={(e) => {
+                                            e.cancelBubble = true;
+                                            onSelectVertex?.(index);
+                                        }}
+                                        onDragStart={(e) => {
+                                            e.cancelBubble = true;
+                                            onSelectVertex?.(index);
+                                            if (isDraggingRef) isDraggingRef.current = true;
+                                        }}
+                                        onDragEnd={(e) => {
+                                            if (isDraggingRef) isDraggingRef.current = false;
+                                            onMoveVertex?.(index, { x: e.target.x(), y: e.target.y() });
+                                        }}
+                                    />
+                                );
+                            });
+                        })()}
+
+                        {(isShapePlacing || isObjectPlacement || isTemplatePlacing) && ghostPos && (
                             isObjectPlacement ? (
                                 <Group listening={false}>
                                     <Rect
@@ -1459,14 +1579,34 @@ export default function RenderComponent({
                                         align="center"
                                     />
                                 </Group>
+                            ) : isTemplatePlacing && ghostPos.points ? (
+                                <Group x={ghostPos.x} y={ghostPos.y} opacity={0.55} listening={false}>
+                                    <Line
+                                        points={ghostPos.points.flat()}
+                                        closed
+                                        fill="#6366f1"
+                                        stroke="#00d4ff"
+                                        strokeWidth={2}
+                                        dash={[7, 5]}
+                                    />
+                                    <Text
+                                        x={0}
+                                        y={-18}
+                                        text={pendingPlacement.template?.name || "Template"}
+                                        fontSize={11}
+                                        fill="#00d4ff"
+                                        width={Math.max(ghostPos.width || 80, 80)}
+                                        align="center"
+                                    />
+                                </Group>
                             ) : (
-                                <Group x={ghostPos.x - 50} y={ghostPos.y - 40} opacity={0.5}>
+                                <Group x={ghostPos.x - ((ghostPos.width || 100) / 2)} y={ghostPos.y - ((ghostPos.height || 80) / 2)} opacity={0.5} listening={false}>
                                     {pendingPlacement.type === "circle" ? (
-                                        <Circle x={50} y={50} radius={50} fill="#6366f1" stroke="#00d4ff" strokeWidth={2} />
+                                        <Circle x={50} y={50} radius={50} fill="#6366f1" stroke="#00d4ff" strokeWidth={2} dash={[7, 5]} />
                                     ) : pendingPlacement.sides ? (
-                                        <Line points={polygonPoints(pendingPlacement.sides, 50, 50, 50)} closed fill="#6366f1" stroke="#00d4ff" strokeWidth={2} />
+                                        <Line points={polygonPoints(pendingPlacement.sides, 50, 50, 50)} closed fill="#6366f1" stroke="#00d4ff" strokeWidth={2} dash={[7, 5]} />
                                     ) : (
-                                        <Rect width={100} height={80} cornerRadius={6} fill="#6366f1" stroke="#00d4ff" strokeWidth={2} />
+                                        <Rect width={ghostPos.width || 100} height={ghostPos.height || 80} cornerRadius={6} fill="#6366f1" stroke="#00d4ff" strokeWidth={2} dash={[7, 5]} />
                                     )}
                                 </Group>
                             )
@@ -1553,10 +1693,12 @@ export default function RenderComponent({
                                             const measured = measureScreenBox(proj, bounds.minX, bounds.minY, nextWidth, nextHeight);
                                             merged.lat = measured.center.lat;
                                             merged.lng = measured.center.lng;
-                                            merged.points = screenPoints.map(([px, py]) => {
+                                            const nextPointsGeo = screenPoints.map(([px, py]) => {
                                                 const p = proj.unproject(px, py);
                                                 return [p.lat, p.lng];
                                             });
+                                            merged.points = nextPointsGeo;
+                                            merged.pointsGeo = nextPointsGeo.map(point => [...point]);
                                             merged.widthMeters = measured.widthMeters;
                                             merged.heightMeters = measured.heightMeters;
                                             delete merged.width;

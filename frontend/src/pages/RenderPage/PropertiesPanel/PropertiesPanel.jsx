@@ -67,6 +67,7 @@ export default function PropertiesPanel({
         if (t === "room") return (el.roomType || "room").replace("_", " ");
         if (t === "wall") return el.wallType === "wall_square" ? "Full Wall" : "Section Wall";
         if (t === "divider_line") return "Divider Line";
+        if (el.name) return el.name;
         return t;
     };
 
@@ -278,12 +279,12 @@ export default function PropertiesPanel({
                 {elements.length === 0 && <p style={{ fontSize: 13, color: "var(--text-dim)", padding: 8 }}>Add outlines from the left panel</p>}
                 {elements.map(el => (
                     <div key={el.id} className="render-tree-node"
-                        onClick={() => onSelectShape?.(el.id)}
-                        style={el.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}}>
+                        onClick={(e) => onSelectShape?.(el.id, e.ctrlKey || e.metaKey)}
+                        style={(el.id === selectedShape?.id || multiSelectIds.includes(el.id)) ? { background: "var(--active-bg)", color: "#fff" } : {}}>
                         <span style={{ fontSize: 14, color: "var(--accent)", width: 20, textAlign: "center" }}>
                             {el.type === "circle" ? "○" : el.type === "rectangle" ? "▭" : "⬡"}
                         </span>
-                        <span style={{ flex: 1 }}>{el.name || el.type || "shape"}</span>
+                        <span style={{ flex: 1 }}>{elementLabel(el)}</span>
                         <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10, color: "var(--danger)" }}
                             onClick={(e) => { e.stopPropagation(); deleteElement?.(el.id); }} title="Delete">✕</button>
                     </div>

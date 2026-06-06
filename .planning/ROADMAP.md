@@ -120,6 +120,16 @@
 8. Live measurements with metric/imperial toggle
 9. Template→sections validates room areas > 0 and no orphan spaces
 
+### Phase 5.2: Sections Stage Enhancements — Fix gaps, wall placement, select tool, measurements, snapping, templates, room colors
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 5.2 to break down)
+
 ---
 
 ## Summary

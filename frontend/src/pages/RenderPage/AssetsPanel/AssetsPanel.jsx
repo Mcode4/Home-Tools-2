@@ -24,7 +24,6 @@ export default function AssetsPanel({
     onSelectCatalogItem,
     selectedCount = 0,
     onBooleanOp,
-    onShowOffset,
     outlines = [],
     onLoadTemplate,
     onLoadBuiltin,
@@ -33,70 +32,74 @@ export default function AssetsPanel({
     const [tab, setTab] = useState("tools");
 
     if (stage === "objects") {
+        const activeTab = ["catalog", "settings"].includes(tab) ? tab : "catalog";
         return (
             <aside className="app-slider">
                 <ul className="menu">
-                    <li className={`user-select-none ${tab === "catalog" ? "menu-active" : ""}`}
+                    <li className={`user-select-none ${activeTab === "catalog" ? "menu-active" : ""}`}
                         onClick={() => setTab("catalog")} title="Furniture Catalog">
                         <span style={{ fontSize: 20 }}>🪑</span>
                     </li>
                     <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
-                    <li className={`user-select-none ${tab === "settings" ? "menu-active" : ""}`}
+                    <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
                         onClick={() => setTab("settings")} title="Settings">
                         <span style={{ fontSize: 20 }}>⚙️</span>
                     </li>
                 </ul>
                 <ul id="menu-tools" style={{ width: 220 }}>
-                    {tab === "catalog" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} />}
-                    {tab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
+                    {activeTab === "catalog" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} />}
+                    {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
                 </ul>
             </aside>
         );
     }
 
     if (stage === "sections") {
+        const activeTab = ["tools", "settings"].includes(tab) ? tab : "tools";
         return (
             <aside className="app-slider">
                 <ul className="menu">
-                    <li className={`user-select-none ${tab === "tools" ? "menu-active" : ""}`}
+                    <li className={`user-select-none ${activeTab === "tools" ? "menu-active" : ""}`}
                         onClick={() => setTab("tools")} title="Room Tools">
                         <span style={{ fontSize: 20 }}>🔨</span>
                     </li>
                     <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
-                    <li className={`user-select-none ${tab === "settings" ? "menu-active" : ""}`}
+                    <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
                         onClick={() => setTab("settings")} title="Settings">
                         <span style={{ fontSize: 20 }}>⚙️</span>
                     </li>
                 </ul>
                 <ul id="menu-tools" style={{ width: 220 }}>
-                    {tab === "tools" && <SectionsTab activeTool={activeTool} onSelectTool={onSelectTool} canCombine={canCombine} canSelect={canSelect} />}
-                    {tab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
+                    {activeTab === "tools" && <SectionsTab activeTool={activeTool} onSelectTool={onSelectTool} canCombine={canCombine} canSelect={canSelect} />}
+                    {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
                 </ul>
             </aside>
         );
     }
 
+    const activeTab = ["shapes", "templates", "settings"].includes(tab) ? tab : "shapes";
+
     return (
         <aside className="app-slider">
             <ul className="menu">
-                <li className={`user-select-none ${tab === "shapes" ? "menu-active" : ""}`}
+                <li className={`user-select-none ${activeTab === "shapes" ? "menu-active" : ""}`}
                     onClick={() => setTab("shapes")} title="Outlines">
                     <span style={{ fontSize: 20 }}>▲</span>
                 </li>
-                <li className={`user-select-none ${tab === "templates" ? "menu-active" : ""}`}
+                <li className={`user-select-none ${activeTab === "templates" ? "menu-active" : ""}`}
                     onClick={() => setTab("templates")} title="Templates">
                     <span style={{ fontSize: 20 }}>📋</span>
                 </li>
                 <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
-                <li className={`user-select-none ${tab === "settings" ? "menu-active" : ""}`}
+                <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
                     onClick={() => setTab("settings")} title="Canvas Settings">
                     <span style={{ fontSize: 20 }}>⚙️</span>
                 </li>
             </ul>
             <ul id="menu-tools" style={{ width: 220 }}>
-                {tab === "shapes" && <ShapesTab setPendingPlacement={setPendingPlacement} activeTool={activeTool} selectedCount={selectedCount} onBooleanOp={onBooleanOp} onShowOffset={onShowOffset} />}
-                {tab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} />}
-                {tab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
+                {activeTab === "shapes" && <ShapesTab setPendingPlacement={setPendingPlacement} activeTool={activeTool} selectedCount={selectedCount} onBooleanOp={onBooleanOp} />}
+                {activeTab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} />}
+                {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
             </ul>
         </aside>
     );

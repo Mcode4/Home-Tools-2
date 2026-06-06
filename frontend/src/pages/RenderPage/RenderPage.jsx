@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom"
 import { thunkGetAllProperties } from "../../redux/properties";
@@ -18,7 +18,6 @@ import { generateTemplate } from "../../functions/outlineTemplates";
 import { booleanUnion, booleanSubtract, booleanIntersect } from "../../functions/booleanOps";
 import { validateOutlines } from "../../functions/outlineValidation";
 import { getOutlineArea, getOutlinePerimeter } from "../../functions/outlineValidation";
-import { handleSearchAddress as handleSearchAddressNominatim, reverseLookupAddress } from "../../functions/nominatim";
 import * as turf from "@turf/turf";
 import "./RenderPage.css"
 
@@ -78,38 +77,217 @@ function pointDistance(a, b) {
     return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 }
 
-function pointToLineDistance(point, lineStart, lineEnd) {
-    const x = point[0], y = point[1];
-    const x1 = lineStart[0], y1 = lineStart[1];
-    const x2 = lineEnd[0], y2 = lineEnd[1];
-
-    const A = x - x1;
-    const B = y - y1;
-    const C = x2 - x1;
-    const D = y2 - y1;
-
-    const dot = A * C + B * D;
-    const lenSq = C * C + D * D;
-    let param = -1;
-    if (lenSq !== 0) param = dot / lenSq;
-
-    let xx, yy;
-    if (param < 0) {
-        xx = x1; yy = y1;
-    } else if (param > 1) {
-        xx = x2; yy = y2;
-    } else {
-        xx = x1 + param * C;
-        yy = y1 + param * D;
-    }
-
-    const dx = x - xx;
-    const dy = y - yy;
-    return Math.sqrt(dx * dx + dy * dy);
-}
-
 function clonePoints(points) {
     return Array.isArray(points) ? points.map(point => Array.isArray(point) ? [...point] : point) : undefined;
+}
+
+function isLikelyGeoPoints(points) {
+    return Array.isArray(points)
+        && points.length >= 3
+        && points.every(point => (
+            Array.isArray(point)
+            && point.length >= 2
+            && Number.isFinite(Number(point[0]))
+            && Number.isFinite(Number(point[1]))
+            && Math.abs(Number(point[0])) <= 90
+            && Math.abs(Number(point[1])) <= 180
+        ))
+        && points.some(point => Number(point[0]) < 0 || Number(point[1]) < 0);
+}
+
+function getGeoCentroid(points) {
+    if (!Array.isArray(points) || !points.length) return null;
+    const total = points.reduce((acc, point) => ({
+        lat: acc.lat + Number(point[0]),
+        lng: acc.lng + Number(point[1]),
+    }), { lat: 0, lng: 0 });
+    return { lat: total.lat / points.length, lng: total.lng / points.length };
+}
+
+function closeLngLatRing(coords) {
+    if (!Array.isArray(coords) || coords.length < 3) return null;
+    const ring = coords.map(([lng, lat]) => [Number(lng), Number(lat)])
+        .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
+    if (ring.length < 3) return null;
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) ring.push([...first]);
+    return ring;
+}
+
+function outlineMetricBoxRing(outline) {
+    if (outline?.lat == null || outline?.lng == null || !outline?.widthMeters || !outline?.heightMeters) return null;
+    const lat = Number(outline.lat);
+    const lng = Number(outline.lng);
+    const halfW = Number(outline.widthMeters) / 2;
+    const halfH = Number(outline.heightMeters) / 2;
+    const cosLat = Math.max(Math.cos((lat * Math.PI) / 180), 0.000001);
+    const dLng = halfW / (111320 * cosLat);
+    const dLat = halfH / 111320;
+    return closeLngLatRing([
+        [lng - dLng, lat - dLat],
+        [lng + dLng, lat - dLat],
+        [lng + dLng, lat + dLat],
+        [lng - dLng, lat + dLat],
+    ]);
+}
+
+function outlineToLngLatRing(outline, projection) {
+    if (!outline) return null;
+    if (Array.isArray(outline.pointsGeo) && outline.pointsGeo.length >= 3) {
+        return closeLngLatRing(outline.pointsGeo.map(([lat, lng]) => [lng, lat]));
+    }
+    if (isLikelyGeoPoints(outline.points)) {
+        return closeLngLatRing(outline.points.map(([lat, lng]) => [lng, lat]));
+    }
+    const metricRing = outlineMetricBoxRing(outline);
+    if (metricRing) return metricRing;
+    if (projection && Array.isArray(outline.points) && outline.points.length >= 3) {
+        const originX = outline.x ?? 0;
+        const originY = outline.y ?? 0;
+        return closeLngLatRing(outline.points.map(([px, py]) => {
+            const p = projection.unproject(originX + px, originY + py);
+            return [p.lng, p.lat];
+        }));
+    }
+    if (projection && outline.x != null && outline.y != null && outline.width && outline.height) {
+        return closeLngLatRing([
+            projection.unproject(outline.x, outline.y),
+            projection.unproject(outline.x + outline.width, outline.y),
+            projection.unproject(outline.x + outline.width, outline.y + outline.height),
+            projection.unproject(outline.x, outline.y + outline.height),
+        ].map(point => [point.lng, point.lat]));
+    }
+    return null;
+}
+
+function polygonFeatureToOutline(feature, sourceOutline = {}) {
+    if (!feature?.geometry) return null;
+    let polygon = feature;
+    if (feature.geometry.type === "MultiPolygon") {
+        let largest = null;
+        let maxArea = 0;
+        feature.geometry.coordinates.forEach(coords => {
+            const candidate = turf.polygon(coords);
+            const area = turf.area(candidate);
+            if (area > maxArea) {
+                largest = candidate;
+                maxArea = area;
+            }
+        });
+        polygon = largest;
+    }
+    if (!polygon?.geometry || polygon.geometry.type !== "Polygon") return null;
+    const ring = polygon.geometry.coordinates?.[0];
+    if (!Array.isArray(ring) || ring.length < 4) return null;
+    const openRing = ring.slice(0, -1);
+    const points = openRing.map(([lng, lat]) => [lat, lng]);
+    const centroid = turf.centroid(polygon).geometry.coordinates;
+    const bbox = turf.bbox(polygon);
+    const centerLat = centroid[1];
+    const centerLng = centroid[0];
+    return {
+        type: "polygon",
+        outlineType: "polygon",
+        name: sourceOutline.name ? `${sourceOutline.name} Offset` : "Offset Outline",
+        points,
+        pointsGeo: clonePoints(points),
+        lat: centerLat,
+        lng: centerLng,
+        widthMeters: groundDistanceMeters(bbox[0], centerLat, bbox[2], centerLat),
+        heightMeters: groundDistanceMeters(centerLng, bbox[1], centerLng, bbox[3]),
+        fill: sourceOutline.fill || "#6366f1",
+        stroke: sourceOutline.stroke || "#00d4ff",
+        strokeWidth: sourceOutline.strokeWidth || 2,
+        opacity: sourceOutline.opacity ?? 1,
+        level: sourceOutline.level || 1,
+    };
+}
+
+function getScreenPointBounds(points) {
+    const xs = points.map(point => point.x);
+    const ys = points.map(point => point.y);
+    return {
+        minX: Math.min(...xs),
+        minY: Math.min(...ys),
+        maxX: Math.max(...xs),
+        maxY: Math.max(...ys),
+    };
+}
+
+function outlineToScreenPoints(outline, projection) {
+    if (!outline || !projection) return [];
+    const geoPoints = Array.isArray(outline.pointsGeo) && outline.pointsGeo.length >= 3
+        ? outline.pointsGeo
+        : (isLikelyGeoPoints(outline.points) ? outline.points : null);
+
+    if (geoPoints) {
+        return geoPoints.map(([lat, lng]) => {
+            const point = projection.project(lng, lat);
+            return { x: point.x, y: point.y };
+        });
+    }
+
+    if (Array.isArray(outline.points) && outline.points.length >= 3) {
+        const originX = outline.x ?? 0;
+        const originY = outline.y ?? 0;
+        return outline.points.map(([x, y]) => ({ x: originX + x, y: originY + y }));
+    }
+
+    return [];
+}
+
+function outlineFromScreenPoints(outline, screenPoints, projection) {
+    if (!outline || !projection || !Array.isArray(screenPoints) || screenPoints.length < 3) return outline;
+    const pointsGeo = screenPoints.map(point => {
+        const geo = projection.unproject(point.x, point.y);
+        return [geo.lat, geo.lng];
+    });
+    const bounds = getScreenPointBounds(screenPoints);
+    const width = Math.max(bounds.maxX - bounds.minX, 1);
+    const height = Math.max(bounds.maxY - bounds.minY, 1);
+    const center = projection.unproject(bounds.minX + width / 2, bounds.minY + height / 2);
+    const left = projection.unproject(bounds.minX, bounds.minY + height / 2);
+    const right = projection.unproject(bounds.maxX, bounds.minY + height / 2);
+    const top = projection.unproject(bounds.minX + width / 2, bounds.minY);
+    const bottom = projection.unproject(bounds.minX + width / 2, bounds.maxY);
+
+    const next = {
+        ...outline,
+        type: "polygon",
+        outlineType: "polygon",
+        points: pointsGeo,
+        pointsGeo: clonePoints(pointsGeo),
+        lat: center.lat,
+        lng: center.lng,
+        widthMeters: groundDistanceMeters(left.lng, left.lat, right.lng, right.lat),
+        heightMeters: groundDistanceMeters(top.lng, top.lat, bottom.lng, bottom.lat),
+    };
+    delete next.x;
+    delete next.y;
+    delete next.width;
+    delete next.height;
+    return next;
+}
+
+function offsetPointToward(from, to, distance) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.hypot(dx, dy);
+    if (!len) return { ...from };
+    const d = Math.min(distance, len / 2);
+    return {
+        x: from.x + (dx / len) * d,
+        y: from.y + (dy / len) * d,
+    };
+}
+
+function quadraticPoint(a, control, b, t) {
+    const mt = 1 - t;
+    return {
+        x: mt * mt * a.x + 2 * mt * t * control.x + t * t * b.x,
+        y: mt * mt * a.y + 2 * mt * t * control.y + t * t * b.y,
+    };
 }
 
 function isSectionRoom(item) {
@@ -393,12 +571,10 @@ export default function RenderPage() {
     const [mapLayer, setMapLayer] = useState("satellite");
     const [mapDistance, setMapDistance] = useState(200);
     const [showOffset, setShowOffset] = useState(false);
+    const [offsetDistance, setOffsetDistance] = useState(1);
     const [vertexMode, setVertexMode] = useState(false);
     const [selectedVertexIndex, setSelectedVertexIndex] = useState(-1);
     const [validationResults, setValidationResults] = useState({ isValid: true, warnings: [], measurements: [] });
-    const [searchResults, setSearchResults] = useState([]);
-    const [isSearching, setIsSearching] = useState(false);
-    const [pendingGeocode, setPendingGeocode] = useState(null);
     const [sectionWarnings, setSectionWarnings] = useState([]);
     const mapRef = useRef(null);
     const [mapVersion, setMapVersion] = useState(0);
@@ -426,24 +602,23 @@ export default function RenderPage() {
     const selectedCount = multiSelectIds.length > 0 ? multiSelectIds.length : (selectedShapeId ? 1 : 0);
 
     const handleCanvasSelect = useCallback((id, ctrlKey) => {
+        setSelectedVertexIndex(-1);
         if (ctrlKey) {
-            setMultiSelectIds(prev =>
-                prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-            );
+            setMultiSelectIds(prev => {
+                const base = prev.length > 0 ? prev : (selectedShapeId && selectedShapeId !== id ? [selectedShapeId] : []);
+                return base.includes(id) ? base.filter(x => x !== id) : [...base, id];
+            });
             setSelectedShapeId(prev => prev === id ? null : id);
         } else {
             setMultiSelectIds([]);
             setSelectedShapeId(id);
         }
-    }, []);
-
-    const handleMultiSelectClear = useCallback(() => {
-        setMultiSelectIds([]);
-    }, []);
+    }, [selectedShapeId]);
 
     const handleBooleanOp = useCallback((opType) => {
         if (multiSelectIds.length < 2) return;
-        const outlinesA = outlines.filter(o => multiSelectIds.includes(o.id));
+        const outlinesById = new Map(outlines.map(o => [o.id, o]));
+        const outlinesA = multiSelectIds.map(id => outlinesById.get(id)).filter(Boolean);
         if (outlinesA.length < 2) return;
         let result = outlinesA[0];
         for (let i = 1; i < outlinesA.length; i++) {
@@ -454,7 +629,14 @@ export default function RenderPage() {
         }
         if (result) {
             const newId = `shape-${Date.now()}`;
+            const resultNames = {
+                union: "Union Outline",
+                subtract: "Subtracted Outline",
+                intersect: "Intersected Outline",
+            };
             result.id = newId;
+            result.name = result.name || resultNames[opType] || "Combined Outline";
+            result.level = result.level || outlinesA[0]?.level || 1;
             setOutlines(prev => [...prev.filter(o => !multiSelectIds.includes(o.id)), result]);
             setMultiSelectIds([]);
             setSelectedShapeId(newId);
@@ -462,17 +644,58 @@ export default function RenderPage() {
     }, [multiSelectIds, outlines, setOutlines]);
 
     const handleToggleVertexMode = useCallback(() => {
-        setVertexMode(prev => !prev);
-        if (!vertexMode) {
+        setVertexMode(prev => {
+            const next = !prev;
             setSelectedVertexIndex(-1);
-        }
-    }, [vertexMode]);
+            return next;
+        });
+    }, []);
 
     const addShape = useCallback((shapeData) => {
         const id = `shape-${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
         if (stage === "outline" && mapRef.current) {
+            const pointsGeo = Array.isArray(shapeData.pointsGeo)
+                ? clonePoints(shapeData.pointsGeo)
+                : (isLikelyGeoPoints(shapeData.points) ? clonePoints(shapeData.points) : null);
+            if (pointsGeo?.length) {
+                const centroid = getGeoCentroid(pointsGeo);
+                const newItem = {
+                    ...shapeData,
+                    id,
+                    type: shapeData.type || "polygon",
+                    outlineType: shapeData.outlineType || shapeData.type || "polygon",
+                    points: pointsGeo,
+                    pointsGeo,
+                    lat: shapeData.lat ?? centroid?.lat,
+                    lng: shapeData.lng ?? centroid?.lng,
+                    fill: shapeData.fill || "#6366f1",
+                    stroke: shapeData.stroke || "#00d4ff",
+                    strokeWidth: shapeData.strokeWidth || 2,
+                };
+                delete newItem.x; delete newItem.y; delete newItem.width; delete newItem.height; delete newItem.radius;
+                setOutlines(prev => [...prev, newItem]);
+                setSelectedShapeId(id);
+                return;
+            }
+
+            if (shapeData.lat != null && shapeData.lng != null) {
+                const newItem = {
+                    ...shapeData,
+                    id,
+                    fill: shapeData.fill || "#6366f1",
+                    stroke: shapeData.stroke || "#00d4ff",
+                    strokeWidth: shapeData.strokeWidth || 2,
+                };
+                delete newItem.x; delete newItem.y; delete newItem.width; delete newItem.height; delete newItem.radius;
+                setOutlines(prev => [...prev, newItem]);
+                setSelectedShapeId(id);
+                return;
+            }
+
+            const anchorX = shapeData.x ?? 300;
+            const anchorY = shapeData.y ?? 200;
             const dims = getShapePixelDimensions(shapeData);
-            const geo = screenToGeo(shapeData.x ?? 300, shapeData.y ?? 200, dims.width, dims.height);
+            const geo = screenToGeo(anchorX, anchorY, dims.width, dims.height);
             if (geo) {
                 const newItem = {
                     ...shapeData, id,
@@ -485,9 +708,10 @@ export default function RenderPage() {
                 if (Array.isArray(shapeData.points)) {
                     const proj = makeProjection(mapRef.current);
                     newItem.points = shapeData.points.map(([nx, ny]) => {
-                        const p = proj.unproject((shapeData.x ?? 0) + nx, (shapeData.y ?? 0) + ny);
+                        const p = proj.unproject(anchorX + nx, anchorY + ny);
                         return [p.lat, p.lng];
                     });
+                    newItem.pointsGeo = clonePoints(newItem.points);
                 }
                 setOutlines(prev => [...prev, newItem]);
                 setSelectedShapeId(id);
@@ -511,98 +735,122 @@ export default function RenderPage() {
         }
     }, [setStagedItems, stage, setOutlines]);
 
-    const handleAddVertex = useCallback((point) => {
+    const commitScreenPointsForOutline = useCallback((outline, screenPoints) => {
+        const proj = makeProjection(mapRef.current);
+        if (!outline || !proj) return;
+        updateShape(outlineFromScreenPoints(outline, screenPoints, proj));
+    }, [updateShape]);
+
+    const handleMoveVertex = useCallback((index, point) => {
+        if (!selectedShapeId || !point) return;
+        const outline = outlines.find(o => o.id === selectedShapeId);
+        const proj = makeProjection(mapRef.current);
+        if (!outline || !proj) return;
+        const points = outlineToScreenPoints(outline, proj);
+        if (index < 0 || index >= points.length) return;
+        points[index] = { x: point.x, y: point.y };
+        updateShape(outlineFromScreenPoints(outline, points, proj));
+    }, [selectedShapeId, outlines, updateShape]);
+
+    const handleAddVertex = useCallback(() => {
         if (!selectedShapeId) return;
         const outline = outlines.find(o => o.id === selectedShapeId);
-        if (!outline || !Array.isArray(outline.points) || outline.points.length < 3) return;
+        const proj = makeProjection(mapRef.current);
+        if (!outline || !proj) return;
+        const points = outlineToScreenPoints(outline, proj);
+        if (points.length < 3) return;
 
-        let minDist = Infinity;
-        let insertIndex = -1;
-
-        for (let i = 0; i < outline.points.length; i++) {
-            const p1 = outline.points[i];
-            const p2 = outline.points[(i + 1) % outline.points.length];
-            const dist = pointToLineDistance(point, p1, p2);
-            if (dist < minDist && dist < 15) {
-                minDist = dist;
-                insertIndex = i + 1;
+        let edgeIndex = selectedVertexIndex >= 0 ? selectedVertexIndex : 0;
+        if (selectedVertexIndex < 0) {
+            let longest = -1;
+            for (let i = 0; i < points.length; i++) {
+                const a = points[i];
+                const b = points[(i + 1) % points.length];
+                const length = Math.hypot(b.x - a.x, b.y - a.y);
+                if (length > longest) {
+                    longest = length;
+                    edgeIndex = i;
+                }
             }
         }
 
-        if (insertIndex >= 0) {
-            const newPoints = [...outline.points];
-            newPoints.splice(insertIndex, 0, point);
-            updateShape({ ...outline, points: newPoints });
-        }
-    }, [selectedShapeId, outlines, updateShape]);
+        const a = points[edgeIndex];
+        const b = points[(edgeIndex + 1) % points.length];
+        const midpoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const nextPoints = [...points];
+        const insertIndex = edgeIndex + 1;
+        nextPoints.splice(insertIndex, 0, midpoint);
+        commitScreenPointsForOutline(outline, nextPoints);
+        setSelectedVertexIndex(insertIndex);
+    }, [selectedShapeId, selectedVertexIndex, outlines, commitScreenPointsForOutline]);
 
     const handleRemoveVertex = useCallback(() => {
         if (!selectedShapeId || selectedVertexIndex < 0) return;
         const outline = outlines.find(o => o.id === selectedShapeId);
-        if (!outline || !Array.isArray(outline.points) || outline.points.length <= 3) return;
+        const proj = makeProjection(mapRef.current);
+        if (!outline || !proj) return;
+        const points = outlineToScreenPoints(outline, proj);
+        if (points.length <= 3) return;
 
-        const newPoints = outline.points.filter((_, i) => i !== selectedVertexIndex);
-        updateShape({ ...outline, points: newPoints });
-        setSelectedVertexIndex(-1);
-    }, [selectedShapeId, selectedVertexIndex, outlines, updateShape]);
+        const nextPoints = points.filter((_, i) => i !== selectedVertexIndex);
+        commitScreenPointsForOutline(outline, nextPoints);
+        setSelectedVertexIndex(Math.min(selectedVertexIndex, nextPoints.length - 1));
+    }, [selectedShapeId, selectedVertexIndex, outlines, commitScreenPointsForOutline]);
 
     const handleChamfer = useCallback(() => {
         if (!selectedShapeId || selectedVertexIndex < 0) return;
         const outline = outlines.find(o => o.id === selectedShapeId);
-        if (!outline || !Array.isArray(outline.points) || outline.points.length < 3) return;
+        const proj = makeProjection(mapRef.current);
+        if (!outline || !proj) return;
+        const points = outlineToScreenPoints(outline, proj);
+        if (points.length < 3) return;
 
-        const chamferDist = 10;
-        const points = [...outline.points];
         const idx = selectedVertexIndex;
         const prevIdx = (idx - 1 + points.length) % points.length;
         const nextIdx = (idx + 1) % points.length;
-
         const v = points[idx];
         const vPrev = points[prevIdx];
         const vNext = points[nextIdx];
+        const len1 = Math.hypot(v.x - vPrev.x, v.y - vPrev.y);
+        const len2 = Math.hypot(vNext.x - v.x, vNext.y - v.y);
+        if (!len1 || !len2) return;
 
-        const dir1 = [v[0] - vPrev[0], v[1] - vPrev[1]];
-        const dir2 = [vNext[0] - v[0], vNext[1] - v[1]];
-        const len1 = Math.hypot(dir1[0], dir1[1]);
-        const len2 = Math.hypot(dir2[0], dir2[1]);
-        if (len1 === 0 || len2 === 0) return;
-
-        const chamfer1 = [v[0] - (dir1[0] / len1) * chamferDist, v[1] - (dir1[1] / len1) * chamferDist];
-        const chamfer2 = [v[0] + (dir2[0] / len2) * chamferDist, v[1] + (dir2[1] / len2) * chamferDist];
-
-        points.splice(idx, 1, chamfer1, chamfer2);
-        updateShape({ ...outline, points });
+        const distance = Math.max(6, Math.min(18, len1 / 3, len2 / 3));
+        const chamfer1 = offsetPointToward(v, vPrev, distance);
+        const chamfer2 = offsetPointToward(v, vNext, distance);
+        const nextPoints = [...points];
+        nextPoints.splice(idx, 1, chamfer1, chamfer2);
+        commitScreenPointsForOutline(outline, nextPoints);
         setSelectedVertexIndex(idx + 1);
-    }, [selectedShapeId, selectedVertexIndex, outlines, updateShape]);
+    }, [selectedShapeId, selectedVertexIndex, outlines, commitScreenPointsForOutline]);
 
     const handleFillet = useCallback(() => {
         if (!selectedShapeId || selectedVertexIndex < 0) return;
         const outline = outlines.find(o => o.id === selectedShapeId);
-        if (!outline || !Array.isArray(outline.points) || outline.points.length < 3) return;
+        const proj = makeProjection(mapRef.current);
+        if (!outline || !proj) return;
+        const points = outlineToScreenPoints(outline, proj);
+        if (points.length < 3) return;
 
-        const filletDist = 10;
-        const points = [...outline.points];
         const idx = selectedVertexIndex;
         const prevIdx = (idx - 1 + points.length) % points.length;
         const nextIdx = (idx + 1) % points.length;
-
         const v = points[idx];
         const vPrev = points[prevIdx];
         const vNext = points[nextIdx];
+        const len1 = Math.hypot(v.x - vPrev.x, v.y - vPrev.y);
+        const len2 = Math.hypot(vNext.x - v.x, vNext.y - v.y);
+        if (!len1 || !len2) return;
 
-        const dir1 = [v[0] - vPrev[0], v[1] - vPrev[1]];
-        const dir2 = [vNext[0] - v[0], vNext[1] - v[1]];
-        const len1 = Math.hypot(dir1[0], dir1[1]);
-        const len2 = Math.hypot(dir2[0], dir2[1]);
-        if (len1 === 0 || len2 === 0) return;
-
-        const p1 = [v[0] - (dir1[0] / len1) * filletDist, v[1] - (dir1[1] / len1) * filletDist];
-        const p2 = [v[0] + (dir2[0] / len2) * filletDist, v[1] + (dir2[1] / len2) * filletDist];
-
-        points.splice(idx, 1, v, p1, p2);
-        updateShape({ ...outline, points });
-        setSelectedVertexIndex(idx + 2);
-    }, [selectedShapeId, selectedVertexIndex, outlines, updateShape]);
+        const distance = Math.max(8, Math.min(24, len1 / 3, len2 / 3));
+        const start = offsetPointToward(v, vPrev, distance);
+        const end = offsetPointToward(v, vNext, distance);
+        const curve = [0, 0.25, 0.5, 0.75, 1].map(t => quadraticPoint(start, v, end, t));
+        const nextPoints = [...points];
+        nextPoints.splice(idx, 1, ...curve);
+        commitScreenPointsForOutline(outline, nextPoints);
+        setSelectedVertexIndex(idx + Math.floor(curve.length / 2));
+    }, [selectedShapeId, selectedVertexIndex, outlines, commitScreenPointsForOutline]);
 
     const onBooleanOp = handleBooleanOp;
 
@@ -610,78 +858,70 @@ export default function RenderPage() {
         setShowOffset(prev => !prev);
     }, []);
 
-    const handleOffset = useCallback((distanceMeters) => {
-        if (!selectedShapeId || !mapRef.current) return;
-        const outline = outlines.find(o => o.id === selectedShapeId);
-        if (!outline) return;
-
+    const createOffsetOutline = useCallback((outline, distanceMeters) => {
+        if (!outline || !mapRef.current) return null;
         const proj = makeProjection(mapRef.current);
-        if (!proj) return;
+        if (!proj) return null;
+        const distance = Math.max(-100, Math.min(100, Number(distanceMeters) || 0));
+        if (!distance) return null;
 
         try {
-            let points = [];
-            if (Array.isArray(outline.points)) {
-                points = outline.points.map(([nx, ny]) => proj.project(
-                    proj.unproject(nx, ny).lng,
-                    proj.unproject(nx, ny).lat
-                ).then(p => [p.x, p.y])); // This won't work directly, need different approach
-            } else if (outline.lat != null && outline.lng != null && outline.widthMeters && outline.heightMeters) {
-                const center = proj.project(outline.lng, outline.lat);
-                const halfW = proj.metersToPxX(outline.widthMeters / 2, outline.lng, outline.lat);
-                const halfH = proj.metersToPxY(outline.heightMeters / 2, outline.lng, outline.lat);
-                points = [
-                    [center.x - halfW, center.y - halfH],
-                    [center.x + halfW, center.y - halfH],
-                    [center.x + halfW, center.y + halfH],
-                    [center.x - halfW, center.y + halfH],
-                    [center.x - halfW, center.y - halfH]
-                ];
-            }
-
-            if (points.length >= 4) {
-                const polygon = turf.polygon([points]);
-                const buffered = turf.buffer(polygon, distanceMeters, { units: 'meters' });
-                const coords = buffered.geometry.coordinates[0];
-                const screenPoints = coords.map(([x, y]) => {
-                    const ll = proj.unproject(x, y);
-                    return [ll.lat, ll.lng];
-                });
-                const newOutline = {
-                    type: "polygon",
-                    points: screenPoints.map(([lat, lng]) => {
-                        const p = proj.project(lng, lat);
-                        return [p.x - coords[0][0], p.y - coords[0][1]];
-                    }),
-                    lat: screenPoints[0][0],
-                    lng: screenPoints[0][1],
-                };
-                addShape(newOutline);
-            }
+            const ring = outlineToLngLatRing(outline, proj);
+            if (!ring) return null;
+            const polygon = turf.polygon([ring]);
+            const buffered = turf.buffer(polygon, distance, { units: "meters" });
+            return polygonFeatureToOutline(buffered, outline);
         } catch (e) {
             console.error("Offset failed:", e);
+            return null;
         }
-    }, [selectedShapeId, outlines, addShape, mapRef]);
+    }, [mapRef]);
 
-    const handlePendingPlacement = useCallback((placement) => {
-        if (placement?.type === "template") {
-            const { templateId, active } = placement;
-            if (!active) return;
-            try {
-                const template = generateTemplate(templateId);
-                const shapeData = {
-                    type: "polygon",
-                    points: template.points,
-                    fill: "#6366f1",
-                    stroke: "#00d4ff",
-                    strokeWidth: 2,
-                };
-                addShape(shapeData);
-                setPendingPlacement(null);
-            } catch (e) {
-                console.error("Template placement failed:", e);
-            }
+    const handleOffset = useCallback((distanceMeters) => {
+        if (!selectedShapeId) return;
+        const outline = outlines.find(o => o.id === selectedShapeId);
+        const newOutline = createOffsetOutline(outline, distanceMeters);
+        if (newOutline) addShape(newOutline);
+    }, [selectedShapeId, outlines, createOffsetOutline, addShape]);
+
+    const getDefaultPlacementPoint = useCallback(() => {
+        const canvas = mapRef.current?.getCanvas?.();
+        return {
+            x: (canvas?.clientWidth || canvas?.width || 800) / 2,
+            y: (canvas?.clientHeight || canvas?.height || 600) / 2,
+        };
+    }, []);
+
+    const createTemplateShapeData = useCallback((templateId, point = null) => {
+        const template = generateTemplate(templateId);
+        const anchorCenter = point || getDefaultPlacementPoint();
+        const proj = makeProjection(mapRef.current);
+        let pxPerMeterX = 4;
+        let pxPerMeterY = 4;
+
+        if (proj) {
+            const centerGeo = proj.unproject(anchorCenter.x, anchorCenter.y);
+            const scale = proj.meterScaleAt(centerGeo.lng, centerGeo.lat);
+            pxPerMeterX = scale.pixelsPerMeterX;
+            pxPerMeterY = scale.pixelsPerMeterY;
         }
-    }, [addShape]);
+
+        const width = Math.max(template.width * pxPerMeterX, 8);
+        const height = Math.max(template.height * pxPerMeterY, 8);
+        return {
+            type: "polygon",
+            outlineType: "polygon",
+            name: template.name,
+            x: anchorCenter.x - width / 2,
+            y: anchorCenter.y - height / 2,
+            width,
+            height,
+            points: template.points.map(([mx, my]) => [mx * pxPerMeterX, my * pxPerMeterY]),
+            fill: "#6366f1",
+            stroke: "#00d4ff",
+            strokeWidth: 2,
+        };
+    }, [getDefaultPlacementPoint]);
 
     useEffect(() => {
         if (stage !== "sections") return;
@@ -795,10 +1035,6 @@ export default function RenderPage() {
     }, [stage, hasRooms, outlines.length]);
 
     useEffect(() => {
-        handlePendingPlacement(pendingPlacement);
-    }, [pendingPlacement, handlePendingPlacement]);
-
-    useEffect(() => {
         if (stage !== "outline" || !outlines.length) return;
         const timer = setTimeout(() => {
             const results = validateOutlines(outlines, { minArea: 1, checkOverlaps: true });
@@ -806,59 +1042,6 @@ export default function RenderPage() {
         }, 300);
         return () => clearTimeout(timer);
     }, [outlines, stage]);
-
-    const handleSearchAddress = useCallback(async (query) => {
-        if (!query || query.length < 3) return;
-        setIsSearching(true);
-        try {
-            const results = await handleSearchAddressNominatim(query);
-            setSearchResults(results || []);
-        } catch (err) {
-            setSearchResults([]);
-        } finally {
-            setIsSearching(false);
-        }
-    }, []);
-
-    const handleSelectResult = useCallback((result) => {
-        if (!result || !mapRef.current) return;
-        mapRef.current.flyTo({ center: [result.lng, result.lat], zoom: 17 });
-        setPendingGeocode(result);
-        setSearchResults([]);
-    }, []);
-
-    const handlePlaceAtCursor = useCallback(() => {
-        if (!pendingGeocode || !mapRef.current) return;
-        const { lat, lng } = pendingGeocode;
-        addShape({
-            type: "rectangle",
-            lat, lng,
-            widthMeters: 10, heightMeters: 10,
-            fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2,
-        });
-        setPendingGeocode(null);
-    }, [pendingGeocode, addShape]);
-
-    const handleReverseGeocode = useCallback(async (screenPoint) => {
-        if (!mapRef.current) return;
-        const proj = makeProjection(mapRef.current);
-        if (!proj) return;
-        const ll = proj.unproject(screenPoint.x, screenPoint.y);
-        try {
-            const result = await reverseLookupAddress(ll.lng, ll.lat);
-            if (result) {
-                addShape({
-                    type: "rectangle",
-                    lat: result.lat,
-                    lng: result.lng,
-                    widthMeters: 10, heightMeters: 10,
-                    fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2,
-                });
-            }
-        } catch (err) {
-            console.error("Reverse geocode failed:", err);
-        }
-    }, [addShape]);
 
     const handleSectionValidation = useCallback(() => {
         if (stage !== "sections") return;
@@ -968,9 +1151,14 @@ export default function RenderPage() {
             ? outlines.find(o => o.id === selectedShapeId) || null
             : stagedItems[selectedShapeId] || null)
         : null;
+    const offsetPreviewShape = useMemo(() => {
+        if (stage !== "outline" || !showOffset || !selectedShape || multiSelectIds.length > 1) return null;
+        return createOffsetOutline(selectedShape, offsetDistance);
+    }, [stage, showOffset, selectedShape, multiSelectIds.length, offsetDistance, createOffsetOutline]);
 
     const handleGridSelect = useCallback(() => {
         setSelectedShapeId(null);
+        setSelectedVertexIndex(-1);
     }, []);
 
     function selectTool(toolName) {
@@ -1299,7 +1487,6 @@ export default function RenderPage() {
                     onSelectCatalogItem={startObjectPlacement}
                     selectedCount={selectedCount}
                     onBooleanOp={onBooleanOp}
-                    onShowOffset={onShowOffset}
                     outlines={outlines}
                     onLoadTemplate={(template) => {
                         if (template.outlines) {
@@ -1311,12 +1498,14 @@ export default function RenderPage() {
                     onLoadBuiltin={(templateId) => {
                         try {
                             const template = generateTemplate(templateId);
-                            addShape({
-                                type: "polygon",
-                                points: template.points,
-                                fill: "#6366f1",
-                                stroke: "#00d4ff",
-                                strokeWidth: 2,
+                            setTool(null);
+                            setSelectedShapeId(null);
+                            setMultiSelectIds([]);
+                            setPendingPlacement({
+                                type: "template",
+                                templateId,
+                                template,
+                                active: true,
                             });
                         } catch (e) {
                             console.error("Builtin template load failed:", e);
@@ -1327,11 +1516,6 @@ export default function RenderPage() {
                             setTimeout(() => addShape({ ...shapeData }), i * 50);
                         });
                     }}
-                    onSearchAddress={handleSearchAddress}
-                    searchResults={searchResults}
-                    onSelectResult={handleSelectResult}
-                    onPlaceAtCursor={handlePlaceAtCursor}
-                    isSearching={isSearching}
                 />
                 <PropertiesPanel
                     stage={stage}
@@ -1431,8 +1615,12 @@ export default function RenderPage() {
                     deleteShape={deleteShape}
                     duplicateShape={duplicateShape}
                     showOffset={showOffset}
+                    onToggleOffset={onShowOffset}
                     onOffset={handleOffset}
+                    offsetDistance={offsetDistance}
+                    onOffsetDistanceChange={setOffsetDistance}
                     vertexMode={vertexMode}
+                    selectedVertexIndex={selectedVertexIndex}
                     onToggleVertexMode={handleToggleVertexMode}
                     onAddVertex={handleAddVertex}
                     onRemoveVertex={handleRemoveVertex}
@@ -1487,7 +1675,14 @@ export default function RenderPage() {
                         toolActive={!!tool || !!pendingPlacement}
                         pendingPlacement={pendingPlacement}
                         setPendingPlacement={setPendingPlacement}
+                        multiSelectIds={multiSelectIds}
+                        vertexMode={vertexMode}
+                        selectedVertexIndex={selectedVertexIndex}
+                        onSelectVertex={setSelectedVertexIndex}
+                        onMoveVertex={handleMoveVertex}
+                        offsetPreviewShape={offsetPreviewShape}
                         onPlaceShape={addShape}
+                        onPlaceTemplate={(templateId, point) => addShape(createTemplateShapeData(templateId, point))}
                         onSplitRoom={splitRoom}
                         onCombineByDivider={combineByDivider}
                         onMoveDividerLine={moveDividerLine}

@@ -46,16 +46,18 @@ const BUILTIN_TEMPLATES = [
         icon: "⊤",
         description: "T-shaped building footprint",
         generate: (params = {}) => {
-            const { width = 20, height = 20, stemWidth = 8, stemHeight = 12 } = params;
+            const { width = 20, height = 20, stemWidth = 8, barDepth = 6 } = params;
             const stemStart = (width - stemWidth) / 2;
+            const stemEnd = stemStart + stemWidth;
             const points = [
                 [0, 0],
                 [width, 0],
-                [width, stemHeight],
-                [stemStart + stemWidth, stemHeight],
-                [stemStart + stemWidth, height],
+                [width, barDepth],
+                [stemEnd, barDepth],
+                [stemEnd, height],
                 [stemStart, height],
-                [stemStart, stemHeight]
+                [stemStart, barDepth],
+                [0, barDepth]
             ];
             return { points, width, height };
         }

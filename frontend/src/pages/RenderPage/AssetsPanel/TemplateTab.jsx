@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BUILTIN_TEMPLATES } from "../../../functions/outlineTemplates";
 import { exportGeoJSON, exportSVG, exportPDF, parseGeoJSON, parseDXF } from "../../../functions/outlineExport";
 
 export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, onImport }) {
     const [savedTemplates, setSavedTemplates] = useState([]);
     const [importError, setImportError] = useState(null);
-    const [saveName, setSaveName] = useState("");
+    const geoJsonInputRef = useRef(null);
+    const dxfInputRef = useRef(null);
 
-    const loadSavedTemplates = () => {
+    const loadSavedTemplates = useCallback(() => {
         try {
             const stored = localStorage.getItem("render_templates");
             if (stored) {
@@ -19,14 +20,18 @@ export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, o
         } catch (e) {
             console.error("Failed to load templates:", e);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadSavedTemplates();
+    }, [loadSavedTemplates]);
 
     const saveTemplate = () => {
         if (!outlines || outlines.length === 0) {
             alert("No outlines to save");
             return;
         }
-        const name = window.prompt("Enter template name:", saveName || "My Template");
+        const name = window.prompt("Enter template name:", "Building Template");
         if (!name) return;
 
         const template = {
@@ -127,22 +132,28 @@ export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, o
     return (
         <li className="menu-item-container">
             <div className="menu-tools-section">
-                <h4>My Templates</h4>
-                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    <button className="tb-btn" onClick={saveTemplate} title="Save current outlines as template">⊞ Save</button>
+                <h4>Templates</h4>
+                <div className="panel-action-row">
+                    <button className="panel-btn" onClick={saveTemplate} title="Save current outlines as template">⊞ Save Current</button>
                 </div>
                 <ul className="tool-list">
                     {savedTemplates.length === 0 ? (
-                        <li className="tool-item" style={{ color: "var(--text-dim)", justifyContent: "center" }}>
+                        <li className="tool-item tool-item-muted">
                             <span>No saved templates yet</span>
                         </li>
                     ) : (
                         savedTemplates.map(template => (
-                            <li key={template.id} className="tool-item" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                <span onClick={() => onLoadTemplate?.(template)} style={{ cursor: "pointer", flex: 1 }}>
+                            <li key={template.id} className="tool-item template-list-item" onClick={() => onLoadTemplate?.(template)}>
+                                <span className="template-list-name">
                                     {template.name} <span style={{ color: "var(--text-dim)", fontSize: 11 }}>({template.outlines.length} outlines)</span>
                                 </span>
-                                <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10 }} onClick={() => deleteTemplate(template.id)} title="Delete">✕</button>
+                                <button
+                                    className="panel-icon-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteTemplate(template.id);
+                                    }}
+                                    title="Delete">✕</button>
                             </li>
                         ))
                     )}
@@ -151,27 +162,29 @@ export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, o
 
             <div className="menu-tools-section" style={{ marginTop: 12 }}>
                 <h4>Import</h4>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-                        <input type="file" accept=".geojson,.json" style={{ display: "none" }} onChange={e => e.target.files[0] && handleFileImport(e.target.files[0], parseGeoJSON)} />
-                        <button className="tb-btn" onClick={e => e.target.previousElementSibling.click()}>GeoJSON</button>
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-                        <input type="file" accept=".dxf" style={{ display: "none" }} onChange={e => e.target.files[0] && handleFileImport(e.target.files[0], parseDXF)} />
-                        <button className="tb-btn" onClick={e => e.target.previousElementSibling.click()}>DXF</button>
-                    </label>
-                    <button className="tb-btn" onClick={handlePaste}>Paste</button>
+                <input ref={geoJsonInputRef} type="file" accept=".geojson,.json" style={{ display: "none" }} onChange={e => {
+                    if (e.target.files[0]) handleFileImport(e.target.files[0], parseGeoJSON);
+                    e.target.value = "";
+                }} />
+                <input ref={dxfInputRef} type="file" accept=".dxf" style={{ display: "none" }} onChange={e => {
+                    if (e.target.files[0]) handleFileImport(e.target.files[0], parseDXF);
+                    e.target.value = "";
+                }} />
+                <div className="panel-action-row">
+                    <button className="panel-btn" onClick={() => geoJsonInputRef.current?.click()}>GeoJSON</button>
+                    <button className="panel-btn" onClick={() => dxfInputRef.current?.click()}>DXF</button>
+                    <button className="panel-btn" onClick={handlePaste}>Paste</button>
                 </div>
                 {importError && <p style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>{importError}</p>}
             </div>
 
             <div className="menu-tools-section" style={{ marginTop: 12 }}>
                 <h4>Export</h4>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    <button className="tb-btn" onClick={() => handleExport("geojson")}>GeoJSON</button>
-                    <button className="tb-btn" onClick={() => handleExport("svg")}>SVG</button>
-                    <button className="tb-btn" onClick={() => handleExport("pdf")}>PDF</button>
-                    <button className="tb-btn" onClick={() => handleExport("copy")}>Copy</button>
+                <div className="panel-action-row">
+                    <button className="panel-btn" onClick={() => handleExport("geojson")}>GeoJSON</button>
+                    <button className="panel-btn" onClick={() => handleExport("svg")}>SVG</button>
+                    <button className="panel-btn" onClick={() => handleExport("pdf")}>PDF</button>
+                    <button className="panel-btn" onClick={() => handleExport("copy")}>Copy</button>
                 </div>
             </div>
 

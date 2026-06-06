@@ -1,5 +1,3 @@
-import { BUILTIN_TEMPLATES } from "../../../functions/outlineTemplates";
-
 const PRIMITIVE_ITEMS = [
     { type: "polygon", label: "Polygon", icon: "✎" },
     { type: "rectangle", label: "Rectangle", icon: "▭" },
@@ -10,14 +8,13 @@ const PRIMITIVE_ITEMS = [
     { type: "octagon", label: "Octagon", icon: "⯃", sides: 8 },
 ];
 
-const CONFIGURE_TOOLS = [
+const OUTLINE_TOOLS = [
     { type: "union", label: "Union", icon: "⊕", desc: "Merge selected outlines" },
     { type: "subtract", label: "Subtract", icon: "⊖", desc: "Subtract outlines" },
     { type: "intersect", label: "Intersect", icon: "⊗", desc: "Intersect outlines" },
-    { type: "offset", label: "Offset", icon: "⊞", desc: "Expand/contract outline" },
 ];
 
-export default function ShapesTab({ setPendingPlacement, activeTool, selectedCount = 0, onBooleanOp, onShowOffset }) {
+export default function ShapesTab({ setPendingPlacement, activeTool, selectedCount = 0, onBooleanOp }) {
     const handleAdd = (item) => {
         if (item.type === "polygon") {
             setPendingPlacement({ type: "polygon", active: true });
@@ -26,19 +23,11 @@ export default function ShapesTab({ setPendingPlacement, activeTool, selectedCou
         }
     };
 
-    const handleTemplate = (template) => {
-        setPendingPlacement({ type: "template", templateId: template.id, active: true });
-    };
+    const handleConfigure = (toolType) => onBooleanOp?.(toolType);
 
-    const handleConfigure = (toolType) => {
-        if (toolType === "offset") {
-            onShowOffset?.();
-        } else {
-            onBooleanOp?.(toolType);
-        }
+    const getToolDisabledReason = (toolType) => {
+        return selectedCount < 2 ? "Select 2+ outlines first" : "";
     };
-
-    const isConfigureDisabled = selectedCount < 2;
 
     return (
         <li className="menu-item-container">
@@ -51,6 +40,7 @@ export default function ShapesTab({ setPendingPlacement, activeTool, selectedCou
                             <li key={item.type}
                                 className={`tool-item${isActive ? " tool-item-active" : ""}`}
                                 onClick={() => handleAdd(item)}
+                                style={item.type === "polygon" ? { cursor: "crosshair" } : undefined}
                                 title="Click to select, then click on map to place">
                                 <span className="tool-icon" style={{ fontSize: 20 }}>{item.icon}</span>
                                 <span>{item.label}</span>
@@ -60,31 +50,20 @@ export default function ShapesTab({ setPendingPlacement, activeTool, selectedCou
                 </ul>
             </div>
             <div className="menu-tools-section" style={{ marginTop: 12 }}>
-                <h4>Templates</h4>
+                <h4>Join</h4>
                 <ul className="tool-list">
-                    {BUILTIN_TEMPLATES.map(template => (
-                        <li key={template.id}
-                            className="tool-item"
-                            onClick={() => handleTemplate(template)}
-                            title={template.description}>
-                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 18, flexShrink: 0 }}>{template.icon}</span>
-                            <span>{template.name}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-            <div className="menu-tools-section" style={{ marginTop: 12 }}>
-                <h4>Configure</h4>
-                <ul className="tool-list">
-                    {CONFIGURE_TOOLS.map(tool => (
-                        <li key={tool.type}
-                            className={`tool-item${isConfigureDisabled ? " tool-item-disabled" : ""}`}
-                            onClick={() => { if (isConfigureDisabled) return; handleConfigure(tool.type); }}
-                            title={isConfigureDisabled ? "Select 2+ outlines first" : tool.desc}>
-                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 18, flexShrink: 0 }}>{tool.icon}</span>
-                            <span>{tool.label}</span>
-                        </li>
-                    ))}
+                    {OUTLINE_TOOLS.map(tool => {
+                        const disabledReason = getToolDisabledReason(tool.type);
+                        return (
+                            <li key={tool.type}
+                                className={`tool-item${disabledReason ? " tool-item-disabled" : ""}`}
+                                onClick={() => { if (disabledReason) return; handleConfigure(tool.type); }}
+                                title={disabledReason || tool.desc}>
+                                <span className="tool-icon" style={{ fontSize: 18 }}>{tool.icon}</span>
+                                <span>{tool.label}</span>
+                            </li>
+                        );
+                    })}
                 </ul>
             </div>
         </li>
