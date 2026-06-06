@@ -27,6 +27,9 @@ export default function PropertiesPanel({
     validationResults = { isValid: true, warnings: [], measurements: [] },
     showMeasurements = false,
     unit = "metric",
+    sectionWarnings = [],
+    liveMeasurements = null,
+    updateRoomType,
 }) {
     const containerRef = useRef(null);
     const [splitHeight, setSplitHeight] = useState(250);
@@ -66,6 +69,7 @@ export default function PropertiesPanel({
         const t = el.type || "shape";
         if (t === "room") return (el.roomType || "room").replace("_", " ");
         if (t === "wall") return el.wallType === "wall_square" ? "Full Wall" : "Section Wall";
+        if (t === "opening") return el.openingType === "window" ? "Window" : "Door";
         if (t === "divider_line") return "Divider Line";
         if (el.name) return el.name;
         return t;
@@ -151,10 +155,16 @@ export default function PropertiesPanel({
                                     </div>
                                     {isLevelExpanded && isSelectedLevel && (
                                         <div className="render-tree" style={{ marginLeft: 12 }}>
-                                            {lvlFloors.map(outline => {
-                                                const outlineRooms = sectionItems.filter(r => r.floor_id === outline.id && r.type === "room" && r.sectionRole !== "base");
-                                                const isOutlineExpanded = expandedFloors[outline.id] ?? true;
-                                                const isOutlineActive = outline.id === activeFloorId;
+	                                            {lvlFloors.map(outline => {
+	                                                const outlineRooms = sectionItems.filter(r => r.floor_id === outline.id && r.type === "room" && r.sectionRole !== "base");
+	                                                const roomIds = new Set(outlineRooms.map(room => room.id));
+	                                                const outlineChildren = sectionItems.filter(item => (
+	                                                    (item.type === "wall" || item.type === "opening")
+	                                                    && item.floor_id === outline.id
+	                                                    && !roomIds.has(item.parent_id)
+	                                                ));
+	                                                const isOutlineExpanded = expandedFloors[outline.id] ?? true;
+	                                                const isOutlineActive = outline.id === activeFloorId;
                                                 return (
                                                     <div key={outline.id}>
                                                         <div className="render-tree-node"
@@ -168,18 +178,29 @@ export default function PropertiesPanel({
                                                         </div>
                                                         {isOutlineExpanded && (
                                                             <div className="render-tree" style={{ marginLeft: 12 }}>
-                                                                {outlineRooms.length === 0 ? (
-                                                                    <p style={{ fontSize: 12, color: "var(--text-dim)", padding: "4px 8px" }}>
-                                                                        No rooms yet — use Divider or Pad tools
-                                                                    </p>
-                                                                ) : (
-                                                                    outlineRooms.map(room => {
-                                                                        const roomWalls = sectionItems.filter(w => w.type === "wall" && w.parent_id === room.id);
-                                                                        return (
+	                                                                {outlineRooms.length === 0 && (
+	                                                                    <p style={{ fontSize: 12, color: "var(--text-dim)", padding: "4px 8px" }}>
+	                                                                        No rooms yet - use Divider or Templates
+	                                                                    </p>
+	                                                                )}
+	                                                                {outlineChildren.map(child => (
+	                                                                    <div key={child.id} className="render-tree-node render-tree-child"
+	                                                                        onClick={() => onSelectShape?.(child.id)}
+	                                                                        style={child.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}}>
+	                                                                        <span style={{ fontSize: 10, color: child.type === "opening" ? "#38bdf8" : "#d4d4d8" }}>{child.type === "opening" ? "▱" : "▮"}</span>
+	                                                                        <span style={{ flex: 1 }}>{child.name || elementLabel(child)}</span>
+	                                                                        <button className="tb-btn" style={{ width: 16, height: 16, fontSize: 9, color: "var(--danger)" }}
+	                                                                            onClick={(e) => { e.stopPropagation(); deleteElement?.(child.id); }} title="Delete">✕</button>
+	                                                                    </div>
+	                                                                ))}
+	                                                                {outlineRooms.map(room => {
+	                                                                        const roomWalls = sectionItems.filter(w => w.type === "wall" && w.parent_id === room.id);
+	                                                                        const roomOpenings = sectionItems.filter(w => w.type === "opening" && w.parent_id === room.id);
+	                                                                        return (
                                                                             <div key={room.id}>
                                                                                 <div className="render-tree-node render-tree-child"
-                                                                                    onClick={() => onSelectShape?.(room.id)}
-                                                                                    style={room.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}}>
+                                                                                    onClick={(e) => onSelectShape?.(room.id, e.ctrlKey || e.metaKey)}
+                                                                                    style={(room.id === selectedShape?.id || multiSelectIds.includes(room.id)) ? { background: "var(--active-bg)", color: "#fff" } : {}}>
                                                                                     <span style={{ fontSize: 10, color: roomColors[room.roomType] || "var(--accent)" }}>●</span>
                                                                                     <span style={{ flex: 1 }}>{room.name || room.roomType || "room"}</span>
                                                                                     <button className="tb-btn" style={{ width: 16, height: 16, fontSize: 9, color: "var(--danger)" }}
@@ -195,11 +216,20 @@ export default function PropertiesPanel({
                                                                                             onClick={(e) => { e.stopPropagation(); deleteElement?.(wall.id); }} title="Delete">✕</button>
                                                                                     </div>
                                                                                 ))}
+                                                                                {roomOpenings.map(opening => (
+                                                                                    <div key={opening.id} className="render-tree-node render-tree-child"
+                                                                                        onClick={() => onSelectShape?.(opening.id)}
+                                                                                        style={{ marginLeft: 16, ...(opening.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}) }}>
+                                                                                        <span style={{ fontSize: 10, color: opening.openingType === "window" ? "#38bdf8" : "#f8fafc" }}>▱</span>
+                                                                                        <span style={{ flex: 1 }}>{opening.name || elementLabel(opening)}</span>
+                                                                                        <button className="tb-btn" style={{ width: 16, height: 16, fontSize: 9, color: "var(--danger)" }}
+                                                                                            onClick={(e) => { e.stopPropagation(); deleteElement?.(opening.id); }} title="Delete">✕</button>
+                                                                                    </div>
+                                                                                ))}
                                                                             </div>
                                                                         );
-                                                                    })
-                                                                )}
-                                                            </div>
+	                                                                    })}
+	                                                            </div>
                                                         )}
                                                     </div>
                                                 );
@@ -231,7 +261,7 @@ export default function PropertiesPanel({
                             {s.roomType !== undefined && (
                                 <div className="props-section">
                                     <label>Type</label>
-                                    <select className="input" value={s.roomType || "other"} onChange={e => update({ roomType: e.target.value })}>
+                                    <select className="input" value={s.roomType || "other"} onChange={e => updateRoomType ? updateRoomType(s.id, e.target.value) : update({ roomType: e.target.value })}>
                                         {ROOM_TYPES.map(rt => (
                                             <option key={rt.value} value={rt.value}>{rt.label}</option>
                                         ))}
@@ -255,10 +285,76 @@ export default function PropertiesPanel({
                                         <label>Width</label><input type="number" value={Math.round(s.width)} onChange={e => update({ width: Number(e.target.value) })} />
                                         <label>Height</label><input type="number" value={Math.round(s.height)} onChange={e => update({ height: Number(e.target.value) })} />
                                     </div>}
+                                    {s.type === "wall" && (
+                                        <div className="props-section">
+                                            <label>Wall Padding</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={80}
+                                                value={Math.round(s.wallThickness || Math.min(s.width || 8, s.height || 8) || 8)}
+                                                onChange={e => {
+                                                    const nextPadding = Math.max(1, Math.min(80, Number(e.target.value) || 1));
+                                                    const sideResize = s.wallType === "wall_line"
+                                                        ? (s.edge === "left" || s.edge === "right" ? { width: nextPadding } : { height: nextPadding })
+                                                        : {};
+                                                    update({ wallThickness: nextPadding, ...sideResize });
+                                                }}
+                                            />
+                                            {s.edge && <span style={{ fontSize: 11, color: "var(--text-dim)", textTransform: "uppercase" }}>Edge: {s.edge}</span>}
+                                        </div>
+                                    )}
+                                    {s.type === "opening" && (
+                                        <div className="props-section">
+                                            <label>Opening</label>
+                                            <select className="input" value={s.openingType || "door"} onChange={e => update({ openingType: e.target.value, name: e.target.value === "window" ? "Window" : "Door" })}>
+                                                <option value="door">Door</option>
+                                                <option value="window">Window</option>
+                                            </select>
+                                            {s.edge && <span style={{ fontSize: 11, color: "var(--text-dim)", textTransform: "uppercase" }}>Edge: {s.edge}</span>}
+                                        </div>
+                                    )}
                                     <div className="props-section" style={{ border: "none" }}>
                                         <label>Fill</label><input type="color" value={s.fill || "#6366f1"} onChange={e => update({ fill: e.target.value })} />
                                     </div>
                                 </>
+                            )}
+                            {showMeasurements && s?.type === "room" && (
+                                <div className="props-section" style={{ border: "none", background: "var(--accent-bg)", borderRadius: 4, padding: 8 }}>
+                                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Measurements</div>
+                                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <label style={{ fontWeight: 500 }}>Area:</label>
+                                            <span>
+                                                {(() => {
+                                                    const area = liveMeasurements?.area ?? getOutlineArea(s);
+                                                    const { value, label } = metersToAreaUnit(area, unit);
+                                                    return `${value.toFixed(2)} ${label}`;
+                                                })()}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <label style={{ fontWeight: 500 }}>Perimeter:</label>
+                                            <span>
+                                                {(() => {
+                                                    const perimeter = liveMeasurements?.perimeter ?? getOutlinePerimeter(s);
+                                                    const { value, label } = metersToUnit(perimeter, unit);
+                                                    return `${value.toFixed(2)} ${label}`;
+                                                })()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {sectionWarnings.length > 0 && (
+                                <div className="props-section" style={{ border: "none", background: "rgba(245, 158, 11, 0.12)", borderRadius: 4, padding: 8 }}>
+                                    <div style={{ fontWeight: 600, marginBottom: 4, color: "#f59e0b" }}>Section Warnings</div>
+                                    {sectionWarnings.slice(0, 4).map((warning, index) => (
+                                        <div key={`${warning.type}-${index}`} style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 3 }}>
+                                            {warning.message}
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </>
                     ) : (

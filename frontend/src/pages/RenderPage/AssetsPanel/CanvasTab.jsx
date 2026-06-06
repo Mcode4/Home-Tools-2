@@ -24,7 +24,7 @@ export default function CanvasTab({
     );
     const toggleBtn = (key, labelText, shortcut) => (
         <div className="settings-row">
-            <label className="settings-label">{labelText} <span>({shortcut})</span></label>
+            <label className="settings-label">{labelText} {shortcut ? <span>({shortcut})</span> : null}</label>
             <button className={`settings-toggle${canvasSettings[key] ? " active" : ""}`}
                 onClick={() => setCanvasSettings(s => ({ ...s, [key]: !s[key] }))}>
                 {canvasSettings[key] ? "On" : "Off"}
@@ -131,8 +131,24 @@ export default function CanvasTab({
             </div>
 
             <div className="menu-tools-section" style={{ marginTop: 12 }}>
+                <h4>Section Walls</h4>
+                <div className="settings-row stacked">
+                    {label("Wall Padding")}
+                    {numInput("wallPadding", 1, 80, 1)}
+                </div>
+                <div className="settings-row stacked">
+                    {label("Door Width")}
+                    {numInput("doorWidth", 12, 160, 2)}
+                </div>
+                <div className="settings-row stacked">
+                    {label("Window Width")}
+                    {numInput("windowWidth", 12, 180, 2)}
+                </div>
+            </div>
+
+            <div className="menu-tools-section" style={{ marginTop: 12 }}>
                 <h4>Rooms</h4>
-                {toggleBtn("roomAutoColors", "Room Auto-Colors", "")}
+                {toggleBtn("roomAutoColors", "Room Auto-Colors")}
             </div>
         </li>
     );

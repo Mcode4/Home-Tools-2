@@ -324,6 +324,92 @@ function getDividerPlan(room, pt) {
     return { mode, splitX, splitY, lines };
 }
 
+const DEFAULT_WALL_PADDING = 8;
+const DEFAULT_DOOR_WIDTH = 34;
+const DEFAULT_WINDOW_WIDTH = 46;
+
+function wallPaddingFromSettings(settings = {}) {
+    return Math.max(1, Math.min(80, Number(settings.wallPadding) || DEFAULT_WALL_PADDING));
+}
+
+function openingWidthFromSettings(settings = {}, openingType) {
+    const fallback = openingType === "window" ? DEFAULT_WINDOW_WIDTH : DEFAULT_DOOR_WIDTH;
+    const key = openingType === "window" ? "windowWidth" : "doorWidth";
+    return Math.max(12, Math.min(180, Number(settings[key]) || fallback));
+}
+
+function detectRoomEdge(clickX, clickY, room, threshold = 15) {
+    if (!room) return null;
+    const distTop = Math.abs(clickY - room.y);
+    const distBottom = Math.abs(clickY - (room.y + room.height));
+    const distLeft = Math.abs(clickX - room.x);
+    const distRight = Math.abs(clickX - (room.x + room.width));
+    const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+    if (minDist > threshold) return null;
+    if (minDist === distTop) return "top";
+    if (minDist === distBottom) return "bottom";
+    if (minDist === distLeft) return "left";
+    if (minDist === distRight) return "right";
+    return null;
+}
+
+function wallSideRect(room, edge, thickness) {
+    const t = Math.max(1, Math.min(thickness, Math.max(room.width, room.height)));
+    if (edge === "top") return { x: room.x, y: room.y, width: room.width, height: Math.min(t, room.height) };
+    if (edge === "bottom") return { x: room.x, y: room.y + room.height - Math.min(t, room.height), width: room.width, height: Math.min(t, room.height) };
+    if (edge === "left") return { x: room.x, y: room.y, width: Math.min(t, room.width), height: room.height };
+    if (edge === "right") return { x: room.x + room.width - Math.min(t, room.width), y: room.y, width: Math.min(t, room.width), height: room.height };
+    return null;
+}
+
+function fullWallRects(wall) {
+    const thickness = Math.max(1, Math.min(wall.wallThickness || DEFAULT_WALL_PADDING, wall.width / 2, wall.height / 2));
+    const innerHeight = Math.max(0, wall.height - thickness * 2);
+    return [
+        { key: "top", x: wall.x, y: wall.y, width: wall.width, height: thickness },
+        { key: "bottom", x: wall.x, y: wall.y + wall.height - thickness, width: wall.width, height: thickness },
+        { key: "left", x: wall.x, y: wall.y + thickness, width: thickness, height: innerHeight },
+        { key: "right", x: wall.x + wall.width - thickness, y: wall.y + thickness, width: thickness, height: innerHeight },
+    ].filter(rect => rect.width > 0 && rect.height > 0);
+}
+
+function wallToolPreview(toolType, room, pt, settings = {}) {
+    if (!room || !toolType) return null;
+    const thickness = wallPaddingFromSettings(settings);
+    if (toolType === "wall_square") {
+        return {
+            type: "wall_square",
+            valid: true,
+            room,
+            wall: { ...room, wallThickness: thickness, fill: "rgba(82, 82, 91, 0.55)", stroke: "#22c55e" },
+        };
+    }
+    const edge = pt ? detectRoomEdge(pt.x, pt.y, room, Math.max(15, thickness * 2)) : null;
+    if (!edge) return { type: toolType, valid: false, room };
+    if (toolType === "wall_line") {
+        return {
+            type: toolType,
+            valid: true,
+            room,
+            rect: wallSideRect(room, edge, thickness),
+        };
+    }
+    const openingLength = openingWidthFromSettings(settings, toolType);
+    const openingThickness = Math.max(4, thickness + 2);
+    const margin = 4;
+    let rect;
+    if (edge === "top" || edge === "bottom") {
+        const width = Math.max(8, Math.min(openingLength, room.width - margin * 2));
+        const x = Math.max(room.x + margin, Math.min(pt.x - width / 2, room.x + room.width - width - margin));
+        rect = { x, y: edge === "top" ? room.y : room.y + room.height - openingThickness, width, height: openingThickness };
+    } else {
+        const height = Math.max(8, Math.min(openingLength, room.height - margin * 2));
+        const y = Math.max(room.y + margin, Math.min(pt.y - height / 2, room.y + room.height - height - margin));
+        rect = { x: edge === "left" ? room.x : room.x + room.width - openingThickness, y, width: openingThickness, height };
+    }
+    return { type: toolType, valid: true, room, rect };
+}
+
 const LEGACY_OBJECT_PX_TO_METERS = 0.01;
 
 function getObjectMetricSize(source = {}) {
@@ -582,7 +668,7 @@ function renderShapeGroup(shape, shapeRef, isSelected, onSelect, onUpdate, activ
 }
 
 export default function RenderComponent({
-    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape
+    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, onAddOpening, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape
 }) {
     const containerRef = useRef(null);
     const stageRef = useRef(null);
@@ -606,6 +692,7 @@ export default function RenderComponent({
     const [dividerHover, setDividerHover] = useState(null);
     const [dividerDraw, setDividerDraw] = useState(null);
     const [hoverDivider, setHoverDivider] = useState(null);
+    const [wallPreview, setWallPreview] = useState(null);
 
     const scaleRef = useRef(1);
     const savedStagePosRef = useRef(null);
@@ -983,14 +1070,18 @@ export default function RenderComponent({
             return;
         }
 
-        if (activeTool?.type === "wall_square" || activeTool?.type === "wall_line") {
+        if (activeTool?.type === "wall_square" || activeTool?.type === "wall_line" || activeTool?.type === "door" || activeTool?.type === "window") {
             const stage = e.target.getStage();
             const pt = stage.getRelativePointerPosition();
             if (!pt) return;
             const hit = findSectionTargetAtPoint(pt);
             if (hit) {
                 const room = hit.room || hit;
-                onAddWallPad?.(activeTool.type, hit.floorTargetId || hit.floor_id, hit.id, pt, room);
+                if (activeTool.type === "door" || activeTool.type === "window") {
+                    onAddOpening?.(activeTool.type, hit.floorTargetId || hit.floor_id, hit.id, pt, room);
+                } else {
+                    onAddWallPad?.(activeTool.type, hit.floorTargetId || hit.floor_id, hit.id, pt, room);
+                }
             }
             return;
         }
@@ -1116,6 +1207,7 @@ export default function RenderComponent({
         : activeTool?.type === "combine" ? `cursor-combine-${hoverOrientation || "free"}`
         : activeTool?.type === "wall_square" ? "cursor-pad-square"
         : activeTool?.type === "wall_line" ? "cursor-pad-line"
+        : (activeTool?.type === "door" || activeTool?.type === "window") ? "cursor-opening"
         : "";
     const isDrawTool = activeTool && ["line", "text", "eraser"].includes(activeTool.type);
 
@@ -1204,6 +1296,7 @@ export default function RenderComponent({
                 setDividerHover(null);
             }
             setHoverDivider(null);
+            setWallPreview(null);
         } else if (activeTool?.type === "select" || activeTool?.type === "combine") {
             const stage = e.target.getStage();
             const pt = stage.getRelativePointerPosition();
@@ -1222,11 +1315,20 @@ export default function RenderComponent({
                 combineRooms: preview?.rooms || [],
             } : null);
             setDividerHover(null);
+            setWallPreview(null);
+        } else if (["wall_square", "wall_line", "door", "window"].includes(activeTool?.type)) {
+            const stage = e.target.getStage();
+            const pt = stage.getRelativePointerPosition();
+            const room = pt ? findRoomAtPoint(pt) : null;
+            setWallPreview(room ? wallToolPreview(activeTool.type, room, pt, canvasSettings) : null);
+            setDividerHover(null);
+            setHoverDivider(null);
         } else {
             setDividerHover(null);
             setHoverDivider(null);
+            setWallPreview(null);
         }
-    }, [mapVisible, mapRef, isPolygonPlacing, isShapePlacing, isObjectPlacement, isTemplatePlacing, placementItem, pendingPlacement, projection, activeTool?.type, elements, dividerDraw, projectedElements]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [mapVisible, mapRef, isPolygonPlacing, isShapePlacing, isObjectPlacement, isTemplatePlacing, placementItem, pendingPlacement, projection, activeTool?.type, elements, dividerDraw, projectedElements, canvasSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleCanvasMouseUp = useCallback(() => {
         mapPanRef.current.active = false;
@@ -1243,17 +1345,18 @@ export default function RenderComponent({
         });
     }, [offsetPreviewShape, projection]);
     const isPlanStage = stage === "sections" || stage === "objects";
-    const shapeElements = renderedElements.filter(el => el.type !== "divider_line" && el.type !== "wall");
+    const shapeElements = renderedElements.filter(el => el.type !== "divider_line" && el.type !== "wall" && el.type !== "opening");
     const sectionInteriorShapes = isPlanStage ? shapeElements.filter(el => el.floor_id) : [];
     const sectionOutlineShapes = isPlanStage ? shapeElements.filter(el => !el.floor_id) : [];
     const normalShapes = isPlanStage ? [] : shapeElements;
     const dividerElements = renderedElements.filter(el => el.type === "divider_line");
     const wallElements = renderedElements.filter(el => el.type === "wall");
+    const openingElements = renderedElements.filter(el => el.type === "opening");
 
     const renderElementShape = (el) => {
         const isSectionTopOutline = isPlanStage && !el.floor_id;
         const isOutlineRender = stage === "outline" || isSectionTopOutline;
-        const draggable = stage === "outline" || (stage === "sections" && el.type === "room" && el.sectionRole !== "base");
+        const draggable = stage === "outline";
         const listening = stage !== "objects" && !isSectionTopOutline;
         const isSelected = el.id === selectedShapeId || multiSelectIds.includes(el.id);
 
@@ -1307,15 +1410,15 @@ export default function RenderComponent({
                         });
                     }}
                 />
-                {isSelected && activeTool?.type === "select" && (
+                {activeTool?.type === "select" && (
                     <>
-                        <Circle x={div.x1} y={div.y1} radius={6} fill="#22c55e" stroke="#fff" strokeWidth={1} draggable
+                        <Circle x={div.x1} y={div.y1} radius={8 / scaleRef.current} fill={isSelected ? "#22c55e" : "#ff8800"} stroke="#fff" strokeWidth={1 / scaleRef.current} draggable
                             onDragEnd={(e) => {
                                 const dx = e.target.x() - div.x1, dy = e.target.y() - div.y1;
                                 e.target.position({ x: div.x1, y: div.y1 });
                                 onMoveDividerLine?.(div.id, { x1: div.x1 + dx, y1: div.y1 + dy });
                             }} />
-                        <Circle x={div.x2} y={div.y2} radius={6} fill="#22c55e" stroke="#fff" strokeWidth={1} draggable
+                        <Circle x={div.x2} y={div.y2} radius={8 / scaleRef.current} fill={isSelected ? "#22c55e" : "#ff8800"} stroke="#fff" strokeWidth={1 / scaleRef.current} draggable
                             onDragEnd={(e) => {
                                 const dx = e.target.x() - div.x2, dy = e.target.y() - div.y2;
                                 e.target.position({ x: div.x2, y: div.y2 });
@@ -1327,17 +1430,113 @@ export default function RenderComponent({
         );
     };
 
-    const renderWall = (wall) => (
-        <Rect key={wall.id} x={wall.x} y={wall.y} width={wall.width} height={wall.height}
-            fill={wall.fill || "#888"} stroke={wall.stroke || "#555"} strokeWidth={wall.strokeWidth || 1}
-            listening={stage !== "objects"}
-            draggable={stage === "sections" && activeTool?.type === "select"}
-            onClick={() => onSelectShape(wall.id)}
-            onTap={() => onSelectShape(wall.id)}
-            onDragEnd={(e) => {
-                onUpdateShape({ ...wall, x: e.target.x(), y: e.target.y() });
-            }} />
-    );
+    const renderWall = (wall) => {
+        const selected = selectedShapeId === wall.id;
+        const draggable = stage === "sections" && activeTool?.type === "select";
+        const common = {
+            listening: stage !== "objects",
+            onClick: (e) => {
+                e.cancelBubble = true;
+                onSelectShape(wall.id);
+            },
+            onTap: (e) => {
+                e.cancelBubble = true;
+                onSelectShape(wall.id);
+            },
+        };
+
+        if (wall.wallType === "wall_square") {
+            return (
+                <Group
+                    key={wall.id}
+                    draggable={draggable}
+                    onDragEnd={(e) => {
+                        const dx = e.target.x();
+                        const dy = e.target.y();
+                        e.target.position({ x: 0, y: 0 });
+                        onUpdateShape({ ...wall, x: wall.x + dx, y: wall.y + dy });
+                    }}
+                    {...common}
+                >
+                    {fullWallRects(wall).map(rect => (
+                        <Rect
+                            key={`${wall.id}-${rect.key}`}
+                            {...rect}
+                            fill={wall.fill || "#52525b"}
+                            stroke={wall.stroke || "#111827"}
+                            strokeWidth={wall.strokeWidth || 1}
+                        />
+                    ))}
+                    {selected && (
+                        <Rect
+                            x={wall.x}
+                            y={wall.y}
+                            width={wall.width}
+                            height={wall.height}
+                            fill="transparent"
+                            stroke="#22c55e"
+                            strokeWidth={2}
+                            dash={[6, 4]}
+                        />
+                    )}
+                </Group>
+            );
+        }
+
+        return (
+            <Rect key={wall.id} x={wall.x} y={wall.y} width={wall.width} height={wall.height}
+                fill={wall.fill || "#888"} stroke={selected ? "#22c55e" : (wall.stroke || "#555")} strokeWidth={selected ? 2 : (wall.strokeWidth || 1)}
+                listening={stage !== "objects"}
+                draggable={draggable}
+                onClick={(e) => { e.cancelBubble = true; onSelectShape(wall.id); }}
+                onTap={(e) => { e.cancelBubble = true; onSelectShape(wall.id); }}
+                onDragEnd={(e) => {
+                    onUpdateShape({ ...wall, x: e.target.x(), y: e.target.y() });
+                }} />
+        );
+    };
+
+    const renderOpening = (opening) => {
+        const selected = selectedShapeId === opening.id;
+        const isWindow = opening.openingType === "window";
+        return (
+            <Group
+                key={opening.id}
+                listening={stage !== "objects"}
+                draggable={stage === "sections" && activeTool?.type === "select"}
+                onClick={(e) => { e.cancelBubble = true; onSelectShape(opening.id); }}
+                onTap={(e) => { e.cancelBubble = true; onSelectShape(opening.id); }}
+                onDragEnd={(e) => {
+                    const dx = e.target.x();
+                    const dy = e.target.y();
+                    e.target.position({ x: 0, y: 0 });
+                    onUpdateShape({ ...opening, x: opening.x + dx, y: opening.y + dy });
+                }}
+            >
+                <Rect
+                    x={opening.x}
+                    y={opening.y}
+                    width={opening.width}
+                    height={opening.height}
+                    fill={opening.fill || (isWindow ? "#38bdf8" : "#f8fafc")}
+                    stroke={selected ? "#22c55e" : (opening.stroke || "#475569")}
+                    strokeWidth={selected ? 2 : (opening.strokeWidth || 1)}
+                    dash={isWindow ? [4, 3] : undefined}
+                />
+                <Text
+                    x={opening.x}
+                    y={opening.y + Math.max(0, opening.height / 2 - 5)}
+                    width={opening.width}
+                    text={isWindow ? "W" : "D"}
+                    fontSize={10}
+                    fontStyle="bold"
+                    fill={isWindow ? "#082f49" : "#334155"}
+                    align="center"
+                    listening={false}
+                />
+            </Group>
+        );
+    };
 
     const renderObject2D = (obj) => {
         const width = obj.width || 40;
@@ -1443,6 +1642,63 @@ export default function RenderComponent({
         );
     };
 
+    const renderWallPreview = (floorId = null) => {
+        if (!wallPreview || (floorId && wallPreview.room?.floor_id !== floorId)) return null;
+        if (!wallPreview.valid) {
+            return (
+                <Group listening={false}>
+                    <Rect
+                        x={wallPreview.room.x}
+                        y={wallPreview.room.y}
+                        width={wallPreview.room.width}
+                        height={wallPreview.room.height}
+                        fill="rgba(239, 68, 68, 0.08)"
+                        stroke="#ef4444"
+                        strokeWidth={2}
+                        dash={[6, 4]}
+                    />
+                    <Text
+                        x={wallPreview.room.x + 6}
+                        y={wallPreview.room.y + 6}
+                        width={Math.max(40, wallPreview.room.width - 12)}
+                        text="Choose an edge"
+                        fontSize={10}
+                        fill="#ef4444"
+                    />
+                </Group>
+            );
+        }
+
+        if (wallPreview.type === "wall_square") {
+            return (
+                <Group listening={false}>
+                    {fullWallRects(wallPreview.wall).map(rect => (
+                        <Rect
+                            key={`wall-preview-${rect.key}`}
+                            {...rect}
+                            fill="rgba(34, 197, 94, 0.28)"
+                            stroke="#22c55e"
+                            strokeWidth={2}
+                            dash={[7, 4]}
+                        />
+                    ))}
+                </Group>
+            );
+        }
+
+        const isOpening = wallPreview.type === "door" || wallPreview.type === "window";
+        return (
+            <Rect
+                {...wallPreview.rect}
+                fill={isOpening ? "rgba(14, 165, 233, 0.34)" : "rgba(34, 197, 94, 0.28)"}
+                stroke={isOpening ? "#0ea5e9" : "#22c55e"}
+                strokeWidth={2}
+                dash={[7, 4]}
+                listening={false}
+            />
+        );
+    };
+
     return (
         <div id="render-component" ref={containerRef} className={`${toolActive ? "tool-active" : ""} ${cursorClass}`.trim()}>
             {size.width > 0 && (
@@ -1496,7 +1752,9 @@ export default function RenderComponent({
                                         {sectionInteriorShapes.filter(el => el.floor_id === outline.id).map(renderElementShape)}
                                         {dividerElements.filter(el => el.floor_id === outline.id).map(renderDivider)}
                                         {wallElements.filter(el => el.floor_id === outline.id).map(renderWall)}
+                                        {openingElements.filter(el => el.floor_id === outline.id).map(renderOpening)}
                                         {renderDividerPreviews(outline.id)}
+                                        {renderWallPreview(outline.id)}
                                         {stage === "objects" && projectedObjects
                                             .filter(obj => obj.floor_id === outline.id)
                                             .map(renderObject2D)}
@@ -1507,7 +1765,9 @@ export default function RenderComponent({
                                         {sectionInteriorShapes.map(renderElementShape)}
                                         {dividerElements.map(renderDivider)}
                                         {wallElements.map(renderWall)}
+                                        {openingElements.map(renderOpening)}
                                         {renderDividerPreviews()}
+                                        {renderWallPreview()}
                                         {stage === "objects" && projectedObjects.map(renderObject2D)}
                                     </>
                                 )}

@@ -35,6 +35,10 @@ const ROOM_TYPE_COLORS = {
     other: "#6b7280",
 };
 
+const DEFAULT_WALL_PADDING = 8;
+const DEFAULT_DOOR_WIDTH = 34;
+const DEFAULT_WINDOW_WIDTH = 46;
+
 function getShapePixelDimensions(shape) {
     const radius = shape.radius ?? (shape.sides || shape.type === "circle" ? 50 : null);
     if (shape.type === "circle" || shape.sides) {
@@ -251,6 +255,33 @@ function outlineToScreenPoints(outline, projection) {
     return [];
 }
 
+function outlineToScreenBounds(outline, projection) {
+    const points = outlineToScreenPoints(outline, projection);
+    if (points.length >= 3) {
+        const bounds = getScreenPointBounds(points);
+        return {
+            x: bounds.minX,
+            y: bounds.minY,
+            width: Math.max(bounds.maxX - bounds.minX, 1),
+            height: Math.max(bounds.maxY - bounds.minY, 1),
+        };
+    }
+
+    if (outline?.lat != null && outline?.lng != null && projection) {
+        const center = projection.project(outline.lng, outline.lat);
+        const width = Math.max(1, projection.metersToPxX(outline.widthMeters || 100, outline.lng, outline.lat));
+        const height = Math.max(1, projection.metersToPxY(outline.heightMeters || 100, outline.lng, outline.lat));
+        return { x: center.x - width / 2, y: center.y - height / 2, width, height };
+    }
+
+    return {
+        x: outline?.x ?? 0,
+        y: outline?.y ?? 0,
+        width: outline?.width || 100,
+        height: outline?.height || 100,
+    };
+}
+
 function outlineFromScreenPoints(outline, screenPoints, projection) {
     if (!outline || !projection || !Array.isArray(screenPoints) || screenPoints.length < 3) return outline;
     const pointsGeo = screenPoints.map(point => {
@@ -419,6 +450,114 @@ function screenDivider(divider, proj) {
         return { ...divider, x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
     }
     return divider;
+}
+
+function wallPaddingFromSettings(settings = {}) {
+    return Math.max(1, Math.min(80, Number(settings.wallPadding) || DEFAULT_WALL_PADDING));
+}
+
+function openingWidthFromSettings(settings = {}, openingType) {
+    const fallback = openingType === "window" ? DEFAULT_WINDOW_WIDTH : DEFAULT_DOOR_WIDTH;
+    const key = openingType === "window" ? "windowWidth" : "doorWidth";
+    return Math.max(12, Math.min(180, Number(settings[key]) || fallback));
+}
+
+function detectRoomEdge(clickX, clickY, room, threshold = 15) {
+    if (!room) return null;
+    const { x, y, width, height } = room;
+    const distTop = Math.abs(clickY - y);
+    const distBottom = Math.abs(clickY - (y + height));
+    const distLeft = Math.abs(clickX - x);
+    const distRight = Math.abs(clickX - (x + width));
+    const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+    if (minDist > threshold) return null;
+    if (minDist === distTop) return "top";
+    if (minDist === distBottom) return "bottom";
+    if (minDist === distLeft) return "left";
+    if (minDist === distRight) return "right";
+    return null;
+}
+
+function wallSideRect(room, edge, thickness) {
+    const t = Math.max(1, Math.min(thickness, Math.max(room.width, room.height)));
+    if (edge === "top") return { x: room.x, y: room.y, width: room.width, height: Math.min(t, room.height) };
+    if (edge === "bottom") return { x: room.x, y: room.y + room.height - Math.min(t, room.height), width: room.width, height: Math.min(t, room.height) };
+    if (edge === "left") return { x: room.x, y: room.y, width: Math.min(t, room.width), height: room.height };
+    if (edge === "right") return { x: room.x + room.width - Math.min(t, room.width), y: room.y, width: Math.min(t, room.width), height: room.height };
+    return null;
+}
+
+function makeWallPadItem({ id, wallType, floorId, parentId, point, room, settings }) {
+    if (!room) return null;
+    const thickness = wallPaddingFromSettings(settings);
+    if (wallType === "wall_square") {
+        return {
+            id,
+            name: "Full Wall",
+            type: "wall",
+            wallType,
+            edge: "all",
+            wallThickness: thickness,
+            floor_id: floorId,
+            parent_id: parentId,
+            x: room.x,
+            y: room.y,
+            width: room.width,
+            height: room.height,
+            fill: "#52525b",
+            stroke: "#111827",
+            strokeWidth: 1,
+        };
+    }
+
+    const edge = point ? detectRoomEdge(point.x, point.y, room, Math.max(15, thickness * 2)) : null;
+    if (!edge) return null;
+    return {
+        id,
+        name: "Section Wall",
+        type: "wall",
+        wallType,
+        edge,
+        wallThickness: thickness,
+        floor_id: floorId,
+        parent_id: parentId,
+        ...wallSideRect(room, edge, thickness),
+        fill: "#d4d4d8",
+        stroke: "#111827",
+        strokeWidth: 1,
+    };
+}
+
+function makeOpeningItem({ id, openingType, floorId, parentId, point, room, settings }) {
+    if (!room || !point) return null;
+    const thickness = Math.max(4, wallPaddingFromSettings(settings) + 2);
+    const edge = detectRoomEdge(point.x, point.y, room, Math.max(15, thickness * 2));
+    if (!edge) return null;
+    const length = openingWidthFromSettings(settings, openingType);
+    const margin = 4;
+    let rect;
+    if (edge === "top" || edge === "bottom") {
+        const width = Math.max(8, Math.min(length, room.width - margin * 2));
+        const x = Math.max(room.x + margin, Math.min(point.x - width / 2, room.x + room.width - width - margin));
+        rect = { x, y: edge === "top" ? room.y : room.y + room.height - thickness, width, height: thickness };
+    } else {
+        const height = Math.max(8, Math.min(length, room.height - margin * 2));
+        const y = Math.max(room.y + margin, Math.min(point.y - height / 2, room.y + room.height - height - margin));
+        rect = { x: edge === "left" ? room.x : room.x + room.width - thickness, y, width: thickness, height };
+    }
+    return {
+        id,
+        name: openingType === "window" ? "Window" : "Door",
+        type: "opening",
+        openingType,
+        edge,
+        floor_id: floorId,
+        parent_id: parentId,
+        ...rect,
+        fill: openingType === "window" ? "#38bdf8" : "#f8fafc",
+        stroke: openingType === "window" ? "#0ea5e9" : "#475569",
+        strokeWidth: 1,
+    };
 }
 
 function roomContainsPoint(room, point, tolerance = 2) {
@@ -973,6 +1112,10 @@ export default function RenderPage() {
         mapPanLimit: 500,
         gridSnap: false, edgeSnap: false, alignmentGuides: true,
         snapThreshold: 10, showMeasurements: true, unit: "metric",
+        roomAutoColors: false,
+        wallPadding: DEFAULT_WALL_PADDING,
+        doorWidth: DEFAULT_DOOR_WIDTH,
+        windowWidth: DEFAULT_WINDOW_WIDTH,
     });
     const toolSettingsRef = useRef({
         line: { type: "line", width: 2, color: "#000", draggable: true, snap: false },
@@ -986,6 +1129,8 @@ export default function RenderPage() {
         combine: { type: "combine" },
         wall_square: { type: "wall_square" },
         wall_line: { type: "wall_line" },
+        door: { type: "door" },
+        window: { type: "window" },
     });
 
     const deleteObject = useCallback((id) => {
@@ -1103,25 +1248,55 @@ export default function RenderPage() {
         });
         setMultiSelectIds([]);
         setSelectedShapeId(mergedId);
-    }, [multiSelectIds, stagedItems, removeItem, addItem, roomsTouchingDivider]);
+    }, [multiSelectIds, stagedItems, removeItem, addItem]);
 
     const batchDelete = useCallback(() => {
         if (multiSelectIds.length === 0) return;
-        multiSelectIds.forEach(id => removeItem(id));
+        multiSelectIds.forEach(id => {
+            Object.values(stagedItems).forEach(item => {
+                if (item.parent_id === id) removeItem(item.id);
+            });
+            removeItem(id);
+        });
         setMultiSelectIds([]);
         setSelectedShapeId(null);
-    }, [multiSelectIds, removeItem]);
+    }, [multiSelectIds, stagedItems, removeItem]);
 
     const batchChangeType = useCallback((newType) => {
         if (multiSelectIds.length === 0) return;
         multiSelectIds.forEach(id => {
             const item = stagedItems[id];
             if (item?.type === "room") {
-                updateShape({ ...item, roomType: newType });
+                updateShape({
+                    ...item,
+                    roomType: newType,
+                    ...(canvasSettings.roomAutoColors ? { fill: ROOM_TYPE_COLORS[newType] || item.fill } : {}),
+                });
             }
         });
         setMultiSelectIds([]);
-    }, [multiSelectIds, stagedItems, updateShape]);
+    }, [multiSelectIds, stagedItems, updateShape, canvasSettings.roomAutoColors]);
+
+    const batchFullWall = useCallback(() => {
+        const selectedRooms = multiSelectIds
+            .map(id => stagedItems[id])
+            .filter(room => isVisibleSectionRoom(room));
+        if (!selectedRooms.length) return;
+
+        selectedRooms.forEach((room, index) => {
+            const id = `wall-${Date.now()}${index}${Math.random().toString(36).substr(2, 4)}`;
+            const wall = makeWallPadItem({
+                id,
+                wallType: "wall_square",
+                floorId: room.floor_id,
+                parentId: room.id,
+                room,
+                settings: canvasSettings,
+            });
+            if (wall) addItem(id, wall);
+        });
+        setMultiSelectIds([]);
+    }, [multiSelectIds, stagedItems, canvasSettings, addItem]);
 
     const updateRoomType = useCallback((roomId, newType) => {
         const room = stagedItems[roomId];
@@ -1137,44 +1312,85 @@ export default function RenderPage() {
         const outline = outlines.find(o => o.id === activeFloorId) || outlines[0];
         if (!outline) return;
         try {
+            const projection = makeProjection(mapRef.current);
             const result = generateRoomTemplate(templateId, outline);
             const baseId = `room-base-${outline.id}`;
+            Object.values(stagedItems).forEach(item => {
+                if (item.floor_id === outline.id && item.id !== baseId) removeItem(item.id);
+            });
             addItem(baseId, createBaseRoomFromOutline(outline));
+
+            const hasGeo = outline.lat != null && outline.lng != null;
+            const outlineCenter = { lat: outline.lat || 0, lng: outline.lng || 0 };
+            const outlineWidthMeters = outline.widthMeters || 100;
+            const outlineHeightMeters = outline.heightMeters || 100;
+            const metersPerDegreeLng = 111320 * Math.cos(outlineCenter.lat * Math.PI / 180);
+            const metersPerDegreeLat = 110540;
+
+            const outlineScreen = outlineToScreenBounds(outline, projection);
+
             result.rooms.forEach((roomData, i) => {
                 const roomId = `room-${Date.now()}-${i}`;
-                addItem(roomId, {
+                const roomScreenX = outlineScreen.x + roomData.x * outlineScreen.width;
+                const roomScreenY = outlineScreen.y + roomData.y * outlineScreen.height;
+                const roomScreenW = roomData.width * outlineScreen.width;
+                const roomScreenH = roomData.height * outlineScreen.height;
+
+                const roomAttrs = {
                     id: roomId,
                     name: roomData.name,
                     type: "room",
                     roomType: roomData.roomType || "other",
                     floor_id: outline.id,
                     parent_id: baseId,
-                    x: roomData.x,
-                    y: roomData.y,
-                    width: roomData.width,
-                    height: roomData.height,
+                    x: roomScreenX,
+                    y: roomScreenY,
+                    width: roomScreenW,
+                    height: roomScreenH,
                     fill: canvasSettings.roomAutoColors ? ROOM_TYPE_COLORS[roomData.roomType] || "#6366f1" : "#6366f1",
                     stroke: "#fff",
                     strokeWidth: 2,
-                });
+                };
+
+                if (hasGeo) {
+                    const roomCenterLng = outlineCenter.lng + ((roomData.x + roomData.width / 2) - 0.5) * outlineWidthMeters / metersPerDegreeLng;
+                    const roomCenterLat = outlineCenter.lat + ((roomData.y + roomData.height / 2) - 0.5) * outlineHeightMeters / metersPerDegreeLat;
+                    roomAttrs.lat = roomCenterLat;
+                    roomAttrs.lng = roomCenterLng;
+                    roomAttrs.widthMeters = roomData.width * outlineWidthMeters;
+                    roomAttrs.heightMeters = roomData.height * outlineHeightMeters;
+                }
+
+                addItem(roomId, roomAttrs);
             });
+
             result.dividers.forEach((dividerData, i) => {
                 const divId = `div-${Date.now()}-${i}`;
-                addItem(divId, {
+                const divAttrs = {
                     id: divId,
                     type: "divider_line",
                     floor_id: outline.id,
                     parent_id: baseId,
-                    x1: dividerData.x1,
-                    y1: dividerData.y1,
-                    x2: dividerData.x2,
-                    y2: dividerData.y2,
-                });
+                    x1: outlineScreen.x + dividerData.x1 * outlineScreen.width,
+                    y1: outlineScreen.y + dividerData.y1 * outlineScreen.height,
+                    x2: outlineScreen.x + dividerData.x2 * outlineScreen.width,
+                    y2: outlineScreen.y + dividerData.y2 * outlineScreen.height,
+                };
+
+                if (hasGeo) {
+                    const startLng = outlineCenter.lng + (dividerData.x1 - 0.5) * outlineWidthMeters / metersPerDegreeLng;
+                    const startLat = outlineCenter.lat + (dividerData.y1 - 0.5) * outlineHeightMeters / metersPerDegreeLat;
+                    const endLng = outlineCenter.lng + (dividerData.x2 - 0.5) * outlineWidthMeters / metersPerDegreeLng;
+                    const endLat = outlineCenter.lat + (dividerData.y2 - 0.5) * outlineHeightMeters / metersPerDegreeLat;
+                    divAttrs.pointsGeo = [[startLat, startLng], [endLat, endLng]];
+                }
+
+                addItem(divId, divAttrs);
             });
         } catch (e) {
             console.error("Template application failed:", e);
         }
-    }, [outlines, activeFloorId, addItem, createBaseRoomFromOutline, canvasSettings.roomAutoColors]);
+    }, [outlines, activeFloorId, stagedItems, addItem, removeItem, canvasSettings.roomAutoColors]);
 
     const startObjectPlacement = useCallback((item) => {
         if (!hasRooms || !item) return;
@@ -1255,7 +1471,7 @@ export default function RenderPage() {
             });
             return converted ? next : prev;
         });
-    }, [stage, property, mapVersion, screenToGeo]);
+    }, [stage, property, mapVersion, screenToGeo, setOutlines]);
 
     const selectedShape = selectedShapeId
         ? (stage === "outline"
@@ -1289,10 +1505,13 @@ export default function RenderPage() {
         if (stage === "outline") {
             setOutlines(prev => prev.filter(s => s.id !== selectedShapeId));
         } else {
+            Object.values(stagedItems).forEach(item => {
+                if (item.parent_id === selectedShapeId) removeItem(item.id);
+            });
             removeItem(selectedShapeId);
         }
         setSelectedShapeId(null);
-    }, [selectedShapeId, removeItem, stage, setOutlines]);
+    }, [selectedShapeId, stagedItems, removeItem, stage, setOutlines]);
 
     const addObject = useCallback((obj) => {
         setObjects(prev => [...prev, obj]);
@@ -1368,12 +1587,14 @@ export default function RenderPage() {
         const { floor_id, roomType, fill } = room;
         const hasGeo = room.lat != null && room.lng != null;
 
+        const snapSize = Math.max(1, Number(canvasSettings.gridPixelSize) || 1);
+        const snap = value => canvasSettings.gridSnap ? Math.round(value / snapSize) * snapSize : value;
         const splitX = clampSplit(
-            typeof linePos === "object" && linePos?.x != null ? linePos.x : x + Math.round(width / 2),
+            snap(typeof linePos === "object" && linePos?.x != null ? linePos.x : x + Math.round(width / 2)),
             x + 10, x + width - 10
         );
         const splitY = clampSplit(
-            typeof linePos === "object" && linePos?.y != null ? linePos.y : (typeof linePos === "number" ? linePos : y + Math.round(height / 2)),
+            snap(typeof linePos === "object" && linePos?.y != null ? linePos.y : (typeof linePos === "number" ? linePos : y + Math.round(height / 2))),
             y + 10, y + height - 10
         );
 
@@ -1449,7 +1670,7 @@ export default function RenderPage() {
         dividerLines.forEach(d => addItem(d.id, d));
         if (newRooms.length > 0) setSelectedShapeId(newRooms[0].id);
         setTool({ type: "select" });
-    }, [stagedItems, removeItem, addItem]);
+    }, [stagedItems, removeItem, addItem, canvasSettings.gridSnap, canvasSettings.gridPixelSize]);
 
     const combineByDivider = useCallback((dividerId, options = {}) => {
         const sourceDiv = stagedItems[dividerId];
@@ -1500,6 +1721,7 @@ export default function RenderPage() {
         const proj = makeProjection(mapRef.current);
         const sourceDiv = stagedItems[dividerId];
         if (!sourceDiv || sourceDiv.type !== "divider_line") return;
+        const sourceScreenDiv = screenDivider(sourceDiv, proj);
         const updated = { ...sourceDiv, ...newAttrs };
         if (proj && updated.x1 != null && updated.y1 != null && updated.x2 != null && updated.y2 != null) {
             Object.assign(updated, geoForDividerLine(proj, updated));
@@ -1509,7 +1731,7 @@ export default function RenderPage() {
         const floorRooms = Object.values(stagedItems).filter(
             room => isVisibleSectionRoom(room) && room.floor_id === sourceDiv.floor_id
         ).map(room => screenRoom(room, proj));
-        const affectedRooms = roomsTouchingDivider(updated, floorRooms);
+        const affectedRooms = roomsTouchingDivider(sourceScreenDiv, floorRooms);
         const roomUpdates = {};
 
         if (affectedRooms.length >= 2 && axis !== "free") {
@@ -1559,104 +1781,23 @@ export default function RenderPage() {
         setStagedItems(prev => ({ ...prev, [dividerId]: updated, ...roomUpdates }));
     }, [stagedItems, setStagedItems]);
 
-    const detectEdge = useCallback((clickX, clickY, room) => {
-        const { x, y, width, height } = room;
-        const edgeThreshold = 15;
-        
-        const distTop = Math.abs(clickY - y);
-        const distBottom = Math.abs(clickY - (y + height));
-        const distLeft = Math.abs(clickX - x);
-        const distRight = Math.abs(clickX - (x + width));
-        
-        const minDist = Math.min(distTop, distBottom, distLeft, distRight);
-        
-        if (minDist > edgeThreshold) return null;
-        
-        if (minDist === distTop) return "top";
-        if (minDist === distBottom) return "bottom";
-        if (minDist === distLeft) return "left";
-        if (minDist === distRight) return "right";
-        return null;
-    }, []);
-
     const addWallPad = useCallback((wallType, floorId, parentId, point, room) => {
-        if (!floorId) return;
-        const parent = stagedItems[parentId] || outlines.find(o => o.id === parentId) || {};
+        if (!floorId || !room) return;
         const id = `wall-${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
-        const isSquare = wallType === "wall_square";
-        
-        if (isSquare && room) {
-            addItem(id, {
-                id, name: "Full Wall",
-                type: "wall", wallType, floor_id: floorId, parent_id: parentId,
-                x: room.x + 2,
-                y: room.y + 2,
-                width: room.width - 4,
-                height: room.height - 4,
-                fill: "#52525b",
-                stroke: "#111827",
-                strokeWidth: 1,
-            });
-        } else if (!isSquare && room && point) {
-            const edge = detectEdge(point.x, point.y, room);
-            if (!edge) return;
-            
-            const wallThickness = 6;
-            let wallX, wallY, wallWidth, wallHeight;
-            
-            switch (edge) {
-                case "top":
-                    wallX = room.x;
-                    wallY = room.y;
-                    wallWidth = room.width;
-                    wallHeight = wallThickness;
-                    break;
-                case "bottom":
-                    wallX = room.x;
-                    wallY = room.y + room.height - wallThickness;
-                    wallWidth = room.width;
-                    wallHeight = wallThickness;
-                    break;
-                case "left":
-                    wallX = room.x;
-                    wallY = room.y;
-                    wallWidth = wallThickness;
-                    wallHeight = room.height;
-                    break;
-                case "right":
-                    wallX = room.x + room.width - wallThickness;
-                    wallY = room.y;
-                    wallWidth = wallThickness;
-                    wallHeight = room.height;
-                    break;
-            }
-            
-            addItem(id, {
-                id, name: "Section Wall",
-                type: "wall", wallType, floor_id: floorId, parent_id: parentId,
-                x: wallX, y: wallY,
-                width: wallWidth, height: wallHeight,
-                fill: "#d4d4d8",
-                stroke: "#111827",
-                strokeWidth: 1,
-            });
-        } else {
-            const width = isSquare ? 60 : 120;
-            const height = isSquare ? 60 : 6;
-            addItem(id, {
-                id, name: isSquare ? "Full Wall" : "Section Wall",
-                type: "wall", wallType, floor_id: floorId, parent_id: parentId,
-                x: point ? point.x - width / 2 : (parent.x || 0) + 20,
-                y: point ? point.y - height / 2 : (parent.y || 0) + 20,
-                width,
-                height,
-                fill: isSquare ? "#52525b" : "#d4d4d8",
-                stroke: "#111827",
-                strokeWidth: 1,
-            });
-        }
+        const wall = makeWallPadItem({ id, wallType, floorId, parentId, point, room, settings: canvasSettings });
+        if (!wall) return;
+        addItem(id, wall);
         setSelectedShapeId(id);
-    }, [stagedItems, outlines, addItem, detectEdge]);
+    }, [addItem, canvasSettings]);
+
+    const addOpening = useCallback((openingType, floorId, parentId, point, room) => {
+        if (!floorId || !room || !point) return;
+        const id = `opening-${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
+        const opening = makeOpeningItem({ id, openingType, floorId, parentId, point, room, settings: canvasSettings });
+        if (!opening) return;
+        addItem(id, opening);
+        setSelectedShapeId(id);
+    }, [addItem, canvasSettings]);
 
     return loaded ? (
         <div id="render-page">
@@ -1726,6 +1867,7 @@ export default function RenderPage() {
                     onBatchMerge={batchMerge}
                     onBatchDelete={batchDelete}
                     onBatchChangeType={batchChangeType}
+                    onBatchFullWall={batchFullWall}
                     multiSelectIds={multiSelectIds}
                     onApplyTemplate={applyRoomTemplate}
                     selectedShape={selectedShape}
@@ -1902,6 +2044,7 @@ export default function RenderPage() {
                         onCombineByDivider={combineByDivider}
                         onMoveDividerLine={moveDividerLine}
                         onAddWallPad={addWallPad}
+                        onAddOpening={addOpening}
                         objectsData={objects}
                         selectedObjectId={selectedObjectId}
                         onSelectObject={setSelectedObjectId}

@@ -36,6 +36,7 @@ export default function AssetsPanel({
     onBatchMerge,
     onBatchDelete,
     onBatchChangeType,
+    onBatchFullWall,
     multiSelectIds,
     onApplyTemplate,
     selectedShape,
@@ -67,13 +68,17 @@ export default function AssetsPanel({
     }
 
     if (stage === "sections") {
-        const activeTab = ["tools", "settings"].includes(tab) ? tab : "tools";
+        const activeTab = ["tools", "templates", "settings"].includes(tab) ? tab : "tools";
         return (
             <aside className="app-slider">
                 <ul className="menu">
                     <li className={`user-select-none ${activeTab === "tools" ? "menu-active" : ""}`}
                         onClick={() => setTab("tools")} title="Room Tools">
                         <span style={{ fontSize: 20 }}>🔨</span>
+                    </li>
+                    <li className={`user-select-none ${activeTab === "templates" ? "menu-active" : ""}`}
+                        onClick={() => setTab("templates")} title="Templates">
+                        <span style={{ fontSize: 20 }}>📋</span>
                     </li>
                     <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
                     <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
@@ -82,7 +87,8 @@ export default function AssetsPanel({
                     </li>
                 </ul>
                 <ul id="menu-tools" style={{ width: 220 }}>
-                    {activeTab === "tools" && <SectionsTab activeTool={activeTool} onSelectTool={onSelectTool} canCombine={canCombine} canSelect={canSelect} onBatchMerge={onBatchMerge} onBatchDelete={onBatchDelete} onBatchChangeType={onBatchChangeType} multiSelectIds={multiSelectIds} selectedShape={selectedShape} onUpdateShape={onUpdateShape} />}
+                    {activeTab === "tools" && <SectionsTab activeTool={activeTool} onSelectTool={onSelectTool} canCombine={canCombine} canSelect={canSelect} onBatchMerge={onBatchMerge} onBatchDelete={onBatchDelete} onBatchChangeType={onBatchChangeType} onBatchFullWall={onBatchFullWall} multiSelectIds={multiSelectIds} selectedShape={selectedShape} onUpdateShape={onUpdateShape} canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} />}
+                    {activeTab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} stage={stage} onApplyTemplate={onApplyTemplate} />}
                     {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
                 </ul>
             </aside>
