@@ -1500,28 +1500,26 @@ export default function RenderPage() {
         const proj = makeProjection(mapRef.current);
         const sourceDiv = stagedItems[dividerId];
         if (!sourceDiv || sourceDiv.type !== "divider_line") return;
-        const div = screenDivider(sourceDiv, proj);
         const updated = { ...sourceDiv, ...newAttrs };
         if (proj && updated.x1 != null && updated.y1 != null && updated.x2 != null && updated.y2 != null) {
             Object.assign(updated, geoForDividerLine(proj, updated));
         }
 
-        const axis = getDividerAxis(div);
+        const axis = getDividerAxis(updated);
         const floorRooms = Object.values(stagedItems).filter(
             room => isVisibleSectionRoom(room) && room.floor_id === sourceDiv.floor_id
         ).map(room => screenRoom(room, proj));
-        const affectedRooms = roomsTouchingDivider(div, floorRooms);
+        const affectedRooms = roomsTouchingDivider(updated, floorRooms);
         const roomUpdates = {};
 
         if (affectedRooms.length >= 2 && axis !== "free") {
             if (axis === "horizontal") {
-                const oldSplit = ((div.y1 ?? 0) + (div.y2 ?? 0)) / 2;
-                const minY = Math.min(...affectedRooms.map(room => room.y));
-                const maxY = Math.max(...affectedRooms.map(room => room.y + room.height));
-                const splitY = clampSplit(((updated.y1 ?? 0) + (updated.y2 ?? 0)) / 2, minY + 10, maxY - 10);
+                const splitY = clampSplit(((updated.y1 ?? 0) + (updated.y2 ?? 0)) / 2, 
+                    Math.min(...affectedRooms.map(room => room.y)) + 10, 
+                    Math.max(...affectedRooms.map(room => room.y + room.height)) - 10);
                 affectedRooms.forEach(room => {
                     const centerY = room.y + room.height / 2;
-                    const next = centerY <= oldSplit
+                    const next = centerY <= splitY
                         ? { ...room, height: Math.max(10, splitY - room.y) }
                         : { ...room, y: splitY, height: Math.max(10, room.y + room.height - splitY) };
                     if (room.lat != null && room.lng != null && proj) {
@@ -1536,13 +1534,12 @@ export default function RenderPage() {
                     roomUpdates[next.id] = next;
                 });
             } else if (axis === "vertical") {
-                const oldSplit = ((div.x1 ?? 0) + (div.x2 ?? 0)) / 2;
-                const minX = Math.min(...affectedRooms.map(room => room.x));
-                const maxX = Math.max(...affectedRooms.map(room => room.x + room.width));
-                const splitX = clampSplit(((updated.x1 ?? 0) + (updated.x2 ?? 0)) / 2, minX + 10, maxX - 10);
+                const splitX = clampSplit(((updated.x1 ?? 0) + (updated.x2 ?? 0)) / 2, 
+                    Math.min(...affectedRooms.map(room => room.x)) + 10, 
+                    Math.max(...affectedRooms.map(room => room.x + room.width)) - 10);
                 affectedRooms.forEach(room => {
                     const centerX = room.x + room.width / 2;
-                    const next = centerX <= oldSplit
+                    const next = centerX <= splitX
                         ? { ...room, width: Math.max(10, splitX - room.x) }
                         : { ...room, x: splitX, width: Math.max(10, room.x + room.width - splitX) };
                     if (room.lat != null && room.lng != null && proj) {
