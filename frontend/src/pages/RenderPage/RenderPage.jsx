@@ -405,6 +405,24 @@ export default function RenderPage() {
     const onMapViewChange = useCallback(() => setMapVersion(v => v + 1), []);
     const baseRoomsCreatedRef = useRef(false);
 
+    const screenToGeo = useCallback((px, py, w, h) => {
+        const proj = makeProjection(mapRef.current);
+        if (!proj || !property) return null;
+        const center = proj.unproject(px + w / 2, py + h / 2);
+        const left = proj.unproject(px, py + h / 2);
+        const right = proj.unproject(px + w, py + h / 2);
+        const top = proj.unproject(px + w / 2, py);
+        const bottom = proj.unproject(px + w / 2, py + h);
+        const widthMeters = groundDistanceMeters(left.lng, left.lat, right.lng, right.lat);
+        const heightMeters = groundDistanceMeters(top.lng, top.lat, bottom.lng, bottom.lat);
+        return {
+            lat: center.lat, lng: center.lng,
+            widthMeters,
+            heightMeters,
+            metersPerPixel: Math.min(widthMeters / (w || 1), heightMeters / (h || 1)),
+        };
+    }, [property]);
+
     const selectedCount = multiSelectIds.length > 0 ? multiSelectIds.length : (selectedShapeId ? 1 : 0);
 
     const handleCanvasSelect = useCallback((id, ctrlKey) => {
@@ -915,24 +933,6 @@ export default function RenderPage() {
         if (!floor) return val;
         return Math.max(floor.x, Math.min(val, floor.x + floor.width - size));
     };
-
-    const screenToGeo = useCallback((px, py, w, h) => {
-        const proj = makeProjection(mapRef.current);
-        if (!proj || !property) return null;
-        const center = proj.unproject(px + w / 2, py + h / 2);
-        const left = proj.unproject(px, py + h / 2);
-        const right = proj.unproject(px + w, py + h / 2);
-        const top = proj.unproject(px + w / 2, py);
-        const bottom = proj.unproject(px + w / 2, py + h);
-        const widthMeters = groundDistanceMeters(left.lng, left.lat, right.lng, right.lat);
-        const heightMeters = groundDistanceMeters(top.lng, top.lat, bottom.lng, bottom.lat);
-        return {
-            lat: center.lat, lng: center.lng,
-            widthMeters,
-            heightMeters,
-            metersPerPixel: Math.min(widthMeters / (w || 1), heightMeters / (h || 1)),
-        };
-    }, [property]);
 
     useEffect(() => {
         if (stage !== "outline" || !mapRef.current || !property) return;
