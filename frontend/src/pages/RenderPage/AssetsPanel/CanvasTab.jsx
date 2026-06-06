@@ -1,4 +1,8 @@
-export default function CanvasTab({ canvasSettings, setCanvasSettings, mapDistance, setMapDistance }) {
+export default function CanvasTab({
+    canvasSettings, setCanvasSettings, mapDistance, setMapDistance,
+    onSearchAddress, searchResults, onSelectResult,
+    onPlaceAtCursor, isSearching
+}) {
     const themes = [
         { key: "dark", label: "Dark" },
         { key: "light", label: "Light" },
@@ -35,6 +39,45 @@ export default function CanvasTab({ canvasSettings, setCanvasSettings, mapDistan
     return (
         <li className="menu-item-container">
             <div className="menu-tools-section">
+                <h4>Location</h4>
+                <div className="props-section" style={{ border: "none", display: "flex", gap: 4 }}>
+                    <input
+                        type="text"
+                        className="input"
+                        placeholder="Search address..."
+                        style={{ flex: 1 }}
+                        onKeyDown={e => e.key === "Enter" && onSearchAddress?.(e.target.value.trim())}
+                    />
+                    <button className="tb-btn" onClick={e => onSearchAddress?.(e.target.previousElementSibling.value.trim())} disabled={isSearching}>
+                        {isSearching ? "..." : "Search"}
+                    </button>
+                </div>
+                {searchResults && searchResults.length > 0 && (
+                    <ul style={{ listStyle: "none", padding: 0, marginTop: 4, maxHeight: 150, overflow: "auto" }}>
+                        {searchResults.map((result, i) => (
+                            <li key={i} style={{ padding: 4, cursor: "pointer", borderBottom: "1px solid var(--border)" }}
+                                onClick={() => onSelectResult?.(result)}
+                                title="Click to center map here">
+                                <span style={{ fontSize: 12 }}>{result.text}</span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+                {isSearching && !searchResults.length && (
+                    <div style={{ fontSize: 11, color: "var(--text-dim)", padding: 4 }}>Searching...</div>
+                )}
+            </div>
+
+            <div className="menu-tools-section" style={{ marginTop: 12 }}>
+                <h4>Quick Place</h4>
+                <div className="props-section" style={{ border: "none" }}>
+                    <button className="tb-btn" onClick={onPlaceAtCursor} title="Place outline at searched location">
+                        📍 Place Outline Here
+                    </button>
+                </div>
+            </div>
+
+            <div className="menu-tools-section" style={{ marginTop: 12 }}>
                 <h4>Theme</h4>
                 <div className="props-section" style={{ border: "none", flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
                     {themes.map(t => (

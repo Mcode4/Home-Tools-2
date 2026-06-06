@@ -17,6 +17,8 @@ import { makeProjection, groundDistanceMeters } from "../../functions/geoProject
 import { generateTemplate } from "../../functions/outlineTemplates";
 import { booleanUnion, booleanSubtract, booleanIntersect } from "../../functions/booleanOps";
 import { validateOutlines } from "../../functions/outlineValidation";
+import { getOutlineArea, getOutlinePerimeter } from "../../functions/outlineValidation";
+import { handleSearchAddress as handleSearchAddressNominatim, reverseLookupAddress } from "../../functions/nominatim";
 import * as turf from "@turf/turf";
 import "./RenderPage.css"
 
@@ -394,6 +396,10 @@ export default function RenderPage() {
     const [vertexMode, setVertexMode] = useState(false);
     const [selectedVertexIndex, setSelectedVertexIndex] = useState(-1);
     const [validationResults, setValidationResults] = useState({ isValid: true, warnings: [], measurements: [] });
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [pendingGeocode, setPendingGeocode] = useState(null);
+    const [sectionWarnings, setSectionWarnings] = useState([]);
     const mapRef = useRef(null);
     const [mapVersion, setMapVersion] = useState(0);
     const onMapViewChange = useCallback(() => setMapVersion(v => v + 1), []);
@@ -739,6 +745,81 @@ export default function RenderPage() {
         }, 300);
         return () => clearTimeout(timer);
     }, [outlines, stage]);
+
+    const handleSearchAddress = useCallback(async (query) => {
+        if (!query || query.length < 3) return;
+        setIsSearching(true);
+        try {
+            const results = await handleSearchAddressNominatim(query);
+            setSearchResults(results || []);
+        } catch (err) {
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    }, []);
+
+    const handleSelectResult = useCallback((result) => {
+        if (!result || !mapRef.current) return;
+        mapRef.current.flyTo({ center: [result.lng, result.lat], zoom: 17 });
+        setPendingGeocode(result);
+        setSearchResults([]);
+    }, []);
+
+    const handlePlaceAtCursor = useCallback(() => {
+        if (!pendingGeocode || !mapRef.current) return;
+        const { lat, lng } = pendingGeocode;
+        addShape({
+            type: "rectangle",
+            lat, lng,
+            widthMeters: 10, heightMeters: 10,
+            fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2,
+        });
+        setPendingGeocode(null);
+    }, [pendingGeocode, addShape]);
+
+    const handleReverseGeocode = useCallback(async (screenPoint) => {
+        if (!mapRef.current) return;
+        const proj = makeProjection(mapRef.current);
+        if (!proj) return;
+        const ll = proj.unproject(screenPoint.x, screenPoint.y);
+        try {
+            const result = await reverseLookupAddress(ll.lng, ll.lat);
+            if (result) {
+                addShape({
+                    type: "rectangle",
+                    lat: result.lat,
+                    lng: result.lng,
+                    widthMeters: 10, heightMeters: 10,
+                    fill: "#6366f1", stroke: "#00d4ff", strokeWidth: 2,
+                });
+            }
+        } catch (err) {
+            console.error("Reverse geocode failed:", err);
+        }
+    }, [addShape]);
+
+    const handleSectionValidation = useCallback(() => {
+        if (stage !== "sections") return;
+        const roomItems = Object.values(stagedItems).filter(el => el.type === "room" && el.sectionRole !== "base");
+        const warnings = [];
+        roomItems.forEach(room => {
+            const area = (room.width || 0) * (room.height || 0);
+            if (area <= 0) warnings.push({ type: "zero-area-room", roomId: room.id, message: `Room ${room.name} has zero area` });
+        });
+        const outlineFloorIds = new Set(outlines.map(o => o.id));
+        roomItems.forEach(room => {
+            if (!outlineFloorIds.has(room.floor_id)) {
+                warnings.push({ type: "orphan-room", roomId: room.id, message: `Room ${room.name} is not in any outline` });
+            }
+        });
+        if (warnings.length > 0) setSectionWarnings(warnings);
+        else setSectionWarnings([]);
+    }, [stage, stagedItems, outlines]);
+
+    useEffect(() => {
+        handleSectionValidation();
+    }, [handleSectionValidation]);
 
     const startObjectPlacement = useCallback((item) => {
         if (!hasRooms || !item) return;
@@ -1246,6 +1327,11 @@ export default function RenderPage() {
                             setTimeout(() => addShape({ ...shapeData }), i * 50);
                         });
                     }}
+                    onSearchAddress={handleSearchAddress}
+                    searchResults={searchResults}
+                    onSelectResult={handleSelectResult}
+                    onPlaceAtCursor={handlePlaceAtCursor}
+                    isSearching={isSearching}
                 />
                 <PropertiesPanel
                     stage={stage}
@@ -1273,6 +1359,11 @@ export default function RenderPage() {
                     validationResults={validationResults}
                     showMeasurements={canvasSettings.showMeasurements}
                     unit={canvasSettings.unit}
+                    sectionWarnings={sectionWarnings}
+                    liveMeasurements={selectedShape ? {
+                        area: getOutlineArea(selectedShape),
+                        perimeter: getOutlinePerimeter(selectedShape),
+                    } : null}
                     deleteElement={(id) => {
                         const item = stage === "outline"
                             ? outlines.find(o => o.id === id)
