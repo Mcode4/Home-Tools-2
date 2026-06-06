@@ -983,7 +983,8 @@ export default function RenderComponent({
             if (!pt) return;
             const hit = findSectionTargetAtPoint(pt);
             if (hit) {
-                onAddWallPad?.(activeTool.type, hit.floorTargetId || hit.floor_id, hit.id, pt);
+                const room = hit.room || hit;
+                onAddWallPad?.(activeTool.type, hit.floorTargetId || hit.floor_id, hit.id, pt, room);
             }
             return;
         }

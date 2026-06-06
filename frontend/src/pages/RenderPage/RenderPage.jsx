@@ -1451,26 +1451,104 @@ export default function RenderPage() {
         setStagedItems(prev => ({ ...prev, [dividerId]: updated, ...roomUpdates }));
     }, [stagedItems, setStagedItems]);
 
-    const addWallPad = useCallback((wallType, floorId, parentId, point) => {
+    const detectEdge = useCallback((clickX, clickY, room) => {
+        const { x, y, width, height } = room;
+        const edgeThreshold = 15;
+        
+        const distTop = Math.abs(clickY - y);
+        const distBottom = Math.abs(clickY - (y + height));
+        const distLeft = Math.abs(clickX - x);
+        const distRight = Math.abs(clickX - (x + width));
+        
+        const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+        
+        if (minDist > edgeThreshold) return null;
+        
+        if (minDist === distTop) return "top";
+        if (minDist === distBottom) return "bottom";
+        if (minDist === distLeft) return "left";
+        if (minDist === distRight) return "right";
+        return null;
+    }, []);
+
+    const addWallPad = useCallback((wallType, floorId, parentId, point, room) => {
         if (!floorId) return;
         const parent = stagedItems[parentId] || outlines.find(o => o.id === parentId) || {};
         const id = `wall-${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
         const isSquare = wallType === "wall_square";
-        const width = isSquare ? 60 : 120;
-        const height = isSquare ? 60 : 6;
-        addItem(id, {
-            id, name: isSquare ? "Full Wall" : "Section Wall",
-            type: "wall", wallType, floor_id: floorId, parent_id: parentId,
-            x: point ? point.x - width / 2 : (parent.x || 0) + 20,
-            y: point ? point.y - height / 2 : (parent.y || 0) + 20,
-            width,
-            height,
-            fill: isSquare ? "#52525b" : "#d4d4d8",
-            stroke: "#111827",
-            strokeWidth: 1,
-        });
+        
+        if (isSquare && room) {
+            addItem(id, {
+                id, name: "Full Wall",
+                type: "wall", wallType, floor_id: floorId, parent_id: parentId,
+                x: room.x + 2,
+                y: room.y + 2,
+                width: room.width - 4,
+                height: room.height - 4,
+                fill: "#52525b",
+                stroke: "#111827",
+                strokeWidth: 1,
+            });
+        } else if (!isSquare && room && point) {
+            const edge = detectEdge(point.x, point.y, room);
+            if (!edge) return;
+            
+            const wallThickness = 6;
+            let wallX, wallY, wallWidth, wallHeight;
+            
+            switch (edge) {
+                case "top":
+                    wallX = room.x;
+                    wallY = room.y;
+                    wallWidth = room.width;
+                    wallHeight = wallThickness;
+                    break;
+                case "bottom":
+                    wallX = room.x;
+                    wallY = room.y + room.height - wallThickness;
+                    wallWidth = room.width;
+                    wallHeight = wallThickness;
+                    break;
+                case "left":
+                    wallX = room.x;
+                    wallY = room.y;
+                    wallWidth = wallThickness;
+                    wallHeight = room.height;
+                    break;
+                case "right":
+                    wallX = room.x + room.width - wallThickness;
+                    wallY = room.y;
+                    wallWidth = wallThickness;
+                    wallHeight = room.height;
+                    break;
+            }
+            
+            addItem(id, {
+                id, name: "Section Wall",
+                type: "wall", wallType, floor_id: floorId, parent_id: parentId,
+                x: wallX, y: wallY,
+                width: wallWidth, height: wallHeight,
+                fill: "#d4d4d8",
+                stroke: "#111827",
+                strokeWidth: 1,
+            });
+        } else {
+            const width = isSquare ? 60 : 120;
+            const height = isSquare ? 60 : 6;
+            addItem(id, {
+                id, name: isSquare ? "Full Wall" : "Section Wall",
+                type: "wall", wallType, floor_id: floorId, parent_id: parentId,
+                x: point ? point.x - width / 2 : (parent.x || 0) + 20,
+                y: point ? point.y - height / 2 : (parent.y || 0) + 20,
+                width,
+                height,
+                fill: isSquare ? "#52525b" : "#d4d4d8",
+                stroke: "#111827",
+                strokeWidth: 1,
+            });
+        }
         setSelectedShapeId(id);
-    }, [stagedItems, outlines, addItem]);
+    }, [stagedItems, outlines, addItem, detectEdge]);
 
     return loaded ? (
         <div id="render-page">
