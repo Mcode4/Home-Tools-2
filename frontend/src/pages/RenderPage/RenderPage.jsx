@@ -1027,6 +1027,33 @@ export default function RenderPage() {
                     selectedCount={selectedCount}
                     onBooleanOp={onBooleanOp}
                     onShowOffset={onShowOffset}
+                    outlines={outlines}
+                    onLoadTemplate={(template) => {
+                        if (template.outlines) {
+                            template.outlines.forEach((shapeData, i) => {
+                                setTimeout(() => addShape({ ...shapeData }), i * 50);
+                            });
+                        }
+                    }}
+                    onLoadBuiltin={(templateId) => {
+                        try {
+                            const template = generateTemplate(templateId);
+                            addShape({
+                                type: "polygon",
+                                points: template.points,
+                                fill: "#6366f1",
+                                stroke: "#00d4ff",
+                                strokeWidth: 2,
+                            });
+                        } catch (e) {
+                            console.error("Builtin template load failed:", e);
+                        }
+                    }}
+                    onImport={(importedOutlines) => {
+                        importedOutlines.forEach((shapeData, i) => {
+                            setTimeout(() => addShape({ ...shapeData }), i * 50);
+                        });
+                    }}
                 />
                 <PropertiesPanel
                     stage={stage}

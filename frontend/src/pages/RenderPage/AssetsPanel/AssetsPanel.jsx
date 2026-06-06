@@ -3,6 +3,7 @@ import ShapesTab from "./ShapesTab";
 import CanvasTab from "./CanvasTab";
 import SectionsTab from "./SectionsTab";
 import ObjectsTab from "./ObjectsTab";
+import TemplateTab from "./TemplateTab";
 
 export default function AssetsPanel({
     stage,
@@ -24,6 +25,10 @@ export default function AssetsPanel({
     selectedCount = 0,
     onBooleanOp,
     onShowOffset,
+    outlines = [],
+    onLoadTemplate,
+    onLoadBuiltin,
+    onImport,
 }) {
     const [tab, setTab] = useState("tools");
 
@@ -78,6 +83,10 @@ export default function AssetsPanel({
                     onClick={() => setTab("shapes")} title="Outlines">
                     <span style={{ fontSize: 20 }}>▲</span>
                 </li>
+                <li className={`user-select-none ${tab === "templates" ? "menu-active" : ""}`}
+                    onClick={() => setTab("templates")} title="Templates">
+                    <span style={{ fontSize: 20 }}>📋</span>
+                </li>
                 <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
                 <li className={`user-select-none ${tab === "settings" ? "menu-active" : ""}`}
                     onClick={() => setTab("settings")} title="Canvas Settings">
@@ -86,6 +95,7 @@ export default function AssetsPanel({
             </ul>
             <ul id="menu-tools" style={{ width: 220 }}>
                 {tab === "shapes" && <ShapesTab setPendingPlacement={setPendingPlacement} activeTool={activeTool} selectedCount={selectedCount} onBooleanOp={onBooleanOp} onShowOffset={onShowOffset} />}
+                {tab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} />}
                 {tab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
             </ul>
         </aside>
