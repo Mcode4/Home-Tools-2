@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, BIGINT, TEXT, TIMESTAMP, ForeignKey
+from sqlalchemy import Column, Integer, String, TEXT, TIMESTAMP, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.session import Base
@@ -10,9 +10,13 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
+    username = Column(String, unique=True, nullable=False, index=True)
     password = Column(String, nullable=False)
-    name = Column(TEXT)
-    phone_number = Column(BIGINT)
+    first_name = Column(TEXT, default="New")
+    last_name = Column(TEXT, default="User")
+    phone_number = Column(String)
+    country_code = Column(String)
+    area_code = Column(String)
     bio = Column(TEXT)
     profile_icon = Column(TEXT)
     created_at = Column(TIMESTAMP, server_default=func.now())
@@ -26,16 +30,52 @@ class User(Base):
     saved_types = relationship("SavedType", back_populates="owner", cascade="all, delete-orphan")
     settings = relationship("Settings", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
-# Pydantic Schemas (renamed to avoid collision with ORM model)
+import re
+
+PHONE_REGEX = re.compile(r"^\+?[\d\s\-\(\)]{7,20}$")
+COUNTRY_CODE_REGEX = re.compile(r"^\+\d{1,4}$")
+AREA_CODE_REGEX = re.compile(r"^\d{3}$")
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=25)
-    name: Optional[str] = "User"
-    phone: Optional[int] = None
+    first_name: Optional[str] = "New"
+    last_name: Optional[str] = "User"
+    phone: Optional[str] = None
+    country_code: Optional[str] = None
+    area_code: Optional[str] = None
     bio: Optional[str] = None
     profile_icon: Optional[str] = None
 
-class UserInfoSchema(BaseModel):
-    name: str
-    phone: Optional[int] = None
+class UserProfileSchema(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    country_code: Optional[str] = None
+    area_code: Optional[str] = None
+    bio: Optional[str] = None
+    profile_icon: Optional[str] = None
+    username: Optional[str] = None
+
+    class Config:
+        @staticmethod
+        def validate_phone(cls, v):
+            if v is not None and not PHONE_REGEX.match(v):
+                raise ValueError("Invalid phone number format")
+            return v
+
+        @staticmethod
+        def validate_country_code(cls, v):
+            if v is not None and not COUNTRY_CODE_REGEX.match(v):
+                raise ValueError("Country code must be like +1, +44, +81")
+            return v
+
+        @staticmethod
+        def validate_area_code(cls, v):
+            if v is not None and not AREA_CODE_REGEX.match(v):
+                raise ValueError("Area code must be exactly 3 digits")
+            return v
+
+class UserAccountSchema(BaseModel):
+    email: EmailStr
     password: str = Field(min_length=8, max_length=25)

@@ -24,10 +24,10 @@ class Point(Base):
     icon = Column(TEXT)
     lng = Column(Float, nullable=False)
     lat = Column(Float, nullable=False)
-    endlng = Column(Float)
-    endlat = Column(Float)
+    end_lng = Column(Float)
+    end_lat = Column(Float)
     radius = Column(Float)
-    parent_id = Column(Integer)
+    unit_id = Column(Integer, ForeignKey("property.id", ondelete="SET NULL"))
     extra_info = Column(JSON)
 
 class PointSchema(BaseModel):
@@ -36,8 +36,8 @@ class PointSchema(BaseModel):
     icon: Optional[str] = None
     lng: float
     lat: float
-    endlng: Optional[float] = None
-    endlat: Optional[float] = None
+    end_lng: Optional[float] = None
+    end_lat: Optional[float] = None
     radius: Optional[float] = None
-    parent_id: Optional[int] = None
+    unit_id: Optional[int] = None
     extra_info: Optional[dict] = None

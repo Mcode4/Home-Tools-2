@@ -28,13 +28,14 @@ def verify_team_and_member(db: Session, team_id: int, current_id: int):
         return {"success": False, "message": "User not authorized to view team", "status": 403}
         
     members = []
-    # Use relationship to get members if defined, or query user_teams
     for ut in team.user_teams:
         u = ut.user
         if u:
             members.append({
                 "email": u.email,
-                "name": u.name,
+                "username": u.username,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
                 "phone_number": u.phone_number,
                 "profile_icon": u.profile_icon
             })
@@ -57,7 +58,7 @@ def get_team_members(id: int, current_user = Depends(get_current_user), db: Sess
 def create_team(team_schema: TeamSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
         # Default name if not provided
-        name = team_schema.name if team_schema.name else f"{current_user['name']}'s Team"
+        name = team_schema.name if team_schema.name else f"{current_user.get('first_name', 'User')}'s Team"
         rules = team_schema.rules
         
         new_team = Team(name=name, rules=rules)

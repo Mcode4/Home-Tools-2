@@ -52,7 +52,6 @@ def add_image(image_schema: ImageSchema = Depends(), file: UploadFile = File(...
         filename=uploaded_img["filename"],
         filepath=uploaded_img["filepath"],
         content_type=file.content_type,
-        size=os.path.getsize(uploaded_img["filepath"]),
         type=image_schema.type,
     )
     db.add(new_image)

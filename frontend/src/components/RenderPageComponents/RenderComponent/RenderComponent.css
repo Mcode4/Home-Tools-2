@@ -1,0 +1,27 @@
+#render-component {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+
+    overflow: hidden;
+    justify-content: center;
+    position: relative;
+}
+
+.three-canvas-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.three-canvas-layer.render3d-stage {
+    pointer-events: auto;
+}
+
+.three-canvas-layer canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+}

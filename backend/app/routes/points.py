@@ -27,12 +27,12 @@ def validate_point_data(point_schema: PointSchema, is_patch=False):
             raise HTTPException(status_code=400, detail="Missing radius for point type: 'radius'")
     elif point_schema.type == "line":
         if not is_patch:
-            if point_schema.endlng is None or point_schema.endlat is None:
-                raise HTTPException(status_code=400, detail="Missing endlng and/or endlat for point type: 'line'")
+            if point_schema.end_lng is None or point_schema.end_lat is None:
+                raise HTTPException(status_code=400, detail="Missing end_lng and/or end_lat for point type: 'line'")
         
-        if point_schema.endlng is not None and not (-180 <= point_schema.endlng <= 180):
+        if point_schema.end_lng is not None and not (-180 <= point_schema.end_lng <= 180):
             raise HTTPException(status_code=400, detail="Invalid end longitude")
-        if point_schema.endlat is not None and not (-90 <= point_schema.endlat <= 90):
+        if point_schema.end_lat is not None and not (-90 <= point_schema.end_lat <= 90):
             raise HTTPException(status_code=400, detail="Invalid end latitude")
             
     if not (-90 <= point_schema.lat <= 90):
@@ -60,9 +60,9 @@ def create_point(point_schema: PointSchema, current_user = Depends(get_current_u
             lng=point_schema.lng,
             lat=point_schema.lat,
             radius=point_schema.radius,
-            endlng=point_schema.endlng,
-            endlat=point_schema.endlat,
-            parent_id=point_schema.parent_id,
+            end_lng=point_schema.end_lng,
+            end_lat=point_schema.end_lat,
+            unit_id=point_schema.unit_id,
             extra_info=point_schema.extra_info
         )
         db.add(new_point)

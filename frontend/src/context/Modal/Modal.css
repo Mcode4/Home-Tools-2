@@ -4,7 +4,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -21,10 +21,10 @@
 
 #modal-content {
   position: relative;
-  background: white;
+  background: var(--bg-panel);
   padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
@@ -32,7 +32,7 @@
   box-sizing: border-box;
   overflow-y: hidden;
   text-align: center;
-  transition: background 0.2s ease;
+  transition: background var(--transition);
   z-index: 10;
 }
 
@@ -40,7 +40,7 @@
   position: absolute !important;
   top: 12px !important;
   left: 12px !important;
-  background: white !important;
+  background: var(--bg-panel) !important;
   border-radius: 50% !important;
   width: 36px !important;
   height: 36px !important;
@@ -49,14 +49,15 @@
   align-items: center !important;
   font-size: 20px !important;
   font-weight: bold !important;
-  border: none !important;
+  border: 1px solid var(--border) !important;
   cursor: pointer !important;
-  transition: background 0.2s ease !important;
+  transition: background var(--transition) !important;
   z-index: 100 !important;
+  color: var(--text-main);
 }
 
 #modal-content .close-button:hover {
-  background: #f2f2f2;
+  background: var(--hover-bg) !important;
 }
 
 #base-modal-button {

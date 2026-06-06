@@ -57,6 +57,19 @@ def delete_read_notifications(current_user = Depends(get_current_user), db: Sess
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# Mark Notification as Read
+@router.patch("/{id}")
+def mark_notification_read(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    notif = db.query(Notification).filter(Notification.id == id, Notification.recipient_id == current_user["id"]).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    notif.read = 1
+    db.commit()
+    db.refresh(notif)
+    return ResponseModel(True, "Notification marked as read", {"notification": notif})
+
+
 # Deleted Notification By ID
 @router.delete("/{id}")
 def delete_notification_by_id(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):

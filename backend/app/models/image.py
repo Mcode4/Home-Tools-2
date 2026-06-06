@@ -15,7 +15,6 @@ class Image(Base):
     filename = Column(TEXT)
     filepath = Column(TEXT)
     content_type = Column(TEXT)
-    size = Column(Integer)
     type = Column(TEXT, nullable=False)
     uploaded_at = Column(TIMESTAMP, server_default=func.now())
 
@@ -30,5 +29,4 @@ class ImageSchema(BaseModel):
     filename: Optional[str] = None
     filepath: Optional[str] = None
     content_type: Optional[str] = None
-    size: Optional[str] = None # Pydantic model shows string, DB is integer. Need care.
     type: str

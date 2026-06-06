@@ -1,4 +1,6 @@
 import os
+import secrets
+import string
 from fastapi import APIRouter, HTTPException, Response, Cookie, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -53,6 +55,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
+def generate_username():
+    chars = string.ascii_letters + string.digits
+    return "user_" + "".join(secrets.choice(chars) for _ in range(8))
+
 # Register
 @router.post("/register")
 def register(user_schema: UserCreate, db: Session = Depends(get_db_session)):
@@ -61,11 +67,22 @@ def register(user_schema: UserCreate, db: Session = Depends(get_db_session)):
         return
     
     hashed_password = hash_password(user_schema.password)
+    
+    username = generate_username()
+    while db.query(User).filter(User.username == username).first():
+        username = generate_username()
+    
     new_user = User(
         email=user_schema.email.strip(), 
         password=hashed_password, 
-        name=user_schema.name,
-        phone_number=user_schema.phone
+        first_name=user_schema.first_name,
+        last_name=user_schema.last_name,
+        username=username,
+        phone_number=user_schema.phone,
+        country_code=user_schema.country_code,
+        area_code=user_schema.area_code,
+        bio=user_schema.bio,
+        profile_icon=user_schema.profile_icon
     )
     
     try:
@@ -112,8 +129,12 @@ def login(user_schema: UserCreate, response: Response, db: Session = Depends(get
     user_obj = {
         "id": db_user.id,
         "email": db_user.email,
-        "name": db_user.name,
+        "username": db_user.username,
+        "first_name": db_user.first_name,
+        "last_name": db_user.last_name,
         "phone_number": db_user.phone_number,
+        "country_code": db_user.country_code,
+        "area_code": db_user.area_code,
         "bio": db_user.bio,
         "profile_icon": db_user.profile_icon
     }
@@ -165,7 +186,18 @@ def get_session_user(
     
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    return {"id": user.id, "email": user.email, "name": user.name}
+    return {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "phone_number": user.phone_number,
+        "country_code": user.country_code,
+        "area_code": user.area_code,
+        "bio": user.bio,
+        "profile_icon": user.profile_icon
+    }
 
 # Export get_current_user for other routes
 get_current_user = get_session_user

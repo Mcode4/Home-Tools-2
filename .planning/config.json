@@ -1,7 +1,15 @@
 {
-  "project_name": "Home Tools v2",
-  "commit_docs": true,
-  "tdd_mode": true,
-  "auto_research": true,
-  "theme": "premium-professional"
+  "mode": "yolo",
+  "granularity": "fine",
+  "parallelization": true,
+  "commit_docs": false,
+  "model_profile": "inherit",
+  "workflow": {
+    "research": false,
+    "plan_check": false,
+    "verifier": false,
+    "nyquist_validation": false,
+    "auto_advance": false,
+    "_auto_chain_active": false
+  }
 }

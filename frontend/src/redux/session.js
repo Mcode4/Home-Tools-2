@@ -1,4 +1,4 @@
-import { DEMO_BACKEND_API } from "./apiUtils";
+import { trackEvent } from "../functions/analytics";
 
 const SET_USER = 'session/setUser';
 const REMOVE_USER = 'session/removeUser';
@@ -37,6 +37,7 @@ export const thunkSignup = (credentials) => async () => {
     const data = await res.json();
     if(res.ok) {
         console.log("SIGNUP DATA", data);
+        trackEvent("signup", { method: "email" });
     } else {
         console.log("RESS ERROR", data);
     }
@@ -53,8 +54,10 @@ export const thunkLogin = (credentials) => async (dispatch) => {
     if(res.ok) {
         console.log("SIGNUP DATA", data);
         await dispatch(setUser(data.data.db_user))
+        trackEvent("login", { method: "email" });
     } else {
         console.log("RESS ERROR", data);
+        trackEvent("login_failed", { error: data.message || "unknown" });
     }
     return data
 }
@@ -67,6 +70,7 @@ export const thunkLogout = () => async (dispatch) => {
     if(res.ok) {
         console.log("SIGNUP DATA", data);
         await dispatch(removeUser())
+        trackEvent("logout");
     } else {
         console.log("RESS ERROR", data);
     }

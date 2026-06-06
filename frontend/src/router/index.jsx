@@ -1,12 +1,14 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import Layout from "./Layout";
-import LoginFormPage from "../components/LoginFormPage/LoginFormPage";
-import SignupFormPage from "../components/SignupFormPage";
-import DashboardPage from "../components/DashboardPage";
-import EditorPage from "../components/EditorPage/EditorPage";
-import RenderHomePage from "../components/RenderHomePage";
-import RenderPage from "../components/RenderPage";
+import LoginPage from "../pages/LoginPage";
+import SignupPage from "../pages/SignupPage";
+import Dashboard from "../pages/Dashboard";
+import MapPage from "../pages/MapPage/MapPage";
+import RenderHomePage from "../pages/RenderHomePage";
+import RenderPage from "../pages/RenderPage";
+import HomePage from "../pages/HomePage";
+import NotFoundPage from "../pages/NotFoundPage";
 
 export const router = createBrowserRouter([
     {
@@ -14,25 +16,23 @@ export const router = createBrowserRouter([
         children: [
             {
                 path: '',
-                element: (
-                    <div />
-                )
+                element: <HomePage />
             },
             {
                 path: '/login',
-                element: <LoginFormPage />
+                element: <LoginPage />
             },
             {
                 path: '/signup',
-                element: <SignupFormPage />
+                element: <SignupPage />
             },
             {
                 path: '/dashboard',
-                element: <DashboardPage />
+                element: <Dashboard />
             },
             {
                 path: '/editor',
-                element: <EditorPage />
+                element: <MapPage />
             },
             {
                 path: '/render',
@@ -44,7 +44,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "*",
-                element: <div>404 Page Not Found</div>
+                element: <NotFoundPage />
             }
         ]
     }

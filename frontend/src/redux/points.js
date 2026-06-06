@@ -101,7 +101,7 @@ export default function pointsReducer(state = initialState, action) {
         case DELETE_POINT:
             return {
                 ...state,
-                data: state.data.filter(p => p.id !== action.payload.id)
+                data: state.data.filter(p => p.id !== action.payload)
             };
         default:
             return state;

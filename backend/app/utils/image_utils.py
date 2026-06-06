@@ -17,7 +17,7 @@ def upload_image(image: Image, file: UploadFile = File(...)):
         else:
             UPLOAD_DIR += 'user/'
         image_dir = os.path.join(UPLOAD_DIR, str(image.owner_id))
-        os.makedirs(image_dir, exists_ok=True)
+        os.makedirs(image_dir, exist_ok=True)
         ext = os.path.splitext(file.filename)[1]
         filename = f'{uuid.uuid4()}{ext}'
         filepath = os.path.join(image_dir, filename)

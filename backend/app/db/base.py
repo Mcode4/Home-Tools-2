@@ -8,7 +8,9 @@ from app.models.property import Property
 from app.models.point import Point
 from app.models.home_group import HomeGroup
 from app.models.floor import Floor
+from app.models.room import Room
 from app.models.image import Image
 from app.models.notification import Notification
 from app.models.saved_types import SavedType
 from app.models.settings import Settings
+from app.models.render import Render

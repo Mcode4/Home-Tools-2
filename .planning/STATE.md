@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+stopped_at: Phase 5.1 plans created
+last_updated: "2026-06-06T09:50:52.133Z"
+progress:
+  total_phases: 7
+  completed_phases: 1
+  total_plans: 22
+  completed_plans: 10
+  percent: 14
+---
+
 # Project State
 
 ## Project Reference
@@ -6,7 +21,7 @@ See: `.planning/PROJECT.md` (updated 2026-06-04)
 
 **Core value:** Users can visually manage property data on an interactive map with hierarchical floor/room organization.
 
-**Current focus:** Phase 5 - Render Page 2D Tools
+**Current focus:** Phase 05.1 — Outline Stage Enhancements
 
 ## Phase Status
 

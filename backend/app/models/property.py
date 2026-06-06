@@ -83,7 +83,6 @@ class Property(Base):
     group_id = Column(Integer, ForeignKey("home_groups.id", ondelete="CASCADE"))
     type = Column(TEXT, default='home')
     icon = Column(TEXT)
-    details = Column(JSON)
     hierarchy = Column(PydanticType(HierarchySchema))
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
@@ -93,6 +92,7 @@ class Property(Base):
     group = relationship("HomeGroup", back_populates="properties")
     images = relationship("Image", back_populates="property", cascade="all, delete-orphan")
     floors = relationship("Floor", back_populates="property", cascade="all, delete-orphan")
+    render = relationship("Render", back_populates="property", uselist=False, cascade="all, delete-orphan")
 
 class PropertySchema(BaseModel):
     id: Optional[int] = None
@@ -108,5 +108,4 @@ class PropertySchema(BaseModel):
     lng: float
     type: Optional[str] = "home"
     icon: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
     hierarchy: Optional[HierarchySchema] = None

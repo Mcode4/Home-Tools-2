@@ -5,8 +5,8 @@ import { thunkGetSettings } from "../redux/settings";
 import { Outlet } from "react-router-dom";
 
 import { ModalProvider, Modal } from "../context/Modal"
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer"
+import Navbar from "../components/Page/Navbar";
+import Footer from "../components/Page/Footer"
 
 export default function Layout() {
     const dispatch = useDispatch();
@@ -21,7 +21,7 @@ export default function Layout() {
 
     return (
             <ModalProvider>
-                <div className={`app-container theme-${settings.theme || 'dark'}`}>
+                <div className={`app-container${settings.theme ? ` theme-${settings.theme}` : ''}`}>
                     <Navbar isLoaded={isLoaded} />
                     <main>
                         {isLoaded && <Outlet />}

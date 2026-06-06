@@ -55,7 +55,6 @@ def create_property(property_schema: PropertySchema, current_user = Depends(get_
             lng=property_schema.lng,
             type=property_schema.type,
             icon=property_schema.icon,
-            details=property_schema.details,
             hierarchy=property_schema.hierarchy
         )
         
