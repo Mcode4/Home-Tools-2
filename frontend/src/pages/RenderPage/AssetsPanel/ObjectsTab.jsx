@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { FURNITURE_CATALOG, CATEGORIES } from "./FurnitureCatalog";
 
 const formatSize = (item) => {
@@ -10,38 +10,12 @@ const formatSize = (item) => {
 export default function ObjectsTab({ onSelectCatalogItem }) {
     const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
     const [searchQuery, setSearchQuery] = useState("");
-    const fileInputRef = useRef(null);
 
     const filteredItems = FURNITURE_CATALOG.filter(item => {
         const matchesCategory = item.category === activeCategory;
         const matchesSearch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
     });
-
-    const handleUpload = (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            onSelectCatalogItem?.({
-                id: `custom-${Date.now()}`,
-                name: file.name.replace(/\.(glb|gltf)$/i, ""),
-                category: "Custom",
-                width: 100,
-                height: 100,
-                height3d: 80,
-                widthMeters: 1,
-                heightMeters: 1,
-                heightMeters3d: 0.8,
-                fill: "#8B5CF6",
-                icon: "📦",
-                modelUrl: reader.result,
-                isCustom: true,
-            });
-        };
-        reader.readAsDataURL(file);
-        e.target.value = "";
-    };
 
     return (
         <li className="menu-item-container">
@@ -82,21 +56,6 @@ export default function ObjectsTab({ onSelectCatalogItem }) {
                         <p className="objects-empty-state">No items found</p>
                     )}
                 </ul>
-                <div className="objects-upload-row">
-                    <button
-                        className="tb-btn objects-upload-btn"
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        📎 Upload GLB/GLTF
-                    </button>
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".glb,.gltf"
-                        style={{ display: "none" }}
-                        onChange={handleUpload}
-                    />
-                </div>
             </div>
         </li>
     );
