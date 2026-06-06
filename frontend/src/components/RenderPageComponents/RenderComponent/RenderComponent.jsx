@@ -1392,7 +1392,30 @@ export default function RenderComponent({
         );
     };
 
-    const renderDivider = (div) => {
+    const renderDividerHandles = (div) => {
+        const isSelected = selectedShapeId === div.id;
+        if (activeTool?.type !== "select") return null;
+        const moveHandle = (e, origin, attrsForPoint) => {
+            onMoveDividerLine?.(div.id, attrsForPoint(e.target.x(), e.target.y()));
+            e.target.position(origin);
+        };
+        return (
+            <React.Fragment key={`handles-${div.id}`}>
+                <Circle x={div.x1} y={div.y1} radius={8 / scaleRef.current} fill={isSelected ? "#22c55e" : "#ff8800"} stroke="#fff" strokeWidth={1 / scaleRef.current} draggable
+                    onClick={(e) => { e.cancelBubble = true; onSelectShape(div.id); }}
+                    onTap={(e) => { e.cancelBubble = true; onSelectShape(div.id); }}
+                    onDragMove={(e) => moveHandle(e, { x: div.x1, y: div.y1 }, (x, y) => ({ x1: x, y1: y }))}
+                    onDragEnd={(e) => moveHandle(e, { x: div.x1, y: div.y1 }, (x, y) => ({ x1: x, y1: y }))} />
+                <Circle x={div.x2} y={div.y2} radius={8 / scaleRef.current} fill={isSelected ? "#22c55e" : "#ff8800"} stroke="#fff" strokeWidth={1 / scaleRef.current} draggable
+                    onClick={(e) => { e.cancelBubble = true; onSelectShape(div.id); }}
+                    onTap={(e) => { e.cancelBubble = true; onSelectShape(div.id); }}
+                    onDragMove={(e) => moveHandle(e, { x: div.x2, y: div.y2 }, (x, y) => ({ x2: x, y2: y }))}
+                    onDragEnd={(e) => moveHandle(e, { x: div.x2, y: div.y2 }, (x, y) => ({ x2: x, y2: y }))} />
+            </React.Fragment>
+        );
+    };
+
+    const renderDivider = (div, showHandles = true) => {
         const isSelected = selectedShapeId === div.id;
         return (
             <React.Fragment key={div.id}>
@@ -1422,35 +1445,8 @@ export default function RenderComponent({
                         }
                         onSelectShape(div.id);
                     }}
-                    draggable={stage === "sections" && activeTool?.type === "select"}
-                    onDragEnd={(e) => {
-                        const node = e.target;
-                        const dx = node.x(), dy = node.y();
-                        node.position({ x: 0, y: 0 });
-                        onMoveDividerLine?.(div.id, {
-                            x1: div.x1 + dx,
-                            y1: div.y1 + dy,
-                            x2: div.x2 + dx,
-                            y2: div.y2 + dy,
-                        });
-                    }}
                 />
-                {activeTool?.type === "select" && (
-                    <>
-                        <Circle x={div.x1} y={div.y1} radius={8 / scaleRef.current} fill={isSelected ? "#22c55e" : "#ff8800"} stroke="#fff" strokeWidth={1 / scaleRef.current} draggable
-                            onDragEnd={(e) => {
-                                const dx = e.target.x() - div.x1, dy = e.target.y() - div.y1;
-                                e.target.position({ x: div.x1, y: div.y1 });
-                                onMoveDividerLine?.(div.id, { x1: div.x1 + dx, y1: div.y1 + dy });
-                            }} />
-                        <Circle x={div.x2} y={div.y2} radius={8 / scaleRef.current} fill={isSelected ? "#22c55e" : "#ff8800"} stroke="#fff" strokeWidth={1 / scaleRef.current} draggable
-                            onDragEnd={(e) => {
-                                const dx = e.target.x() - div.x2, dy = e.target.y() - div.y2;
-                                e.target.position({ x: div.x2, y: div.y2 });
-                                onMoveDividerLine?.(div.id, { x2: div.x2 + dx, y2: div.y2 + dy });
-                            }} />
-                    </>
-                )}
+                {showHandles && renderDividerHandles(div)}
             </React.Fragment>
         );
     };
@@ -1775,7 +1771,7 @@ export default function RenderComponent({
                                 {sectionOutlineShapes.map(outline => (
                                     <Group key={`section-floor-${outline.id}`} clipFunc={(ctx) => drawShapePath(ctx, outline, true)}>
                                         {sectionInteriorShapes.filter(el => el.floor_id === outline.id).map(renderElementShape)}
-                                        {dividerElements.filter(el => el.floor_id === outline.id).map(renderDivider)}
+                                        {dividerElements.filter(el => el.floor_id === outline.id).map(div => renderDivider(div, false))}
                                         {wallElements.filter(el => el.floor_id === outline.id).map(renderWall)}
                                         {openingElements.filter(el => el.floor_id === outline.id).map(renderOpening)}
                                         {renderDividerPreviews(outline.id)}
@@ -1797,6 +1793,7 @@ export default function RenderComponent({
                                     </>
                                 )}
                                 {sectionOutlineShapes.map(renderElementShape)}
+                                {sectionOutlineShapes.length > 0 && dividerElements.map(renderDividerHandles)}
                             </>
                         ) : (
                             normalShapes.map(renderElementShape)

@@ -12,6 +12,7 @@ function computeZoom(distanceMeters, canvasWidthPx, lat) {
 export default function RenderMapBackground({ visible, layer, lng, lat, distance, onDistanceChange, mapRef, onViewChange, panLimitMeters = 500 }) {
     const containerRef = useRef(null);
     const localMapRef = useRef(null);
+    const homeViewKeyRef = useRef(null);
     const [mapReady, setMapReady] = useState(false);
     const [canvasWidth, setCanvasWidth] = useState(800);
 
@@ -40,7 +41,7 @@ export default function RenderMapBackground({ visible, layer, lng, lat, distance
             center: [lng, lat],
             zoom: 14,
             minZoom: 18.5,
-            maxZoom: 20,
+            maxZoom: 22,
             maxBounds,
             interactive: true,
             attributionControl: false,
@@ -95,8 +96,21 @@ export default function RenderMapBackground({ visible, layer, lng, lat, distance
     useEffect(() => {
         const map = localMapRef.current;
         if (!map || !mapReady) return;
-        const z = Math.max(12, Math.min(20, computeZoom(distance, canvasWidth, lat)));
-        map.jumpTo({ center: [lng, lat], zoom: z });
+        const maxZoom = typeof map.getMaxZoom === "function" ? map.getMaxZoom() : 22;
+        const minZoom = typeof map.getMinZoom === "function" ? map.getMinZoom() : 12;
+        const z = Math.max(minZoom, Math.min(maxZoom, computeZoom(distance, canvasWidth, lat)));
+        const homeViewKey = `${lng}:${lat}`;
+
+        if (homeViewKeyRef.current !== homeViewKey) {
+            homeViewKeyRef.current = homeViewKey;
+            map.jumpTo({ center: [lng, lat], zoom: z });
+            return;
+        }
+
+        if (typeof map.isMoving === "function" && map.isMoving()) return;
+
+        const currentCenter = map.getCenter();
+        map.jumpTo({ center: [currentCenter.lng, currentCenter.lat], zoom: z });
     }, [distance, lng, lat, canvasWidth, mapReady]);
 
     useEffect(() => {

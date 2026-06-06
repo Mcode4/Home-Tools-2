@@ -40,40 +40,63 @@ export default function PropertiesPanel({
     const toggleFloor = (fid) => setExpandedFloors(prev => ({ ...prev, [fid]: !(prev[fid] ?? true) }));
     const toggleLevel = (lvl) => setExpandedFloors(prev => ({ ...prev, [`level-${lvl}`]: !(prev[`level-${lvl}`] ?? true) }));
 
-    const flyToOutline = useCallback((outline) => {
-        if (!mapRef?.current || !outline) return;
+    const flyToElement = useCallback((element) => {
+        if (!mapRef?.current || !element) return;
         const map = mapRef.current;
-        
+
         try {
             let center = null;
-            let zoom = 17;
-            
-            if (outline.lat != null && outline.lng != null) {
-                center = [outline.lng, outline.lat];
-            } else if (outline.pointsGeo && outline.pointsGeo.length >= 2) {
-                const midIdx = Math.floor(outline.pointsGeo.length / 2);
-                center = [outline.pointsGeo[midIdx][1], outline.pointsGeo[midIdx][0]];
-            } else if (outline.x != null && outline.y != null && outline.width && outline.height) {
-                const cx = outline.x + outline.width / 2;
-                const cy = outline.y + outline.height / 2;
+
+            const isValidLngLat = (lng, lat) => (
+                Number.isFinite(lng)
+                && Number.isFinite(lat)
+                && Math.abs(lng) <= 180
+                && Math.abs(lat) <= 90
+                && Math.abs(lng) + Math.abs(lat) > 0.000001
+            );
+
+            const lng = Number(element.lng);
+            const lat = Number(element.lat);
+            if (isValidLngLat(lng, lat)) {
+                center = [lng, lat];
+            } else if (Array.isArray(element.pointsGeo) && element.pointsGeo.length >= 2) {
+                const geoPoints = element.pointsGeo
+                    .map(point => [Number(point?.[1]), Number(point?.[0])])
+                    .filter(([pointLng, pointLat]) => isValidLngLat(pointLng, pointLat));
+                if (geoPoints.length > 0) {
+                    center = [
+                        geoPoints.reduce((sum, point) => sum + point[0], 0) / geoPoints.length,
+                        geoPoints.reduce((sum, point) => sum + point[1], 0) / geoPoints.length,
+                    ];
+                }
+            } else if (element.x != null && element.y != null && element.width && element.height) {
+                const cx = element.x + element.width / 2;
+                const cy = element.y + element.height / 2;
                 const unprojected = map.unproject([cx, cy]);
-                center = [unprojected.lng, unprojected.lat];
+                if (isValidLngLat(unprojected.lng, unprojected.lat)) {
+                    center = [unprojected.lng, unprojected.lat];
+                }
             }
-            
+
             if (center) {
                 const currentCenter = map.getCenter();
                 const currentZoom = map.getZoom();
-                
+                const maxZoom = typeof map.getMaxZoom === "function" ? map.getMaxZoom() : 22;
+                const minZoom = typeof map.getMinZoom === "function" ? map.getMinZoom() : 0;
+                const zoom = Math.max(minZoom, Math.min(maxZoom, Math.max(currentZoom, 19)));
+
                 if (Math.abs(center[0] - currentCenter.lng) < 0.0001 && Math.abs(center[1] - currentCenter.lat) < 0.0001 && Math.abs(zoom - currentZoom) < 0.5) {
                     return;
                 }
-                
+
+                map.stop?.();
                 map.flyTo({
-                    center: center,
-                    zoom: zoom,
-                    duration: 1200,
-                    curve: 1.5,
+                    center,
+                    zoom,
+                    duration: 900,
+                    curve: 1.25,
                     easing: (t) => t * (2 - t),
+                    essential: true,
                 });
             }
         } catch (e) {
@@ -210,7 +233,7 @@ export default function PropertiesPanel({
                                                 return (
                                                     <div key={outline.id}>
                                                         <div className="render-tree-node"
-                                                            onClick={() => { onSelectFloor(outline.id); toggleFloor(outline.id); flyToOutline(outline); }}
+                                                            onClick={() => { onSelectFloor(outline.id); toggleFloor(outline.id); flyToElement(outline); }}
                                                             style={isOutlineActive ? { background: "var(--active-bg)", color: "#fff" } : {}}>
                                                             <span style={{ fontSize: 11, width: 14 }}>{isOutlineExpanded ? "▼" : "▶"}</span>
                                                             <span style={{ flex: 1 }}>{outline.name || outline.type || "Outline"}</span>
@@ -227,7 +250,7 @@ export default function PropertiesPanel({
 	                                                                )}
 	                                                                {outlineChildren.map(child => (
 	                                                                    <div key={child.id} className="render-tree-node render-tree-child"
-	                                                                        onClick={() => onSelectShape?.(child.id)}
+                                                                        onClick={() => { onSelectShape?.(child.id); flyToElement(child); }}
 	                                                                        style={child.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}}>
 	                                                                        <span style={{ fontSize: 10, color: child.type === "opening" ? "#38bdf8" : "#d4d4d8" }}>{child.type === "opening" ? "▱" : "▮"}</span>
 	                                                                        <span style={{ flex: 1 }}>{child.name || elementLabel(child)}</span>
@@ -241,7 +264,11 @@ export default function PropertiesPanel({
 	                                                                        return (
                                                                             <div key={room.id}>
                                                                                 <div className="render-tree-node render-tree-child"
-                                                                                    onClick={(e) => onSelectShape?.(room.id, e.ctrlKey || e.metaKey)}
+                                                                                    onClick={(e) => {
+                                                                                        const isBatchClick = e.ctrlKey || e.metaKey;
+                                                                                        onSelectShape?.(room.id, isBatchClick);
+                                                                                        if (!isBatchClick) flyToElement(room);
+                                                                                    }}
                                                                                     style={(room.id === selectedShape?.id || multiSelectIds.includes(room.id)) ? { background: "var(--active-bg)", color: "#fff" } : {}}>
                                                                                     <span style={{ fontSize: 10, color: roomColors[room.roomType] || "var(--accent)" }}>●</span>
                                                                                     <span style={{ flex: 1 }}>{room.name || room.roomType || "room"}</span>
@@ -250,7 +277,7 @@ export default function PropertiesPanel({
                                                                                 </div>
                                                                                 {roomWalls.map(wall => (
                                                                                     <div key={wall.id} className="render-tree-node render-tree-child"
-                                                                                        onClick={() => onSelectShape?.(wall.id)}
+                                                                                        onClick={() => { onSelectShape?.(wall.id); flyToElement(wall); }}
                                                                                         style={{ marginLeft: 16, ...(wall.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}) }}>
                                                                                         <span style={{ fontSize: 10, color: "#d4d4d8" }}>▮</span>
                                                                                         <span style={{ flex: 1 }}>{wall.name || elementLabel(wall)}</span>
@@ -260,7 +287,7 @@ export default function PropertiesPanel({
                                                                                 ))}
                                                                                 {roomOpenings.map(opening => (
                                                                                     <div key={opening.id} className="render-tree-node render-tree-child"
-                                                                                        onClick={() => onSelectShape?.(opening.id)}
+                                                                                        onClick={() => { onSelectShape?.(opening.id); flyToElement(opening); }}
                                                                                         style={{ marginLeft: 16, ...(opening.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}) }}>
                                                                                         <span style={{ fontSize: 10, color: opening.openingType === "window" ? "#38bdf8" : "#f8fafc" }}>▱</span>
                                                                                         <span style={{ flex: 1 }}>{opening.name || elementLabel(opening)}</span>
@@ -417,7 +444,7 @@ export default function PropertiesPanel({
                 {elements.length === 0 && <p style={{ fontSize: 13, color: "var(--text-dim)", padding: 8 }}>Add outlines from the left panel</p>}
                 {elements.map(el => (
                     <div key={el.id} className="render-tree-node"
-                        onClick={(e) => { onSelectShape?.(el.id, e.ctrlKey || e.metaKey); flyToOutline(el); }}
+                        onClick={(e) => { onSelectShape?.(el.id, e.ctrlKey || e.metaKey); flyToElement(el); }}
                         style={(el.id === selectedShape?.id || multiSelectIds.includes(el.id)) ? { background: "var(--active-bg)", color: "#fff" } : {}}>
                         <span style={{ fontSize: 14, color: "var(--accent)", width: 20, textAlign: "center" }}>
                             {el.type === "circle" ? "○" : el.type === "rectangle" ? "▭" : "⬡"}

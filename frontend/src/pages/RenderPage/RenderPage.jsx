@@ -79,6 +79,56 @@ function roomsTouchingDivider(divider, rooms) {
     return rooms.filter(room => lineIntersectsRoom(divider, room));
 }
 
+function intervalsOverlap(a1, a2, b1, b2, tolerance = 0) {
+    return Math.min(a2, b2) - Math.max(a1, b1) >= -tolerance;
+}
+
+function hasOppositeInterval(room, oppositeRooms, axis, tolerance = 2) {
+    if (axis === "horizontal") {
+        return oppositeRooms.some(other => intervalsOverlap(room.x, room.x + room.width, other.x, other.x + other.width, tolerance));
+    }
+    return oppositeRooms.some(other => intervalsOverlap(room.y, room.y + room.height, other.y, other.y + other.height, tolerance));
+}
+
+function roomsAdjacentToDivider(divider, rooms, tolerance = 4) {
+    const axis = getDividerAxis(divider);
+    if (axis === "horizontal") {
+        const splitY = ((divider.y1 ?? 0) + (divider.y2 ?? 0)) / 2;
+        const spanX1 = Math.min(divider.x1 ?? 0, divider.x2 ?? 0);
+        const spanX2 = Math.max(divider.x1 ?? 0, divider.x2 ?? 0);
+        const above = rooms.filter(room =>
+            Math.abs((room.y + room.height) - splitY) <= tolerance
+            && intervalsOverlap(room.x, room.x + room.width, spanX1, spanX2, tolerance)
+        );
+        const below = rooms.filter(room =>
+            Math.abs(room.y - splitY) <= tolerance
+            && intervalsOverlap(room.x, room.x + room.width, spanX1, spanX2, tolerance)
+        );
+        const activeAbove = above.filter(room => hasOppositeInterval(room, below, axis, tolerance));
+        const activeBelow = below.filter(room => hasOppositeInterval(room, above, axis, tolerance));
+        return [...activeAbove, ...activeBelow];
+    }
+
+    if (axis === "vertical") {
+        const splitX = ((divider.x1 ?? 0) + (divider.x2 ?? 0)) / 2;
+        const spanY1 = Math.min(divider.y1 ?? 0, divider.y2 ?? 0);
+        const spanY2 = Math.max(divider.y1 ?? 0, divider.y2 ?? 0);
+        const left = rooms.filter(room =>
+            Math.abs((room.x + room.width) - splitX) <= tolerance
+            && intervalsOverlap(room.y, room.y + room.height, spanY1, spanY2, tolerance)
+        );
+        const right = rooms.filter(room =>
+            Math.abs(room.x - splitX) <= tolerance
+            && intervalsOverlap(room.y, room.y + room.height, spanY1, spanY2, tolerance)
+        );
+        const activeLeft = left.filter(room => hasOppositeInterval(room, right, axis, tolerance));
+        const activeRight = right.filter(room => hasOppositeInterval(room, left, axis, tolerance));
+        return [...activeLeft, ...activeRight];
+    }
+
+    return roomsTouchingDivider(divider, rooms);
+}
+
 function lineIntersectionPoint(a, b) {
     const det = (a.x2 - a.x1) * (b.y2 - b.y1) - (a.y2 - a.y1) * (b.x2 - b.x1);
     if (Math.abs(det) < 0.0001) return null;
@@ -1742,60 +1792,83 @@ export default function RenderPage() {
         const sourceDiv = stagedItems[dividerId];
         if (!sourceDiv || sourceDiv.type !== "divider_line") return;
         const sourceScreenDiv = screenDivider(sourceDiv, proj);
-        const updated = { ...sourceDiv, ...newAttrs };
-        if (proj && updated.x1 != null && updated.y1 != null && updated.x2 != null && updated.y2 != null) {
-            Object.assign(updated, geoForDividerLine(proj, updated));
-        }
-
-        const axis = getDividerAxis(updated);
+        let updated = { ...sourceDiv, ...sourceScreenDiv, ...newAttrs };
+        const axis = getDividerAxis(sourceScreenDiv);
         const floorRooms = Object.values(stagedItems).filter(
             room => isVisibleSectionRoom(room) && room.floor_id === sourceDiv.floor_id
         ).map(room => screenRoom(room, proj));
-        const affectedRooms = roomsTouchingDivider(sourceScreenDiv, floorRooms);
+        const adjacentRooms = roomsAdjacentToDivider(sourceScreenDiv, floorRooms);
+        const touchingRooms = roomsTouchingDivider(sourceScreenDiv, floorRooms);
+        const affectedRooms = adjacentRooms.length >= 2
+            ? adjacentRooms
+            : (touchingRooms.length === 2 ? touchingRooms : []);
         const roomUpdates = {};
+        const updateRoomGeometry = (room) => {
+            const next = { ...room };
+            if (proj) Object.assign(next, geoForScreenRect(proj, next.x, next.y, next.width, next.height));
+            return next;
+        };
 
         if (affectedRooms.length >= 2 && axis !== "free") {
             if (axis === "horizontal") {
-                const splitY = clampSplit(((updated.y1 ?? 0) + (updated.y2 ?? 0)) / 2, 
-                    Math.min(...affectedRooms.map(room => room.y)) + 10, 
-                    Math.max(...affectedRooms.map(room => room.y + room.height)) - 10);
-                affectedRooms.forEach(room => {
-                    const centerY = room.y + room.height / 2;
-                    const next = centerY <= splitY
-                        ? { ...room, height: Math.max(10, splitY - room.y) }
-                        : { ...room, y: splitY, height: Math.max(10, room.y + room.height - splitY) };
-                    if (room.lat != null && room.lng != null && proj) {
-                        const rw = next.width || room.width;
-                        const rh = next.height || room.height;
-                        const centerPt = proj.unproject(next.x + rw / 2, next.y + rh / 2);
-                        next.lat = centerPt.lat;
-                        next.lng = centerPt.lng;
-                        next.widthMeters = room.widthMeters ? room.widthMeters * (rw / room.width) : Math.abs(proj.pxToMetersX(rw, room.lng, room.lat));
-                        next.heightMeters = room.heightMeters ? room.heightMeters * (rh / room.height) : Math.abs(proj.pxToMetersY(rh, room.lng, room.lat));
+                const oldSplitY = ((sourceScreenDiv.y1 ?? 0) + (sourceScreenDiv.y2 ?? 0)) / 2;
+                const aboveRooms = affectedRooms.filter(room => room.y + room.height / 2 <= oldSplitY);
+                const belowRooms = affectedRooms.filter(room => room.y + room.height / 2 > oldSplitY);
+                if (aboveRooms.length > 0 && belowRooms.length > 0) {
+                    const minY = Math.max(...aboveRooms.map(room => room.y + 10));
+                    const maxY = Math.min(...belowRooms.map(room => room.y + room.height - 10));
+                    if (minY < maxY) {
+                        const splitY = clampSplit(((updated.y1 ?? 0) + (updated.y2 ?? 0)) / 2, minY, maxY);
+                        updated = {
+                            ...updated,
+                            x1: sourceScreenDiv.x1,
+                            y1: splitY,
+                            x2: sourceScreenDiv.x2,
+                            y2: splitY,
+                        };
+                        aboveRooms.forEach(room => {
+                            const next = updateRoomGeometry({ ...room, height: splitY - room.y });
+                            roomUpdates[next.id] = next;
+                        });
+                        belowRooms.forEach(room => {
+                            const bottom = room.y + room.height;
+                            const next = updateRoomGeometry({ ...room, y: splitY, height: bottom - splitY });
+                            roomUpdates[next.id] = next;
+                        });
                     }
-                    roomUpdates[next.id] = next;
-                });
+                }
             } else if (axis === "vertical") {
-                const splitX = clampSplit(((updated.x1 ?? 0) + (updated.x2 ?? 0)) / 2, 
-                    Math.min(...affectedRooms.map(room => room.x)) + 10, 
-                    Math.max(...affectedRooms.map(room => room.x + room.width)) - 10);
-                affectedRooms.forEach(room => {
-                    const centerX = room.x + room.width / 2;
-                    const next = centerX <= splitX
-                        ? { ...room, width: Math.max(10, splitX - room.x) }
-                        : { ...room, x: splitX, width: Math.max(10, room.x + room.width - splitX) };
-                    if (room.lat != null && room.lng != null && proj) {
-                        const rw = next.width || room.width;
-                        const rh = next.height || room.height;
-                        const centerPt = proj.unproject(next.x + rw / 2, next.y + rh / 2);
-                        next.lat = centerPt.lat;
-                        next.lng = centerPt.lng;
-                        next.widthMeters = room.widthMeters ? room.widthMeters * (rw / room.width) : Math.abs(proj.pxToMetersX(rw, room.lng, room.lat));
-                        next.heightMeters = room.heightMeters ? room.heightMeters * (rh / room.height) : Math.abs(proj.pxToMetersY(rh, room.lng, room.lat));
+                const oldSplitX = ((sourceScreenDiv.x1 ?? 0) + (sourceScreenDiv.x2 ?? 0)) / 2;
+                const leftRooms = affectedRooms.filter(room => room.x + room.width / 2 <= oldSplitX);
+                const rightRooms = affectedRooms.filter(room => room.x + room.width / 2 > oldSplitX);
+                if (leftRooms.length > 0 && rightRooms.length > 0) {
+                    const minX = Math.max(...leftRooms.map(room => room.x + 10));
+                    const maxX = Math.min(...rightRooms.map(room => room.x + room.width - 10));
+                    if (minX < maxX) {
+                        const splitX = clampSplit(((updated.x1 ?? 0) + (updated.x2 ?? 0)) / 2, minX, maxX);
+                        updated = {
+                            ...updated,
+                            x1: splitX,
+                            y1: sourceScreenDiv.y1,
+                            x2: splitX,
+                            y2: sourceScreenDiv.y2,
+                        };
+                        leftRooms.forEach(room => {
+                            const next = updateRoomGeometry({ ...room, width: splitX - room.x });
+                            roomUpdates[next.id] = next;
+                        });
+                        rightRooms.forEach(room => {
+                            const right = room.x + room.width;
+                            const next = updateRoomGeometry({ ...room, x: splitX, width: right - splitX });
+                            roomUpdates[next.id] = next;
+                        });
                     }
-                    roomUpdates[next.id] = next;
-                });
+                }
             }
+        }
+
+        if (proj && updated.x1 != null && updated.y1 != null && updated.x2 != null && updated.y2 != null) {
+            Object.assign(updated, geoForDividerLine(proj, updated));
         }
 
         setStagedItems(prev => ({ ...prev, [dividerId]: updated, ...roomUpdates }));
