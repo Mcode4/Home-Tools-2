@@ -61,6 +61,13 @@ export default function PropertiesPanel({
             }
             
             if (center) {
+                const currentCenter = map.getCenter();
+                const currentZoom = map.getZoom();
+                
+                if (Math.abs(center[0] - currentCenter.lng) < 0.0001 && Math.abs(center[1] - currentCenter.lat) < 0.0001 && Math.abs(zoom - currentZoom) < 0.5) {
+                    return;
+                }
+                
                 map.flyTo({
                     center: center,
                     zoom: zoom,

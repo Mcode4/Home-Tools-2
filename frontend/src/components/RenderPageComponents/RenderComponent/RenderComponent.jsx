@@ -1374,12 +1374,20 @@ export default function RenderComponent({
         const isSectionTopOutline = isPlanStage && !el.floor_id;
         const isOutlineRender = stage === "outline" || isSectionTopOutline;
         const draggable = stage === "outline";
-        const listening = stage !== "objects" && !isSectionTopOutline;
+        const listening = stage !== "objects";
         const isSelected = el.id === selectedShapeId || multiSelectIds.includes(el.id);
+
+        const handleOutlineClick = (id, ctrlKey) => {
+            if (isSectionTopOutline && stage === "sections") {
+                onSelectFloor?.(id);
+            } else {
+                onSelectShape(id, ctrlKey);
+            }
+        };
 
         return (
             <React.Fragment key={el.id}>
-                {renderShapeGroup(el, setShapeNodeRef(el.id), isSelected, onSelectShape, onUpdateShape, activeFloor, clampX, clampY, savedStagePosRef, isOutlineRender, mapRef, isDraggingRef, draggable, isPlanStage, listening)}
+                {renderShapeGroup(el, setShapeNodeRef(el.id), isSelected, handleOutlineClick, onUpdateShape, activeFloor, clampX, clampY, savedStagePosRef, isOutlineRender, mapRef, isDraggingRef, draggable, isPlanStage, listening)}
             </React.Fragment>
         );
     };
