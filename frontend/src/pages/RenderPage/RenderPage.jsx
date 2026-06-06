@@ -1997,12 +1997,14 @@ export default function RenderPage() {
         if (roomsToMerge.length < 2) return;
         const mergedGeometry = buildMergedRoomGeometry(roomsToMerge, proj);
         const removalSegment = crossing ? null : dividerRemovalSegmentForRooms(div, roomsToMerge);
+
         roomsToMerge.forEach(r => {
             Object.values(stagedItems).forEach(el => {
                 if (el.parent_id === r.id) removeItem(el.id);
             });
             removeItem(r.id);
         });
+
         if (crossing) {
             removeItem(crossing.divider.id);
             removeItem(dividerId);
@@ -2023,21 +2025,12 @@ export default function RenderPage() {
         } else {
             removeItem(dividerId);
         }
-        const merged = {
-            id: `room-${Date.now()}`, name: "Combined Room", type: "room", sectionRole: "combined",
-            roomType: roomsToMerge[0].roomType, floor_id,
-            ...mergedGeometry,
-            fill: roomsToMerge[0].fill, stroke: "#fff", strokeWidth: 2,
-        };
-        addItem(merged.id, merged);
-        setSelectedShapeId(merged.id);
 
         if (mergedGeometry.x != null && mergedGeometry.y != null && mergedGeometry.width && mergedGeometry.height) {
             const mx = mergedGeometry.x, my = mergedGeometry.y;
             const mw = mergedGeometry.width, mh = mergedGeometry.height;
             Object.values(stagedItems).forEach(el => {
                 if (el.type !== "divider_line" || el.floor_id !== floor_id) return;
-                if (el.id === dividerId) return;
                 const divScreen = screenDivider(el, proj);
                 if (!divScreen) return;
                 const dx1 = divScreen.x1 ?? 0, dy1 = divScreen.y1 ?? 0;
@@ -2049,6 +2042,16 @@ export default function RenderPage() {
                 }
             });
         }
+
+        const merged = {
+            id: `room-${Date.now()}`, name: "Combined Room", type: "room", sectionRole: "combined",
+            roomType: roomsToMerge[0].roomType, floor_id,
+            ...mergedGeometry,
+            fill: roomsToMerge[0].fill, stroke: "#fff", strokeWidth: 2,
+        };
+        addItem(merged.id, merged);
+        setSelectedShapeId(merged.id);
+
     }, [stagedItems, removeItem, addItem]);
 
     const moveDividerLine = useCallback((dividerId, newAttrs) => {
