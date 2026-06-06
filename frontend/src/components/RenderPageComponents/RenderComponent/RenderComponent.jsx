@@ -599,7 +599,6 @@ export default function RenderComponent({
     const [ghostPos, setGhostPos] = useState(null);
     const [dividerHover, setDividerHover] = useState(null);
     const [dividerDraw, setDividerDraw] = useState(null);
-    const [selectedDivider, setSelectedDivider] = useState(null);
     const [hoverDivider, setHoverDivider] = useState(null);
 
     const scaleRef = useRef(1);
@@ -971,10 +970,9 @@ export default function RenderComponent({
             if (!pt) return;
             const hit = findDividerAtPoint(pt, 12);
             if (hit) {
-                setSelectedDivider({ id: hit.divider.id });
                 onSelectShape(hit.divider.id);
             } else {
-                setSelectedDivider(null);
+                onSelectShape(null);
             }
             return;
         }
@@ -1260,7 +1258,7 @@ export default function RenderComponent({
     };
 
     const renderDivider = (div) => {
-        const isSelected = selectedDivider?.id === div.id;
+        const isSelected = selectedShapeId === div.id;
         return (
             <React.Fragment key={div.id}>
                 <Line
@@ -1277,7 +1275,6 @@ export default function RenderComponent({
                             onCombineByDivider?.(div.id, { point: pt ? { x: pt.x, y: pt.y } : null, divider: div });
                             return;
                         }
-                        setSelectedDivider({ id: div.id });
                         onSelectShape(div.id);
                     }}
                     onTap={(e) => {
@@ -1288,7 +1285,6 @@ export default function RenderComponent({
                             onCombineByDivider?.(div.id, { point: pt ? { x: pt.x, y: pt.y } : null, divider: div });
                             return;
                         }
-                        setSelectedDivider({ id: div.id });
                         onSelectShape(div.id);
                     }}
                     draggable={stage === "sections" && activeTool?.type === "select"}

@@ -1337,6 +1337,7 @@ export default function RenderPage() {
         newRooms.forEach(r => addItem(r.id, r));
         dividerLines.forEach(d => addItem(d.id, d));
         if (newRooms.length > 0) setSelectedShapeId(newRooms[0].id);
+        setTool({ type: "select" });
     }, [stagedItems, removeItem, addItem]);
 
     const combineByDivider = useCallback((dividerId, options = {}) => {
