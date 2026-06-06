@@ -167,6 +167,8 @@ export default function PropertiesPanel({
                                 style={obj.id === selectedObjectId ? { background: "var(--active-bg)", color: "#fff" } : {}}>
                                 <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>{obj.icon || "📦"}</span>
                                 <span style={{ flex: 1 }}>{obj.name || "Object"}</span>
+                                <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10, color: "var(--accent)" }}
+                                    onClick={(e) => { e.stopPropagation(); flyToElement(obj); }} title="Fly to">↗</button>
                                 <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10, color: "var(--danger)" }}
                                     onClick={(e) => { e.stopPropagation(); deleteElement?.(obj.id); }} title="Delete">✕</button>
                             </div>

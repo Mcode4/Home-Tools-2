@@ -1489,6 +1489,7 @@ export default function RenderPage() {
     const currentLevelElements = isPlanStage
         ? allElements.filter(e => currentLevelFloorIds.has(e.floor_id))
         : allElements;
+    const currentLevelObjects = objects.filter(obj => currentLevelFloorIds.has(obj.floor_id) || !obj.floor_id);
     const visibleElements = isPlanStage
         ? [...currentLevelOutlines, ...currentLevelElements]
         : outlineElements;
@@ -2426,7 +2427,7 @@ export default function RenderPage() {
                         onAddWallPad={addWallPad}
                         onAddOpening={addOpening}
                         onSelectFloor={setActiveFloorId}
-                        objectsData={objects}
+                        objectsData={currentLevelObjects}
                         selectedObjectId={selectedObjectId}
                         onSelectObject={setSelectedObjectId}
                         onUpdateObject={updateObject}

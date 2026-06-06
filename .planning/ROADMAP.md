@@ -132,13 +132,32 @@ Plans:
 
 ### Phase 6.1: Objects Stage Enhancements — Furniture Selection, Templates, Doors/Windows/Walls, Imports, 2.5D improvements
 
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase TBD
-**Plans:** 0 plans
+**Goal:** Enhance Objects Stage with furniture catalog improvements, templates, doors/windows/walls controls, imports management, and 3D enhancements
+**Requirements**: (infrastructure — no REQ-IDs)
+**Depends on:** Phase 5.1, 5.2
+**Plans:** 7 plans
 
-Plans:
-- [ ] TBD (run /gsd-plan-phase 6.1 to break down)
+**Plans:**
+- [ ] 06.1-01-PLAN.md — Fix floor/level filtering, fly-to, tool deactivation, active tool indicator
+- [ ] 06.1-02-PLAN.md — Enhance furniture catalog (36+ items, better search)
+- [ ] 06.1-03-PLAN.md — Object placement templates (bedroom set, kitchen layout, save/load)
+- [ ] 06.1-04-PLAN.md — Imports menu with GLB upload and management
+- [ ] 06.1-05-PLAN.md — Doors/Windows/Walls menu with type selection and height control
+- [ ] 06.1-06-PLAN.md — 3D enhancements (drag, rotate, layer ordering, validation)
+- [ ] 06.1-07-PLAN.md — Final integration and verification
+
+**Success Criteria:**
+1. Objects filtered by floor/level
+2. Fly-to for objects in PropertiesPanel
+3. Tool deactivation works (click again to deactivate)
+4. Active tool has clear visual indicator
+5. Furniture catalog has 36+ items with better search
+6. Object placement templates available
+7. Imports menu with GLB upload and management
+8. Doors/Windows/Walls menu with type selection and height control
+9. 3D object manipulation (drag, rotate)
+10. Layer ordering controls
+11. Object validation warnings
 
 ---
 
