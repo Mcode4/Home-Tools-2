@@ -1103,6 +1103,7 @@ export default function RenderPage() {
     const importedObjectsLoadedRef = useRef(false);
     const [wallHeight, setWallHeight] = useState(2.4);
     const [viewMode, setViewMode] = useState("block");
+    const [transformMode, setTransformMode] = useState("translate");
     const [objectValidationResults, setObjectValidationResults] = useState({ isValid: true, warnings: [] });
     const sceneRef = useRef(null);
 
@@ -1660,7 +1661,23 @@ export default function RenderPage() {
             }
             if (!e.ctrlKey && !e.metaKey && !e.altKey) {
                 const key = e.key.toLowerCase();
-                if (key === "g") {
+                if (key === "g" && stage === "render3d" && selectedObjectId) {
+                    e.preventDefault();
+                    setTransformMode("translate");
+                }
+                if (key === "r" && stage === "render3d" && selectedObjectId) {
+                    e.preventDefault();
+                    setTransformMode("rotate");
+                }
+                if (key === "s" && stage === "render3d" && selectedObjectId) {
+                    e.preventDefault();
+                    setTransformMode("scale");
+                }
+                if (key === "escape" && stage === "render3d") {
+                    e.preventDefault();
+                    setSelectedObjectId(null);
+                }
+                if (key === "g" && stage !== "render3d") {
                     e.preventDefault();
                     setCanvasSettings(s => ({ ...s, gridSnap: !s.gridSnap }));
                 }
@@ -2953,6 +2970,7 @@ export default function RenderPage() {
                     onPlaceObjectTemplate={placeObjectTemplate}
                     viewMode={viewMode}
                     wallHeight={wallHeight}
+                    transformMode={transformMode}
                         onSplitRoom={splitRoom}
                         onCombineByDivider={combineByDivider}
                         onMoveDividerLine={moveDividerLine}

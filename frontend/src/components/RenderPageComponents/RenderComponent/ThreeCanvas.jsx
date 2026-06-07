@@ -87,9 +87,10 @@ function SceneExporter({ sceneRef, onSceneReady }) {
     return null;
 }
 
-function Scene({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode, wallHeight, sceneRef, onSceneReady }) {
+function Scene({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode, wallHeight, sceneRef, onSceneReady, transformMode, onTransformEnd }) {
     const is3D = stage === "render3d";
     const showOutlines = viewMode === "block";
+    const transformControlsRef = useRef();
 
     // Normalize coordinates: compute center of all rooms and offset to origin
     const { normalizedRooms, normalizedObjects, normalizedElements, center } = useMemo(() => {
@@ -242,15 +243,41 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
                     isSelected={obj.id === selectedObjectId}
                     onClick={onObjectClick}
                     useTransformControls={is3D}
+                    transformControlsRef={transformControlsRef}
                 />
             ))}
+
+            {is3D && selectedObjectId && transformControlsRef.current && (
+                <TransformControls
+                    ref={transformControlsRef}
+                    object={transformControlsRef.current}
+                    mode={transformMode || "translate"}
+                    size={0.7}
+                    onMouseUp={() => {
+                        if (transformControlsRef.current) {
+                            const pos = transformControlsRef.current.position;
+                            const rot = transformControlsRef.current.rotation;
+                            const scale = transformControlsRef.current.scale;
+                            onTransformEnd?.({
+                                id: selectedObjectId,
+                                x: pos.x,
+                                y: pos.z,
+                                rotation: THREE.MathUtils.radToDeg(rot.y),
+                                scaleX: scale.x,
+                                scaleY: scale.y,
+                                scaleZ: scale.z,
+                            });
+                        }
+                    }}
+                />
+            )}
 
             <SceneExporter sceneRef={sceneRef} onSceneReady={onSceneReady} />
         </>
     );
 }
 
-export default function ThreeCanvas({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode = "block", wallHeight, sceneRef, onSceneReady }) {
+export default function ThreeCanvas({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode = "block", wallHeight, sceneRef, onSceneReady, transformMode, onTransformEnd }) {
     const is3D = stage === "render3d";
 
     return (
@@ -280,6 +307,8 @@ export default function ThreeCanvas({ stage, rooms, elements, objectsData, place
                     wallHeight={wallHeight}
                     sceneRef={sceneRef}
                     onSceneReady={onSceneReady}
+                    transformMode={transformMode}
+                    onTransformEnd={onTransformEnd}
                 />
             </Suspense>
         </Canvas>
