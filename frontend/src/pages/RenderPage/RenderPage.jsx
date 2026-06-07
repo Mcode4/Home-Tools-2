@@ -2766,6 +2766,9 @@ export default function RenderPage() {
                     onUploadImport={uploadImportedObject}
                     wallHeight={wallHeight}
                     onWallHeightChange={setWallHeight}
+                    onExportGLTF={exportGLTF}
+                    onExportSelectedGLTF={exportSelectedGLTF}
+                    selectedObjectId={selectedObjectId}
                 />
                 <PropertiesPanel
                     stage={stage}
@@ -2891,7 +2894,11 @@ export default function RenderPage() {
                 />
                 <div className="top-bars">
                     <StageBar stage={stage} setStage={setStage} hasOutlines={outlines.length > 0} hasRooms={hasRooms} />
-                    {stage !== "render3d" && <MapToggle value={mapLayer} onChange={setMapLayer} />}
+                    {stage === "render3d" ? (
+                        <MapToggle value={viewMode} onChange={setViewMode} stage={stage} />
+                    ) : (
+                        <MapToggle value={mapLayer} onChange={setMapLayer} stage={stage} />
+                    )}
                 </div>
                 <div id="render-screen">
                     {property && (
@@ -2914,24 +2921,6 @@ export default function RenderPage() {
                             <button id="text-tool" onClick={() => selectTool("text")}>Text</button>
                             <button id="eraser-tool" onClick={() => selectTool("eraser")}>Eraser</button>
                             <button id="clear-tool" onClick={() => selectTool("clear")}>Clear</button>
-                        </span>
-                    </div>
-                    )}
-                    {stage === "render3d" && (
-                    <div className="render-toolbar">
-                        <span className="render-tools">
-                            <button 
-                                className={viewMode === "block" ? "tool-item-active" : ""}
-                                onClick={() => setViewMode("block")}
-                            >Block View</button>
-                            <button 
-                                className={viewMode === "pure" ? "tool-item-active" : ""}
-                                onClick={() => setViewMode("pure")}
-                            >Pure View</button>
-                            <button onClick={exportGLTF}>Export GLTF</button>
-                            {selectedObjectId && (
-                                <button onClick={exportSelectedGLTF}>Export Selected</button>
-                            )}
                         </span>
                     </div>
                     )}

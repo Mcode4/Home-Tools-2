@@ -51,6 +51,9 @@ export default function AssetsPanel({
     onUploadImport,
     wallHeight,
     onWallHeightChange,
+    onExportGLTF,
+    onExportSelectedGLTF,
+    selectedObjectId,
 }) {
     const [tab, setTab] = useState("tools");
 
@@ -93,7 +96,7 @@ export default function AssetsPanel({
     }
 
     if (stage === "render3d") {
-        const activeTab = ["scene", "objects", "shapes", "settings"].includes(tab) ? tab : "scene";
+        const activeTab = ["scene", "objects", "shapes", "export", "settings"].includes(tab) ? tab : "scene";
         return (
             <aside className="app-slider">
                 <ul className="menu">
@@ -108,6 +111,10 @@ export default function AssetsPanel({
                     <li className={`user-select-none ${activeTab === "shapes" ? "menu-active" : ""}`}
                         onClick={() => setTab("shapes")} title="Add Shapes">
                         <span style={{ fontSize: 20 }}>⬡</span>
+                    </li>
+                    <li className={`user-select-none ${activeTab === "export" ? "menu-active" : ""}`}
+                        onClick={() => setTab("export")} title="Export">
+                        <span style={{ fontSize: 20 }}>💾</span>
                     </li>
                     <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
                     <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
@@ -164,6 +171,34 @@ export default function AssetsPanel({
                             </div>
                             <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 8 }}>
                                 Click on 3D scene to place
+                            </div>
+                        </li>
+                    )}
+                    {activeTab === "export" && (
+                        <li className="tool-item" style={{ padding: "8px 12px" }}>
+                            <div style={{ fontSize: 12, color: "var(--text-main)", marginBottom: 8 }}>Export 3D Scene</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                <button
+                                    className="tool-item"
+                                    onClick={onExportGLTF}
+                                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px" }}
+                                >
+                                    <span style={{ fontSize: 16 }}>📦</span>
+                                    <span>Export Entire Scene</span>
+                                </button>
+                                {selectedObjectId && (
+                                    <button
+                                        className="tool-item"
+                                        onClick={onExportSelectedGLTF}
+                                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px" }}
+                                    >
+                                        <span style={{ fontSize: 16 }}>🎯</span>
+                                        <span>Export Selected Object</span>
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 8 }}>
+                                Downloads as .gltf file
                             </div>
                         </li>
                     )}
