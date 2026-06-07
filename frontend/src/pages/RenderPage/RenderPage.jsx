@@ -1722,6 +1722,28 @@ export default function RenderPage() {
         setObjects(prev => [...prev, obj]);
     }, [setObjects]);
 
+    const bringForward = useCallback(() => {
+        if (!selectedShapeId) return;
+        setObjects(prev => {
+            const idx = prev.findIndex(o => o.id === selectedShapeId);
+            if (idx < 0 || idx >= prev.length - 1) return prev;
+            const next = [...prev];
+            [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+            return next;
+        });
+    }, [selectedShapeId, setObjects]);
+
+    const sendBackward = useCallback(() => {
+        if (!selectedShapeId) return;
+        setObjects(prev => {
+            const idx = prev.findIndex(o => o.id === selectedShapeId);
+            if (idx <= 0) return prev;
+            const next = [...prev];
+            [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
+            return next;
+        });
+    }, [selectedShapeId, setObjects]);
+
     const applyObjectTemplate = useCallback((templateId) => {
         const outline = outlines.find(o => o.id === activeFloorId) || outlines[0];
         if (!outline) return;
@@ -2434,6 +2456,8 @@ export default function RenderPage() {
                     onFillet={handleFillet}
                     multiSelectIds={multiSelectIds}
                     onBooleanOp={handleBooleanOp}
+                    onBringForward={bringForward}
+                    onSendBackward={sendBackward}
                 />
                 <div className="top-bars">
                     <StageBar stage={stage} setStage={setStage} hasOutlines={outlines.length > 0} hasRooms={hasRooms} />

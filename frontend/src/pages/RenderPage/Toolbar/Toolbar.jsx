@@ -2,7 +2,7 @@ export default function Toolbar({
     selectedShape, updateShape, deleteShape, duplicateShape,
     showOffset, onToggleOffset, onOffset, offsetDistance = 1, onOffsetDistanceChange,
     vertexMode, selectedVertexIndex = -1, onToggleVertexMode, onAddVertex, onRemoveVertex, onChamfer, onFillet,
-    multiSelectIds = [], onBooleanOp
+    multiSelectIds = [], onBooleanOp, onBringForward, onSendBackward
 }) {
     if (!selectedShape && multiSelectIds.length === 0) return null;
 
@@ -19,6 +19,9 @@ export default function Toolbar({
                 <>
                     <button className="tb-btn" onClick={() => updateShape({ ...selectedShape, rotation: (selectedShape.rotation || 0) - 15 })} title="Rotate Left">↺</button>
                     <button className="tb-btn" onClick={() => updateShape({ ...selectedShape, rotation: (selectedShape.rotation || 0) + 15 })} title="Rotate Right">↻</button>
+                    <span className="tb-sep" />
+                    <button className="tb-btn" onClick={onBringForward} title="Bring Forward">⬆</button>
+                    <button className="tb-btn" onClick={onSendBackward} title="Send Backward">⬇</button>
                     <span className="tb-sep" />
                     <button className="tb-btn" onClick={duplicateShape} title="Duplicate">⧉</button>
                     <button className="tb-btn tb-danger" onClick={deleteShape} title="Delete">🗑</button>
