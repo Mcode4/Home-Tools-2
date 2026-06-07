@@ -7,14 +7,22 @@ import RoomWalls from "./RoomWalls";
 import GhostPreview from "./GhostPreview";
 import FurnitureObject from "./FurnitureObject";
 
-function DoorWindowMesh({ element, wallHeight = 240 }) {
+function DoorWindowMesh({ element, room, wallHeight = 240 }) {
+    if (!room) return null;
+    
     const isWindow = element.openingType === "window";
     const doorWidth = isWindow ? (element.width || 120) : (element.width || 90);
     const doorHeight = isWindow ? (element.height || 80) : (element.height || 210);
     const color = isWindow ? "#38bdf8" : "#f8fafc";
     
+    // Position relative to room center
+    const roomCenterX = (room.x || 0) + (room.width || 100) / 2;
+    const roomCenterY = (room.y || 0) + (room.height || 100) / 2;
+    const relX = (element.x || 0) - roomCenterX + (element.width || 0) / 2;
+    const relZ = (element.y || 0) - roomCenterY + (element.height || 0) / 2;
+    
     return (
-        <mesh position={[element.x, doorHeight / 2, element.y]}>
+        <mesh position={[relX, doorHeight / 2, relZ]}>
             <boxGeometry args={[doorWidth, doorHeight, 5]} />
             <meshStandardMaterial color={color} />
         </mesh>
@@ -121,9 +129,13 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
                 <RoomWalls key={room.id} room={room} stage={stage} wallHeight={wallHeight} />
             ))}
 
-            {(elements || []).map(element => (
-                <DoorWindowMesh key={element.id} element={element} wallHeight={wallHeight} />
-            ))}
+            {(elements || []).map(element => {
+                // Find the parent room for this element
+                const parentRoom = (rooms || []).find(r => r.id === element.parent_id);
+                return (
+                    <DoorWindowMesh key={element.id} element={element} room={parentRoom} wallHeight={wallHeight} />
+                );
+            })}
 
             <GhostPreview
                 position={placementState?.ghostPosition}
