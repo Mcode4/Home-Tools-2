@@ -92,6 +92,51 @@ export default function AssetsPanel({
         );
     }
 
+    if (stage === "render3d") {
+        const activeTab = ["scene", "settings"].includes(tab) ? tab : "scene";
+        return (
+            <aside className="app-slider">
+                <ul className="menu">
+                    <li className={`user-select-none ${activeTab === "scene" ? "menu-active" : ""}`}
+                        onClick={() => setTab("scene")} title="3D Scene">
+                        <span style={{ fontSize: 20 }}>🏠</span>
+                    </li>
+                    <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
+                    <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
+                        onClick={() => setTab("settings")} title="Settings">
+                        <span style={{ fontSize: 20 }}>⚙️</span>
+                    </li>
+                </ul>
+                <ul id="menu-tools" style={{ width: 220 }}>
+                    {activeTab === "scene" && (
+                        <li className="tool-item" style={{ padding: "8px 12px" }}>
+                            <div style={{ marginBottom: 12 }}>
+                                <label style={{ fontSize: 11, color: "var(--text-dim)", display: "block", marginBottom: 4 }}>Wall Height (m)</label>
+                                <input
+                                    type="number"
+                                    className="input"
+                                    min={0.5}
+                                    max={10}
+                                    step={0.1}
+                                    value={wallHeight ?? 2.4}
+                                    onChange={e => onWallHeightChange?.(Math.max(0.5, Math.min(10, parseFloat(e.target.value) || 2.4)))}
+                                    style={{ width: "100%" }}
+                                />
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+                                <p style={{ margin: "4px 0" }}>Left-click + drag: Pan</p>
+                                <p style={{ margin: "4px 0" }}>Right-click + drag: Rotate</p>
+                                <p style={{ margin: "4px 0" }}>Scroll: Zoom</p>
+                                <p style={{ margin: "4px 0" }}>Click object: Select</p>
+                            </div>
+                        </li>
+                    )}
+                    {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
+                </ul>
+            </aside>
+        );
+    }
+
     if (stage === "sections") {
         const activeTab = ["tools", "templates", "settings"].includes(tab) ? tab : "tools";
         return (

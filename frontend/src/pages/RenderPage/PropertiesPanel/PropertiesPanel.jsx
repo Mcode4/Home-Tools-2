@@ -313,6 +313,63 @@ export default function PropertiesPanel({
         );
     }
 
+    // 3D Render mode — Scene hierarchy with rooms, objects, and selected object properties
+    if (stage === "render3d") {
+        const rooms = elements?.filter(el => el.type === "room" && el.floor_id && el.sectionRole !== "base") || [];
+        const selectedObj = objects?.find(o => o.id === selectedObjectId) || null;
+
+        return (
+            <aside className="app-slider-right" ref={containerRef}>
+                <div className="render-props-section" style={{ height: "100%", overflow: "auto", flexShrink: 0 }}>
+                    <h4 className="render-props-title">3D Scene</h4>
+                    <div className="render-tree">
+                        {rooms.map(room => (
+                            <div key={room.id} className="render-tree-node"
+                                style={{}}>
+                                <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>■</span>
+                                <span style={{ flex: 1 }}>{room.name || "Room"}</span>
+                            </div>
+                        ))}
+                        {(objects || []).map(obj => (
+                            <div key={obj.id} className="render-tree-node render-tree-child"
+                                onClick={() => onSelectObject?.(obj.id)}
+                                style={{ marginLeft: 12, ...(obj.id === selectedObjectId ? { background: "var(--active-bg)", color: "#fff" } : {}) }}>
+                                <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>{obj.icon || "□"}</span>
+                                <span style={{ flex: 1 }}>{obj.name || "Object"}</span>
+                            </div>
+                        ))}
+                        {rooms.length === 0 && (objects || []).length === 0 && (
+                            <p style={{ fontSize: 13, color: "var(--text-dim)", padding: 8 }}>
+                                Add rooms in Sections stage first
+                            </p>
+                        )}
+                    </div>
+                </div>
+                {selectedObj && (
+                    <div className="render-props-section" style={{ borderTop: "1px solid var(--border)", padding: 8, overflow: "auto" }}>
+                        <h4 className="render-props-title">Object Properties</h4>
+                        <div style={{ padding: 4 }}>
+                            <label style={{ fontSize: 11, color: "var(--text-dim)" }}>Name</label>
+                            <input className="input" value={selectedObj.name || ""} onChange={e => onUpdateObject?.({ ...selectedObj, name: e.target.value })} />
+                        </div>
+                        <div style={{ padding: 4 }}>
+                            <label style={{ fontSize: 11, color: "var(--text-dim)" }}>X Position</label>
+                            <input className="input" type="number" value={selectedObj.x || 0} onChange={e => onUpdateObject?.({ ...selectedObj, x: parseFloat(e.target.value) || 0 })} />
+                        </div>
+                        <div style={{ padding: 4 }}>
+                            <label style={{ fontSize: 11, color: "var(--text-dim)" }}>Y Position</label>
+                            <input className="input" type="number" value={selectedObj.y || 0} onChange={e => onUpdateObject?.({ ...selectedObj, y: parseFloat(e.target.value) || 0 })} />
+                        </div>
+                        <div style={{ padding: 4 }}>
+                            <label style={{ fontSize: 11, color: "var(--text-dim)" }}>Rotation</label>
+                            <input className="input" type="number" value={selectedObj.rotation || 0} onChange={e => onUpdateObject?.({ ...selectedObj, rotation: parseFloat(e.target.value) || 0 })} />
+                        </div>
+                    </div>
+                )}
+            </aside>
+        );
+    }
+
     // Sections mode — Level → Outline → Rooms hierarchy
     if (stage === "sections") {
         const sectionFloors = outlines || [];

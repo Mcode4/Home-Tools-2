@@ -1895,7 +1895,7 @@ export default function RenderComponent({
 
     return (
         <div id="render-component" ref={containerRef} className={`${toolActive ? "tool-active" : ""} ${cursorClass}`.trim()}>
-            {size.width > 0 && (
+            {size.width > 0 && stage !== "render3d" && (
                 <Stage
                     ref={stageRef}
                     width={size.width} height={size.height}

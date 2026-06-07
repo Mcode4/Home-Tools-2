@@ -163,9 +163,9 @@ export default function ThreeCanvas({ stage, rooms, elements, objectsData, place
 
     return (
         <Canvas
-            gl={{ alpha: true, antialias: true }}
+            gl={{ alpha: !is3D, antialias: true }}
             shadows={is3D}
-            style={{ background: "transparent" }}
+            style={{ background: is3D ? "#1a1a2e" : "transparent" }}
             orthographic={!is3D}
             camera={{
                 position: is3D ? [100, 150, 100] : [0, 100, 0],

@@ -2891,7 +2891,7 @@ export default function RenderPage() {
                 />
                 <div className="top-bars">
                     <StageBar stage={stage} setStage={setStage} hasOutlines={outlines.length > 0} hasRooms={hasRooms} />
-                    <MapToggle value={mapLayer} onChange={setMapLayer} />
+                    {stage !== "render3d" && <MapToggle value={mapLayer} onChange={setMapLayer} />}
                 </div>
                 <div id="render-screen">
                     {property && (
