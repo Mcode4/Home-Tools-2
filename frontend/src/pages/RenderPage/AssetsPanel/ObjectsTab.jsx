@@ -7,7 +7,7 @@ const formatSize = (item) => {
     return `${width.toFixed(2)}×${depth.toFixed(2)}m`;
 };
 
-export default function ObjectsTab({ onSelectCatalogItem }) {
+export default function ObjectsTab({ onSelectCatalogItem, activeItemId = null }) {
     const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -43,7 +43,7 @@ export default function ObjectsTab({ onSelectCatalogItem }) {
                     {filteredItems.map(item => (
                         <li
                             key={item.id}
-                            className="tool-item object-tool-item"
+                            className={`tool-item object-tool-item${activeItemId === item.id ? " tool-item-active" : ""}`}
                             onClick={() => onSelectCatalogItem?.(item)}
                             title={`${item.name} — ${formatSize(item)}`}
                         >

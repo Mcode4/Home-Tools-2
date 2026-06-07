@@ -1,16 +1,32 @@
-import * as turf from "@turf/turf";
-
 export function validateObjects(objects, rooms) {
     const warnings = [];
     if (!objects || objects.length === 0) return { isValid: true, warnings };
+
+    const rectForObject = (obj) => {
+        if (!Number.isFinite(Number(obj.x)) || !Number.isFinite(Number(obj.y))) return null;
+        const width = obj.width || 40;
+        const height = obj.height || 40;
+        const cx = Number(obj.x);
+        const cy = Number(obj.y);
+        return {
+            left: cx - width / 2,
+            right: cx + width / 2,
+            top: cy - height / 2,
+            bottom: cy + height / 2,
+            width,
+            height,
+        };
+    };
 
     // Check object overlap
     for (let i = 0; i < objects.length; i++) {
         for (let j = i + 1; j < objects.length; j++) {
             const a = objects[i];
             const b = objects[j];
-            const overlap = !(a.x + (a.width || 40) <= b.x || b.x + (b.width || 40) <= a.x ||
-                            a.y + (a.height || 40) <= b.y || b.y + (b.height || 40) <= a.y);
+            const ar = rectForObject(a);
+            const br = rectForObject(b);
+            if (!ar || !br) continue;
+            const overlap = !(ar.right <= br.left || br.right <= ar.left || ar.bottom <= br.top || br.bottom <= ar.top);
             if (overlap) {
                 warnings.push({
                     type: "overlap",
@@ -27,8 +43,10 @@ export function validateObjects(objects, rooms) {
         objects.forEach(obj => {
             const room = rooms.find(r => r.id === obj.room_id);
             if (room) {
-                const outside = obj.x < room.x - 5 || obj.x + (obj.width || 40) > room.x + room.width + 5 ||
-                               obj.y < room.y - 5 || obj.y + (obj.height || 40) > room.y + room.height + 5;
+                const rect = rectForObject(obj);
+                if (!rect) return;
+                const outside = rect.left < room.x - 5 || rect.right > room.x + room.width + 5 ||
+                               rect.top < room.y - 5 || rect.bottom > room.y + room.height + 5;
                 if (outside) {
                     warnings.push({
                         type: "boundary",
@@ -39,6 +57,46 @@ export function validateObjects(objects, rooms) {
                 }
             }
         });
+
+        rooms.forEach(room => {
+            const roomObjects = objects.filter(obj => obj.room_id === room.id);
+            if (!roomObjects.length) return;
+            const roomArea = Math.max(1, (room.width || 0) * (room.height || 0));
+            let objectArea = 0;
+            let oversized = false;
+            roomObjects.forEach(obj => {
+                const rect = rectForObject(obj);
+                if (!rect) return;
+                objectArea += rect.width * rect.height;
+                if (rect.width > (room.width || 0) || rect.height > (room.height || 0)) oversized = true;
+            });
+            if (oversized) {
+                warnings.push({
+                    type: "room-fit",
+                    roomId: room.id,
+                    message: `"${room.name || "Room"}" is too small for at least one placed object`,
+                    severity: "warning"
+                });
+            } else if (objectArea / roomArea > 0.85) {
+                warnings.push({
+                    type: "room-crowding",
+                    roomId: room.id,
+                    message: `"${room.name || "Room"}" is crowded by placed objects`,
+                    severity: "info"
+                });
+            }
+        });
+
+        objects.forEach(obj => {
+            if (obj.room_id && !rooms.some(room => room.id === obj.room_id)) {
+                warnings.push({
+                    type: "missing-room",
+                    objectId: obj.id,
+                    message: `"${obj.name || "Object"}" is assigned to a missing room`,
+                    severity: "warning"
+                });
+            }
+        });
     }
 
     // Check minimum spacing
@@ -46,9 +104,12 @@ export function validateObjects(objects, rooms) {
         for (let j = i + 1; j < objects.length; j++) {
             const a = objects[i];
             const b = objects[j];
+            const ar = rectForObject(a);
+            const br = rectForObject(b);
+            if (!ar || !br) continue;
             const minSpacing = 20;
-            const dx = Math.max(0, Math.max(a.x - (b.x + (b.width || 40)), b.x - (a.x + (a.width || 40))));
-            const dy = Math.max(0, Math.max(a.y - (b.y + (b.height || 40)), b.y - (a.y + (a.height || 40))));
+            const dx = Math.max(0, Math.max(ar.left - br.right, br.left - ar.right));
+            const dy = Math.max(0, Math.max(ar.top - br.bottom, br.top - ar.bottom));
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist < minSpacing && dist > 0) {
                 warnings.push({

@@ -16,6 +16,7 @@ import useObjectsHistory from "../../hooks/useObjectsHistory";
 import { makeProjection, groundDistanceMeters } from "../../functions/geoProject";
 import { generateTemplate } from "../../functions/outlineTemplates";
 import { generateRoomTemplate } from "../../functions/roomTemplates";
+import { BUILTIN_OBJECT_TEMPLATES, generateObjectTemplate } from "../../functions/objectTemplates";
 import { booleanUnion, booleanSubtract, booleanIntersect } from "../../functions/booleanOps";
 import { validateOutlines } from "../../functions/outlineValidation";
 import { getOutlineArea, getOutlinePerimeter } from "../../functions/outlineValidation";
@@ -460,6 +461,168 @@ function geoForScreenRect(proj, x, y, width, height) {
         widthMeters: groundDistanceMeters(left.lng, left.lat, right.lng, right.lat),
         heightMeters: groundDistanceMeters(top.lng, top.lat, bottom.lng, bottom.lat),
     };
+}
+
+function geoForWallThickness(proj, rect, thickness) {
+    if (!proj || !thickness) return {};
+    const center = proj.unproject(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return {
+        wallThicknessMeters: Math.min(
+            Math.abs(proj.pxToMetersX(thickness, center.lng, center.lat)),
+            Math.abs(proj.pxToMetersY(thickness, center.lng, center.lat))
+        ),
+    };
+}
+
+function isFiniteCoord(value) {
+    return Number.isFinite(Number(value));
+}
+
+function geoPointsForEntity(entity) {
+    if (Array.isArray(entity?.pointsGeo) && entity.pointsGeo.length >= 2) return entity.pointsGeo;
+    if (isLikelyGeoPoints(entity?.points)) return entity.points;
+    return null;
+}
+
+function geoCenterForEntity(entity) {
+    if (isFiniteCoord(entity?.lat) && isFiniteCoord(entity?.lng)) {
+        return { lat: Number(entity.lat), lng: Number(entity.lng) };
+    }
+    const points = geoPointsForEntity(entity);
+    return points?.length ? getGeoCentroid(points) : null;
+}
+
+function sameMetricSize(a, b) {
+    const pairs = [
+        ["widthMeters", "width"],
+        ["heightMeters", "height"],
+        ["radiusMeters", "radius"],
+    ];
+    return pairs.every(([metricKey, pixelKey]) => {
+        const oldVal = a?.[metricKey] ?? a?.[pixelKey];
+        const newVal = b?.[metricKey] ?? b?.[pixelKey];
+        if (oldVal == null && newVal == null) return true;
+        return Math.abs(Number(oldVal) - Number(newVal)) < 0.000001;
+    });
+}
+
+function outlineTranslationDelta(previous, updated, projection = null) {
+    if (!previous || !updated) return null;
+    const oldPoints = geoPointsForEntity(previous);
+    const newPoints = geoPointsForEntity(updated);
+
+    if (oldPoints?.length >= 3 && newPoints?.length === oldPoints.length) {
+        const firstDelta = {
+            lat: Number(newPoints[0][0]) - Number(oldPoints[0][0]),
+            lng: Number(newPoints[0][1]) - Number(oldPoints[0][1]),
+        };
+        const isTranslation = oldPoints.every((point, index) => (
+            Math.abs((Number(newPoints[index][0]) - Number(point[0])) - firstDelta.lat) < 0.000001
+            && Math.abs((Number(newPoints[index][1]) - Number(point[1])) - firstDelta.lng) < 0.000001
+        ));
+        if (isTranslation) {
+            if (Math.abs(firstDelta.lat) < 0.000000001 && Math.abs(firstDelta.lng) < 0.000000001) return null;
+            return { lat: firstDelta.lat, lng: firstDelta.lng };
+        }
+        if (projection) {
+            const previousScreen = outlineToScreenPoints(previous, projection);
+            const updatedScreen = outlineToScreenPoints(updated, projection);
+            if (previousScreen.length === updatedScreen.length && previousScreen.length >= 3) {
+                const dx = updatedScreen[0].x - previousScreen[0].x;
+                const dy = updatedScreen[0].y - previousScreen[0].y;
+                const isScreenTranslation = previousScreen.every((point, index) => (
+                    Math.abs((updatedScreen[index].x - point.x) - dx) < 0.5
+                    && Math.abs((updatedScreen[index].y - point.y) - dy) < 0.5
+                ));
+                const oldCenter = geoCenterForEntity(previous);
+                const newCenter = geoCenterForEntity(updated);
+                if (isScreenTranslation && oldCenter && newCenter) {
+                    const lat = newCenter.lat - oldCenter.lat;
+                    const lng = newCenter.lng - oldCenter.lng;
+                    if (Math.abs(lat) < 0.000000001 && Math.abs(lng) < 0.000000001) return null;
+                    return { lat, lng };
+                }
+            }
+        }
+        return null;
+    }
+
+    const oldCenter = geoCenterForEntity(previous);
+    const newCenter = geoCenterForEntity(updated);
+    if (oldCenter && newCenter && sameMetricSize(previous, updated)) {
+        const lat = newCenter.lat - oldCenter.lat;
+        const lng = newCenter.lng - oldCenter.lng;
+        if (Math.abs(lat) < 0.000000001 && Math.abs(lng) < 0.000000001) return null;
+        return { lat, lng };
+    }
+
+    if (
+        previous.x != null && previous.y != null
+        && updated.x != null && updated.y != null
+        && sameMetricSize(previous, updated)
+    ) {
+        const x = Number(updated.x) - Number(previous.x);
+        const y = Number(updated.y) - Number(previous.y);
+        if (Math.abs(x) < 0.001 && Math.abs(y) < 0.001) return null;
+        return { x, y };
+    }
+
+    return null;
+}
+
+function translateAnchoredEntity(entity, delta) {
+    if (!entity || !delta) return entity;
+    const next = { ...entity };
+
+    if (delta.lat != null || delta.lng != null) {
+        const latDelta = Number(delta.lat) || 0;
+        const lngDelta = Number(delta.lng) || 0;
+        if (isFiniteCoord(next.lat)) next.lat = Number(next.lat) + latDelta;
+        if (isFiniteCoord(next.lng)) next.lng = Number(next.lng) + lngDelta;
+        if (Array.isArray(next.pointsGeo)) {
+            next.pointsGeo = next.pointsGeo.map(([lat, lng]) => [Number(lat) + latDelta, Number(lng) + lngDelta]);
+        }
+        if (isLikelyGeoPoints(next.points)) {
+            next.points = next.points.map(([lat, lng]) => [Number(lat) + latDelta, Number(lng) + lngDelta]);
+        }
+        return next;
+    }
+
+    const xDelta = Number(delta.x) || 0;
+    const yDelta = Number(delta.y) || 0;
+    if (isFiniteCoord(next.x)) next.x = Number(next.x) + xDelta;
+    if (isFiniteCoord(next.y)) next.y = Number(next.y) + yDelta;
+    if (isFiniteCoord(next.x1)) next.x1 = Number(next.x1) + xDelta;
+    if (isFiniteCoord(next.y1)) next.y1 = Number(next.y1) + yDelta;
+    if (isFiniteCoord(next.x2)) next.x2 = Number(next.x2) + xDelta;
+    if (isFiniteCoord(next.y2)) next.y2 = Number(next.y2) + yDelta;
+    return next;
+}
+
+function screenObjectForValidation(object, proj) {
+    if (!object) return object;
+    if (proj && object.lat != null && object.lng != null) {
+        const center = proj.project(object.lng, object.lat);
+        const widthMeters = object.widthMeters || 1;
+        const heightMeters = object.heightMeters || 1;
+        return {
+            ...object,
+            x: center.x,
+            y: center.y,
+            width: Math.max(4, proj.metersToPxX(widthMeters, object.lng, object.lat)),
+            height: Math.max(4, proj.metersToPxY(heightMeters, object.lng, object.lat)),
+        };
+    }
+    return object;
+}
+
+function outlineDependencySummary(outline, sectionItems, objects) {
+    const rooms = sectionItems.filter(item => item.floor_id === outline.id && item.type === "room" && item.sectionRole !== "base");
+    const roomIds = new Set(rooms.map(room => room.id));
+    const walls = sectionItems.filter(item => item.floor_id === outline.id && item.type === "wall");
+    const openings = sectionItems.filter(item => item.floor_id === outline.id && item.type === "opening");
+    const outlineObjects = objects.filter(obj => obj.floor_id === outline.id || roomIds.has(obj.room_id));
+    return { rooms, walls, openings, objects: outlineObjects };
 }
 
 function getDividerAxis(divider) {
@@ -937,6 +1100,7 @@ export default function RenderPage() {
 
     const [selectedObjectId, setSelectedObjectId] = useState(null);
     const [importedObjects, setImportedObjects] = useState([]);
+    const importedObjectsLoadedRef = useRef(false);
     const [wallHeight, setWallHeight] = useState(2.4);
     const [objectValidationResults, setObjectValidationResults] = useState({ isValid: true, warnings: [] });
 
@@ -1071,6 +1235,7 @@ export default function RenderPage() {
 
     const handleCanvasSelect = useCallback((id, ctrlKey) => {
         setSelectedVertexIndex(-1);
+        setSelectedObjectId(null);
         if (ctrlKey) {
             setMultiSelectIds(prev => {
                 const base = prev.length > 0 ? prev : (selectedShapeId && selectedShapeId !== id ? [selectedShapeId] : []);
@@ -1197,11 +1362,38 @@ export default function RenderPage() {
 
     const updateShape = useCallback((updated) => {
         if (stage === "outline") {
+            const previous = outlines.find(o => o.id === updated.id);
+            const delta = outlineTranslationDelta(previous, updated, makeProjection(mapRef.current));
+            if (delta) {
+                const roomIds = new Set(Object.values(stagedItems)
+                    .filter(item => item.floor_id === updated.id && item.type === "room")
+                    .map(room => room.id));
+                const hasSectionDependents = Object.values(stagedItems).some(item => item.floor_id === updated.id);
+                const hasObjectDependents = objects.some(obj => obj.floor_id === updated.id || roomIds.has(obj.room_id));
+                if (hasSectionDependents) {
+                    setStagedItems(prev => {
+                        const next = { ...prev };
+                        Object.entries(prev).forEach(([itemId, item]) => {
+                            if (item.floor_id === updated.id) {
+                                next[itemId] = translateAnchoredEntity(item, delta);
+                            }
+                        });
+                        return next;
+                    });
+                }
+                if (hasObjectDependents) {
+                    setObjects(prev => prev.map(obj => (
+                        obj.floor_id === updated.id || roomIds.has(obj.room_id)
+                            ? translateAnchoredEntity(obj, delta)
+                            : obj
+                    )));
+                }
+            }
             setOutlines(prev => prev.map(o => o.id === updated.id ? updated : o));
         } else {
             setStagedItems(prev => ({ ...prev, [updated.id]: updated }));
         }
-    }, [setStagedItems, stage, setOutlines]);
+    }, [setStagedItems, stage, setOutlines, outlines, stagedItems, objects, setObjects]);
 
     const commitScreenPointsForOutline = useCallback((outline, screenPoints) => {
         const proj = makeProjection(mapRef.current);
@@ -1495,7 +1687,10 @@ export default function RenderPage() {
     const currentLevelElements = isPlanStage
         ? allElements.filter(e => currentLevelFloorIds.has(e.floor_id))
         : allElements;
-    const currentLevelObjects = objects.filter(obj => currentLevelFloorIds.has(obj.floor_id) || !obj.floor_id);
+    const currentLevelRoomIds = new Set(currentLevelElements.filter(isVisibleSectionRoom).map(room => room.id));
+    const currentLevelObjects = isPlanStage
+        ? objects.filter(obj => currentLevelFloorIds.has(obj.floor_id) || currentLevelRoomIds.has(obj.room_id))
+        : objects;
     const visibleElements = isPlanStage
         ? [...currentLevelOutlines, ...currentLevelElements]
         : outlineElements;
@@ -1510,13 +1705,83 @@ export default function RenderPage() {
     }, [stage, hasRooms, outlines.length]);
 
     useEffect(() => {
+        if (stage !== "objects" || !selectedObjectId) return;
+        if (!currentLevelObjects.some(obj => obj.id === selectedObjectId)) {
+            setSelectedObjectId(null);
+        }
+    }, [stage, selectedObjectId, currentLevelObjects]);
+
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem(`render_${id || "new"}_imports`);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed)) setImportedObjects(parsed);
+            }
+        } catch (e) {
+            console.error("Failed to load imported objects:", e);
+        } finally {
+            importedObjectsLoadedRef.current = true;
+        }
+    }, [id]);
+
+    useEffect(() => {
+        if (!importedObjectsLoadedRef.current) return;
+        localStorage.setItem(`render_${id || "new"}_imports`, JSON.stringify(importedObjects));
+    }, [id, importedObjects]);
+
+    useEffect(() => {
         if (stage !== "outline" || !outlines.length) return;
         const timer = setTimeout(() => {
             const results = validateOutlines(outlines, { minArea: 1, checkOverlaps: true });
-            setValidationResults(results);
+            const sectionItems = Object.values(stagedItems);
+            const dependencyWarnings = outlines.flatMap(outline => {
+                const summary = outlineDependencySummary(outline, sectionItems, objects);
+                const total = summary.rooms.length + summary.walls.length + summary.openings.length + summary.objects.length;
+                if (!total) return [];
+                return [{
+                    type: "outline-has-dependencies",
+                    outlineId: outline.id,
+                    severity: "warning",
+                    message: `${outline.name || outline.type || "Outline"} has ${summary.rooms.length} room${summary.rooms.length === 1 ? "" : "s"}, ${summary.objects.length} object${summary.objects.length === 1 ? "" : "s"}, and ${summary.walls.length + summary.openings.length} wall/opening item${summary.walls.length + summary.openings.length === 1 ? "" : "s"} anchored to it. Moving translates them; resizing or reshaping should be checked before saving.`,
+                }];
+            });
+            setValidationResults({
+                ...results,
+                warnings: [...(results.warnings || []), ...dependencyWarnings],
+            });
         }, 300);
         return () => clearTimeout(timer);
-    }, [outlines, stage]);
+    }, [outlines, stage, stagedItems, objects]);
+
+    useEffect(() => {
+        if (!mapRef.current) return;
+        const proj = makeProjection(mapRef.current);
+        if (!proj) return;
+        setStagedItems(prev => {
+            let changed = false;
+            const next = { ...prev };
+            Object.entries(prev).forEach(([itemId, item]) => {
+                if (
+                    (item.type === "wall" || item.type === "opening")
+                    && item.lat == null
+                    && item.lng == null
+                    && item.x != null
+                    && item.y != null
+                    && item.width
+                    && item.height
+                ) {
+                    next[itemId] = {
+                        ...item,
+                        ...geoForScreenRect(proj, item.x, item.y, item.width, item.height),
+                        ...geoForWallThickness(proj, item, item.wallThickness),
+                    };
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+    }, [stage, mapVersion, setStagedItems]);
 
     const handleSectionValidation = useCallback(() => {
         if (stage !== "sections") return;
@@ -1543,12 +1808,16 @@ export default function RenderPage() {
     useEffect(() => {
         if (stage !== "objects" || !objects.length) return;
         const timer = setTimeout(() => {
-            const rooms = Object.values(stagedItems).filter(el => el.type === "room" && el.sectionRole !== "base");
-            const results = validateObjects(objects, rooms);
+            const proj = makeProjection(mapRef.current);
+            const rooms = Object.values(stagedItems)
+                .filter(el => el.type === "room" && el.sectionRole !== "base")
+                .map(room => screenRoom(room, proj));
+            const screenObjects = objects.map(obj => screenObjectForValidation(obj, proj));
+            const results = validateObjects(screenObjects, rooms);
             setObjectValidationResults(results);
         }, 300);
         return () => clearTimeout(timer);
-    }, [objects, stage, stagedItems]);
+    }, [objects, stage, stagedItems, mapVersion]);
 
     const batchMerge = useCallback(() => {
         if (multiSelectIds.length < 2) return;
@@ -1722,67 +1991,114 @@ export default function RenderPage() {
         setObjects(prev => [...prev, obj]);
     }, [setObjects]);
 
+    const selectedObject = selectedObjectId
+        ? objects.find(o => o.id === selectedObjectId) || null
+        : null;
+
+    const selectObject = useCallback((objectId) => {
+        setSelectedObjectId(objectId);
+        if (objectId) {
+            setSelectedShapeId(null);
+            setMultiSelectIds([]);
+        }
+    }, []);
+
     const bringForward = useCallback(() => {
-        if (!selectedShapeId) return;
+        const targetId = stage === "objects" ? selectedObjectId : selectedShapeId;
+        if (!targetId) return;
         setObjects(prev => {
-            const idx = prev.findIndex(o => o.id === selectedShapeId);
+            const idx = prev.findIndex(o => o.id === targetId);
             if (idx < 0 || idx >= prev.length - 1) return prev;
             const next = [...prev];
             [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
             return next;
         });
-    }, [selectedShapeId, setObjects]);
+    }, [stage, selectedObjectId, selectedShapeId, setObjects]);
 
     const sendBackward = useCallback(() => {
-        if (!selectedShapeId) return;
+        const targetId = stage === "objects" ? selectedObjectId : selectedShapeId;
+        if (!targetId) return;
         setObjects(prev => {
-            const idx = prev.findIndex(o => o.id === selectedShapeId);
+            const idx = prev.findIndex(o => o.id === targetId);
             if (idx <= 0) return prev;
             const next = [...prev];
             [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
             return next;
         });
-    }, [selectedShapeId, setObjects]);
+    }, [stage, selectedObjectId, selectedShapeId, setObjects]);
 
     const applyObjectTemplate = useCallback((templateId) => {
-        const outline = outlines.find(o => o.id === activeFloorId) || outlines[0];
-        if (!outline) return;
         try {
-            const { generateObjectTemplate } = require("../../../functions/objectTemplates");
-            const templateObjects = generateObjectTemplate(templateId, outline);
-            templateObjects.forEach((objData, i) => {
-                const proj = makeProjection(mapRef.current);
-                let geoAttrs = {};
-                if (proj && outline.lat != null) {
-                    const centerGeo = proj.unproject(objData.x, objData.y);
-                    geoAttrs = { lat: centerGeo.lat, lng: centerGeo.lng };
-                }
+            if (pendingPlacement?.kind === "object-template" && pendingPlacement.templateId === templateId) {
+                setPendingPlacement(null);
+                return;
+            }
+            const template = BUILTIN_OBJECT_TEMPLATES.find(t => t.id === templateId);
+            if (!template) return;
+            const seedBounds = { x: -180, y: -120, width: 360, height: 240 };
+            const templateObjects = generateObjectTemplate(templateId, seedBounds).map(objData => {
                 const catalogItem = FURNITURE_CATALOG.find(item => item.id === objData.type) || {};
-                addObject({
-                    id: objData.id,
+                return {
+                    ...objData,
                     name: catalogItem.name || objData.type,
                     category: catalogItem.category || "Custom",
-                    width: catalogItem.width || 100,
-                    height: catalogItem.height || 100,
-                    height3d: catalogItem.height3d || 80,
+                    width: catalogItem.width || objData.width || 100,
+                    height: catalogItem.height || objData.height || 100,
+                    height3d: catalogItem.height3d || objData.height3d || 80,
                     widthMeters: catalogItem.widthMeters || 1,
                     heightMeters: catalogItem.heightMeters || 1,
                     heightMeters3d: catalogItem.heightMeters3d || 0.8,
                     fill: objData.fill || catalogItem.fill || "#8B5CF6",
                     icon: catalogItem.icon || "📦",
                     modelUrl: catalogItem.modelUrl || null,
-                    x: objData.x,
-                    y: objData.y,
-                    ...geoAttrs,
-                });
+                };
+            });
+            setTool(null);
+            setSelectedShapeId(null);
+            setSelectedObjectId(null);
+            setPendingPlacement({
+                active: true,
+                kind: "object-template",
+                type: "object-template",
+                templateId,
+                template: { ...template, objects: templateObjects },
             });
         } catch (e) {
             console.error("Object template application failed:", e);
         }
-    }, [outlines, activeFloorId, addObject]);
+    }, [pendingPlacement]);
+
+    const placeObjectTemplate = useCallback((template, point, room) => {
+        if (!template || !point || !room) return;
+        const proj = makeProjection(mapRef.current);
+        const createdAt = Date.now();
+        const newObjects = (template.objects || []).map((objData, i) => {
+            const x = point.x + (objData.x || 0);
+            const y = point.y + (objData.y || 0);
+            const geo = proj?.unproject(x, y);
+            return {
+                ...objData,
+                id: `obj-${createdAt}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+                type: "object",
+                x,
+                y,
+                ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
+                rotation: objData.rotation || 0,
+                floor_id: room.floor_id,
+                room_id: room.id,
+            };
+        });
+        if (!newObjects.length) return;
+        setObjects(prev => [...prev, ...newObjects]);
+        setSelectedObjectId(newObjects[0].id);
+    }, [setObjects]);
 
     const startObjectPlacement = useCallback((item) => {
         if (!hasRooms || !item) return;
+        if (pendingPlacement?.kind === "object" && pendingPlacement.item?.id === item.id) {
+            setPendingPlacement(null);
+            return;
+        }
         setTool(null);
         setSelectedShapeId(null);
         setSelectedObjectId(null);
@@ -1792,7 +2108,7 @@ export default function RenderPage() {
             type: "object",
             item,
         });
-    }, [hasRooms]);
+    }, [hasRooms, pendingPlacement]);
 
     const canCombine = (() => {
         if (stage !== "sections") return false;
@@ -1874,6 +2190,7 @@ export default function RenderPage() {
 
     const handleGridSelect = useCallback(() => {
         setSelectedShapeId(null);
+        setSelectedObjectId(null);
         setSelectedVertexIndex(-1);
     }, []);
 
@@ -1890,6 +2207,10 @@ export default function RenderPage() {
     }
 
     const deleteShape = useCallback(() => {
+        if (stage === "objects" && selectedObjectId) {
+            deleteObject(selectedObjectId);
+            return;
+        }
         if (!selectedShapeId) return;
         if (stage === "outline") {
             setOutlines(prev => prev.filter(s => s.id !== selectedShapeId));
@@ -1900,11 +2221,40 @@ export default function RenderPage() {
             removeItem(selectedShapeId);
         }
         setSelectedShapeId(null);
-    }, [selectedShapeId, stagedItems, removeItem, stage, setOutlines]);
+    }, [selectedShapeId, selectedObjectId, stagedItems, removeItem, stage, setOutlines, deleteObject]);
 
     const updateObject = useCallback((updated) => {
         setObjects(prev => prev.map(o => o.id === updated.id ? updated : o));
     }, [setObjects]);
+
+    const applyArchitecturalStyle = useCallback((style) => {
+        if (!selectedShape || !style) return;
+        if (selectedShape.type === "opening") {
+            updateShape({
+                ...selectedShape,
+                name: style.name,
+                styleId: style.id,
+                styleName: style.name,
+                openingHeightMeters: (style.height3d || 210) / 100,
+                openingWidthMeters: (style.width || 90) / 100,
+                fill: selectedShape.openingType === "window" ? "#38bdf8" : "#f8fafc",
+                stroke: selectedShape.openingType === "window" ? "#0ea5e9" : "#475569",
+            });
+            return;
+        }
+        if (selectedShape.type === "wall") {
+            updateShape({
+                ...selectedShape,
+                name: style.name,
+                styleId: style.id,
+                styleName: style.name,
+                wallHeightMeters: wallHeight || ((style.height3d || 240) / 100),
+                heightMeters3d: wallHeight || ((style.height3d || 240) / 100),
+                fill: style.id === "wall-half" ? "#71717a" : "#52525b",
+                stroke: "#111827",
+            });
+        }
+    }, [selectedShape, updateShape, wallHeight]);
 
     const deleteImportedObject = useCallback((id) => {
         setImportedObjects(prev => prev.filter(obj => obj.id !== id));
@@ -1915,6 +2265,30 @@ export default function RenderPage() {
     }, []);
 
     const duplicateShape = useCallback(() => {
+        if (stage === "objects" && selectedObject) {
+            const id = `obj-${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+            const dup = {
+                ...selectedObject,
+                id,
+                name: `${selectedObject.name || "Object"} Copy`,
+                x: selectedObject.x != null ? selectedObject.x + 20 : selectedObject.x,
+                y: selectedObject.y != null ? selectedObject.y + 20 : selectedObject.y,
+            };
+            if (selectedObject.lat != null && selectedObject.lng != null) {
+                const proj = makeProjection(mapRef.current);
+                if (proj) {
+                    const cur = proj.project(selectedObject.lng, selectedObject.lat);
+                    const next = proj.unproject(cur.x + 20, cur.y + 20);
+                    dup.lat = next.lat;
+                    dup.lng = next.lng;
+                    delete dup.x;
+                    delete dup.y;
+                }
+            }
+            setObjects(prev => [...prev, dup]);
+            setSelectedObjectId(id);
+            return;
+        }
         if (!selectedShape) return;
         const id = `shape-${Date.now()}`;
         const dup = { ...selectedShape, id };
@@ -1938,7 +2312,7 @@ export default function RenderPage() {
             addItem(id, dup);
         }
         setSelectedShapeId(id);
-    }, [selectedShape, addItem, stage, setOutlines]);
+    }, [selectedShape, selectedObject, addItem, stage, setOutlines, setObjects]);
 
     const addRoomToFloor = useCallback((floorId, roomType) => {
         if (!floorId) return;
@@ -2249,7 +2623,12 @@ export default function RenderPage() {
         const id = `wall-${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
         const wall = makeWallPadItem({ id, wallType, floorId, parentId, point, room, settings: canvasSettings });
         if (!wall) return;
-        addItem(id, wall);
+        const proj = makeProjection(mapRef.current);
+        addItem(id, {
+            ...wall,
+            ...geoForScreenRect(proj, wall.x, wall.y, wall.width, wall.height),
+            ...geoForWallThickness(proj, wall, wall.wallThickness),
+        });
         setSelectedShapeId(id);
     }, [addItem, canvasSettings]);
 
@@ -2258,7 +2637,11 @@ export default function RenderPage() {
         const id = `opening-${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
         const opening = makeOpeningItem({ id, openingType, floorId, parentId, point, room, settings: canvasSettings });
         if (!opening) return;
-        addItem(id, opening);
+        const proj = makeProjection(mapRef.current);
+        addItem(id, {
+            ...opening,
+            ...geoForScreenRect(proj, opening.x, opening.y, opening.width, opening.height),
+        });
         setSelectedShapeId(id);
     }, [addItem, canvasSettings]);
 
@@ -2290,6 +2673,7 @@ export default function RenderPage() {
                     mapDistance={mapDistance}
                     setMapDistance={setMapDistance}
                     setPendingPlacement={setPendingPlacement}
+                    pendingPlacement={pendingPlacement}
                     activeTool={tool}
                     onSelectTool={selectTool}
                     canCombine={canCombine}
@@ -2336,6 +2720,7 @@ export default function RenderPage() {
                     onApplyObjectTemplate={applyObjectTemplate}
                     selectedShape={selectedShape}
                     onUpdateShape={updateShape}
+                    onApplyArchitecturalStyle={applyArchitecturalStyle}
                     importedObjects={importedObjects}
                     onDeleteImport={deleteImportedObject}
                     onUploadImport={uploadImportedObject}
@@ -2348,6 +2733,7 @@ export default function RenderPage() {
                     updateShape={updateShape}
                     floors={visibleFloors}
                     elements={stage === "objects" ? currentLevelElements : stage === "sections" ? allElements : outlines}
+                    sectionElements={allElements}
                     activeFloorId={activeFloorId}
                     selectedLevel={selectedLevel}
                     onSelectLevel={setSelectedLevel}
@@ -2357,9 +2743,9 @@ export default function RenderPage() {
                     addRoomToFloor={addRoomToFloor}
                     outlines={outlines}
                     addLevel={addLevel}
-                    objects={objects}
+                    objects={stage === "objects" ? currentLevelObjects : objects}
                     selectedObjectId={selectedObjectId}
-                    onSelectObject={setSelectedObjectId}
+                    onSelectObject={selectObject}
                     onUpdateObject={updateObject}
                     vertexMode={vertexMode}
                     selectedVertexIndex={selectedVertexIndex}
@@ -2377,6 +2763,10 @@ export default function RenderPage() {
                     updateRoomType={updateRoomType}
                     mapRef={mapRef}
                     deleteElement={(id) => {
+                        if (stage === "objects" && objects.some(obj => obj.id === id)) {
+                            deleteObject(id);
+                            return;
+                        }
                         const item = stage === "outline"
                             ? outlines.find(o => o.id === id)
                             : stagedItems[id];
@@ -2438,11 +2828,11 @@ export default function RenderPage() {
                     }}
                 />
                 <Toolbar
-                    selectedShape={selectedShape}
-                    updateShape={updateShape}
+                    selectedShape={stage === "objects" ? selectedObject : selectedShape}
+                    updateShape={stage === "objects" ? updateObject : updateShape}
                     deleteShape={deleteShape}
                     duplicateShape={duplicateShape}
-                    showOffset={showOffset}
+                    showOffset={stage !== "objects" && showOffset}
                     onToggleOffset={onShowOffset}
                     onOffset={handleOffset}
                     offsetDistance={offsetDistance}
@@ -2513,6 +2903,7 @@ export default function RenderPage() {
                         offsetPreviewShape={offsetPreviewShape}
                         onPlaceShape={addShape}
                         onPlaceTemplate={(templateId, point) => addShape(createTemplateShapeData(templateId, point))}
+                        onPlaceObjectTemplate={placeObjectTemplate}
                         onSplitRoom={splitRoom}
                         onCombineByDivider={combineByDivider}
                         onMoveDividerLine={moveDividerLine}
@@ -2521,7 +2912,7 @@ export default function RenderPage() {
                         onSelectFloor={setActiveFloorId}
                         objectsData={currentLevelObjects}
                         selectedObjectId={selectedObjectId}
-                        onSelectObject={setSelectedObjectId}
+                        onSelectObject={selectObject}
                         onUpdateObject={updateObject}
                         onAddObject={addObject}
                         onCompletePolygon={(pts) => {

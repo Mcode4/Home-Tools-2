@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 
-export default function ImportsTab({ onSelectCatalogItem, importedObjects = [], onDeleteImport, onUploadImport }) {
+export default function ImportsTab({ onSelectCatalogItem, activeItemId = null, importedObjects = [], onDeleteImport, onUploadImport }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [dragOver, setDragOver] = useState(false);
     const fileInputRef = useRef(null);
@@ -30,7 +30,7 @@ export default function ImportsTab({ onSelectCatalogItem, importedObjects = [], 
             });
         };
         reader.readAsDataURL(file);
-    }, []);
+    }, [onUploadImport]);
 
     const handleDrop = useCallback((e) => {
         e.preventDefault();
@@ -88,7 +88,7 @@ export default function ImportsTab({ onSelectCatalogItem, importedObjects = [], 
                     {filteredObjects.map(obj => (
                         <li
                             key={obj.id}
-                            className="tool-item object-tool-item"
+                            className={`tool-item object-tool-item${activeItemId === obj.id ? " tool-item-active" : ""}`}
                             onClick={() => onSelectCatalogItem?.(obj)}
                             title={`Click to place: ${obj.name}`}
                         >

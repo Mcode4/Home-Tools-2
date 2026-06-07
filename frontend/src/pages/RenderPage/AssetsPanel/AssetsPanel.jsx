@@ -18,6 +18,7 @@ export default function AssetsPanel({
     mapDistance,
     setMapDistance,
     setPendingPlacement,
+    pendingPlacement,
     activeTool,
     onSelectTool,
     canCombine,
@@ -44,6 +45,7 @@ export default function AssetsPanel({
     onApplyObjectTemplate,
     selectedShape,
     onUpdateShape,
+    onApplyArchitecturalStyle,
     importedObjects,
     onDeleteImport,
     onUploadImport,
@@ -80,10 +82,10 @@ export default function AssetsPanel({
                     </li>
                 </ul>
                 <ul id="menu-tools" style={{ width: 220 }}>
-                    {activeTab === "catalog" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} />}
-                    {activeTab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} stage={stage} onApplyTemplate={onApplyTemplate} onApplyObjectTemplate={onApplyObjectTemplate} />}
-                    {activeTab === "doorswalls" && <DoorsWallsTab onSelectCatalogItem={onSelectCatalogItem} wallHeight={wallHeight} onWallHeightChange={onWallHeightChange} />}
-                    {activeTab === "imports" && <ImportsTab onSelectCatalogItem={onSelectCatalogItem} importedObjects={importedObjects} onDeleteImport={onDeleteImport} onUploadImport={onUploadImport} />}
+                    {activeTab === "catalog" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} />}
+                    {activeTab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} stage={stage} onApplyTemplate={onApplyTemplate} onApplyObjectTemplate={onApplyObjectTemplate} activeObjectTemplateId={pendingPlacement?.kind === "object-template" ? pendingPlacement.templateId : null} />}
+                    {activeTab === "doorswalls" && <DoorsWallsTab selectedElement={selectedShape} onApplyElementStyle={onApplyArchitecturalStyle} wallHeight={wallHeight} onWallHeightChange={onWallHeightChange} />}
+                    {activeTab === "imports" && <ImportsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} importedObjects={importedObjects} onDeleteImport={onDeleteImport} onUploadImport={onUploadImport} />}
                     {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
                 </ul>
             </aside>

@@ -7,6 +7,7 @@ export default function Toolbar({
     if (!selectedShape && multiSelectIds.length === 0) return null;
 
     const isPolygon = selectedShape && (selectedShape.type === "polygon" || Array.isArray(selectedShape.points));
+    const isObject = selectedShape?.type === "object";
     const vertexCount = isPolygon && Array.isArray(selectedShape.points) ? selectedShape.points.length : 0;
     const hasMultiSelect = multiSelectIds.length >= 2;
     const hasSelectedShape = !!selectedShape;
@@ -38,14 +39,14 @@ export default function Toolbar({
                 </>
             )}
 
-            {hasSelectedShape && !hasMultiSelect && (
+            {hasSelectedShape && !hasMultiSelect && !isObject && (
                 <>
                     <span className="tb-sep" />
                     <button className={`tb-btn${showOffset ? " tb-btn-active" : ""}`} onClick={onToggleOffset} title="Offset">⊞</button>
                 </>
             )}
 
-            {isPolygon && vertexMode && (
+            {isPolygon && !isObject && vertexMode && (
                 <>
                     <span className="tb-sep" />
                     <span style={{ fontSize: 11, color: "var(--accent)", padding: "0 4px" }}>Vertices: {vertexCount}</span>
@@ -77,7 +78,7 @@ export default function Toolbar({
                 </>
             )}
 
-            {isPolygon && !hasMultiSelect && !showOffset && !vertexMode && (
+            {isPolygon && !isObject && !hasMultiSelect && !showOffset && !vertexMode && (
                 <>
                     <span className="tb-sep" />
                     <button className="tb-btn" onClick={onToggleVertexMode} title="Vertex Mode">✎</button>

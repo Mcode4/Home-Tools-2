@@ -17,7 +17,7 @@ const ROOM_TYPES = [
 
 export default function PropertiesPanel({
     stage, selectedShape, updateShape,
-    floors, elements, activeFloorId, selectedLevel, onSelectLevel,
+    floors, elements, sectionElements = [], activeFloorId, selectedLevel, onSelectLevel,
     onSelectFloor, onSelectShape,
     addFloor, addRoomToFloor,
     deleteElement, moveElement, outlines, addLevel,
@@ -28,6 +28,7 @@ export default function PropertiesPanel({
     showMeasurements = false,
     unit = "metric",
     sectionWarnings = [],
+    objectValidationResults = { isValid: true, warnings: [] },
     liveMeasurements = null,
     updateRoomType,
     mapRef,
@@ -139,42 +140,155 @@ export default function PropertiesPanel({
         if (el.name) return el.name;
         return t;
     };
+    const outlineSummary = (outline) => {
+        const sectionEls = sectionElements || [];
+        const outlineRooms = sectionEls.filter(item => item.floor_id === outline.id && item.type === "room" && item.sectionRole !== "base");
+        const roomIds = new Set(outlineRooms.map(room => room.id));
+        const outlineObjects = (objects || []).filter(obj => obj.floor_id === outline.id || roomIds.has(obj.room_id));
+        const wallOpenings = sectionEls.filter(item => item.floor_id === outline.id && (item.type === "wall" || item.type === "opening"));
+        return { rooms: outlineRooms.length, objects: outlineObjects.length, wallOpenings: wallOpenings.length };
+    };
 
     // Objects mode — placed objects list + property editing
     if (stage === "objects") {
         const selectedObj = objects?.find(o => o.id === selectedObjectId) || null;
         const rooms = elements?.filter(el => el.type === "room" && el.floor_id && el.sectionRole !== "base") || [];
+        const levels = [...new Set((outlines || []).map(f => f.level || 1))].sort((a, b) => a - b);
+        const activeLevelOutlines = (outlines || []).filter(outline => (outline.level || 1) === selectedLevel);
         const visibleFloorIds = new Set(rooms.map(room => room.floor_id));
         const visibleRoomIds = new Set(rooms.map(room => room.id));
         const visibleObjects = (objects || []).filter(obj => {
             if (!visibleFloorIds.size) return true;
             return visibleFloorIds.has(obj.floor_id) || visibleRoomIds.has(obj.room_id);
         });
+        const allRoomIds = new Set(rooms.map(room => room.id));
+        const unassignedObjects = visibleObjects.filter(obj => !obj.room_id || !allRoomIds.has(obj.room_id));
+        const renderObjectNode = (obj, style = {}) => (
+            <div key={obj.id} className="render-tree-node render-tree-child"
+                onClick={() => { onSelectObject?.(obj.id); flyToElement(obj); }}
+                style={{ marginLeft: 12, ...style, ...(obj.id === selectedObjectId ? { background: "var(--active-bg)", color: "#fff" } : {}) }}>
+                <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>{obj.icon || "□"}</span>
+                <span style={{ flex: 1 }}>{obj.name || "Object"}</span>
+                <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10, color: "var(--accent)" }}
+                    onClick={(e) => { e.stopPropagation(); flyToElement(obj); }} title="Fly to">↗</button>
+                <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10, color: "var(--danger)" }}
+                    onClick={(e) => { e.stopPropagation(); deleteElement?.(obj.id); }} title="Delete">✕</button>
+            </div>
+        );
 
         return (
             <aside className="app-slider-right" ref={containerRef}>
                 <div className="render-props-section" style={{ height: splitHeight, overflow: "auto", flexShrink: 0 }}>
-                    <h4 className="render-props-title">Objects ({visibleObjects.length})</h4>
-                    {visibleObjects.length === 0 && (
-                        <p style={{ fontSize: 13, color: "var(--text-dim)", padding: 8 }}>
-                            Select furniture from the catalog to place
-                        </p>
-                    )}
+                    <h4 className="render-props-title">Floor Layouts</h4>
                     <div className="render-tree">
-                        {visibleObjects.map(obj => (
-                            <div key={obj.id} className="render-tree-node"
-                                onClick={() => onSelectObject?.(obj.id)}
-                                style={obj.id === selectedObjectId ? { background: "var(--active-bg)", color: "#fff" } : {}}>
-                                <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>{obj.icon || "📦"}</span>
-                                <span style={{ flex: 1 }}>{obj.name || "Object"}</span>
-                                <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10, color: "var(--accent)" }}
-                                    onClick={(e) => { e.stopPropagation(); flyToElement(obj); }} title="Fly to">↗</button>
-                                <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10, color: "var(--danger)" }}
-                                    onClick={(e) => { e.stopPropagation(); deleteElement?.(obj.id); }} title="Delete">✕</button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                        {levels.map(lvl => {
+                            const isLevelExpanded = expandedFloors[`objects-level-${lvl}`] ?? true;
+                            const isSelectedLevel = lvl === selectedLevel;
+                            const lvlOutlines = (outlines || []).filter(outline => (outline.level || 1) === lvl);
+                            return (
+                                <div key={`objects-level-${lvl}`}>
+                                    <div className="render-tree-node"
+                                        onClick={() => {
+                                            onSelectLevel?.(lvl);
+                                            setExpandedFloors(prev => ({ ...prev, [`objects-level-${lvl}`]: !(prev[`objects-level-${lvl}`] ?? true) }));
+                                        }}
+                                        style={{ fontWeight: 600, color: isSelectedLevel ? "var(--accent)" : "var(--text-main)" }}>
+                                        <span style={{ fontSize: 11, width: 14 }}>{isLevelExpanded ? "▼" : "▶"}</span>
+                                        <span>Level {lvl}</span>
+                                        <span style={{ color: "var(--text-dim)", fontSize: 11, marginLeft: "auto" }}>
+                                            {lvlOutlines.length} outline{lvlOutlines.length === 1 ? "" : "s"}
+                                        </span>
+                                    </div>
+                                    {isSelectedLevel && isLevelExpanded && (
+                                        <div className="render-tree" style={{ marginLeft: 12 }}>
+                                            {activeLevelOutlines.map(outline => {
+                                                const outlineRooms = rooms.filter(room => room.floor_id === outline.id);
+                                                const roomIds = new Set(outlineRooms.map(room => room.id));
+                                                const outlineChildren = (elements || []).filter(item => (
+                                                    (item.type === "wall" || item.type === "opening")
+                                                    && item.floor_id === outline.id
+                                                    && !roomIds.has(item.parent_id)
+                                                ));
+                                                const isOutlineExpanded = expandedFloors[`objects-${outline.id}`] ?? true;
+                                                const isOutlineActive = outline.id === activeFloorId;
+                                                return (
+                                                    <div key={`objects-outline-${outline.id}`}>
+                                                        <div className="render-tree-node"
+                                                            onClick={() => { onSelectFloor?.(outline.id); toggleFloor(`objects-${outline.id}`); flyToElement(outline); }}
+                                                            style={isOutlineActive ? { background: "var(--active-bg)", color: "#fff" } : {}}>
+                                                            <span style={{ fontSize: 11, width: 14 }}>{isOutlineExpanded ? "▼" : "▶"}</span>
+                                                            <span style={{ flex: 1 }}>{outline.name || outline.type || "Outline"}</span>
+                                                            <span style={{ color: "var(--text-dim)", fontSize: 11 }}>
+                                                                {outlineRooms.length} room{outlineRooms.length === 1 ? "" : "s"}
+                                                            </span>
+                                                        </div>
+                                                        {isOutlineExpanded && (
+                                                            <div className="render-tree" style={{ marginLeft: 12 }}>
+                                                                {outlineChildren.map(child => (
+                                                                    <div key={child.id} className="render-tree-node render-tree-child"
+                                                                        onClick={() => { onSelectShape?.(child.id); flyToElement(child); }}
+                                                                        style={child.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}}>
+                                                                        <span style={{ fontSize: 10, color: child.type === "opening" ? "#38bdf8" : "#d4d4d8" }}>{child.type === "opening" ? "▱" : "▮"}</span>
+                                                                        <span style={{ flex: 1 }}>{child.name || elementLabel(child)}</span>
+                                                                    </div>
+                                                                ))}
+	                                                                {outlineRooms.map(room => {
+	                                                                    const roomChildren = (elements || []).filter(item => (
+	                                                                        (item.type === "wall" || item.type === "opening")
+	                                                                        && item.parent_id === room.id
+	                                                                    ));
+                                                                        const roomObjects = visibleObjects.filter(obj => obj.room_id === room.id);
+	                                                                    return (
+	                                                                        <div key={`objects-room-${room.id}`}>
+	                                                                            <div className="render-tree-node render-tree-child"
+	                                                                                onClick={() => { onSelectShape?.(room.id); flyToElement(room); }}
+	                                                                                style={room.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}}>
+	                                                                                <span style={{ fontSize: 10, color: roomColors[room.roomType] || "var(--accent)" }}>■</span>
+	                                                                                <span style={{ flex: 1 }}>{room.name || elementLabel(room)}</span>
+                                                                                    {roomObjects.length > 0 && (
+                                                                                        <span style={{ color: "var(--text-dim)", fontSize: 10 }}>{roomObjects.length} obj</span>
+                                                                                    )}
+	                                                                            </div>
+	                                                                            {roomChildren.map(child => (
+	                                                                                <div key={child.id} className="render-tree-node render-tree-child"
+                                                                                    onClick={() => { onSelectShape?.(child.id); flyToElement(child); }}
+                                                                                    style={{ marginLeft: 12, ...(child.id === selectedShape?.id ? { background: "var(--active-bg)", color: "#fff" } : {}) }}>
+                                                                                    <span style={{ fontSize: 10, color: child.type === "opening" ? "#38bdf8" : "#d4d4d8" }}>{child.type === "opening" ? "▱" : "▮"}</span>
+	                                                                                    <span style={{ flex: 1 }}>{child.name || elementLabel(child)}</span>
+	                                                                                </div>
+	                                                                            ))}
+                                                                            {roomObjects.map(obj => renderObjectNode(obj, { marginLeft: 24 }))}
+	                                                                        </div>
+	                                                                    );
+	                                                                })}
+                                                                {unassignedObjects
+                                                                    .filter(obj => obj.floor_id === outline.id)
+                                                                    .map(obj => renderObjectNode(obj))}
+	                                                            </div>
+	                                                        )}
+	                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+	                        })}
+	                    </div>
+	                    {visibleObjects.length === 0 && (
+	                        <p style={{ fontSize: 13, color: "var(--text-dim)", padding: 8 }}>
+	                            Select furniture from the catalog to place
+	                        </p>
+	                    )}
+	                    {unassignedObjects.some(obj => !obj.floor_id) && (
+	                        <>
+	                            <h4 className="render-props-title" style={{ marginTop: 12 }}>Unassigned Objects</h4>
+	                            <div className="render-tree">
+	                                {unassignedObjects.filter(obj => !obj.floor_id).map(obj => renderObjectNode(obj, { marginLeft: 0 }))}
+	                            </div>
+	                        </>
+	                    )}
+	                </div>
                 <div className="split-divider" onMouseDown={handleMouseDown}>
                     <div className="divider-handle"></div>
                 </div>
@@ -184,6 +298,16 @@ export default function PropertiesPanel({
                         onUpdateObject={onUpdateObject}
                         rooms={rooms}
                     />
+                    {objectValidationResults.warnings?.length > 0 && (
+                        <div className="props-section" style={{ border: "none", background: "rgba(245, 158, 11, 0.12)", borderRadius: 4, padding: 8 }}>
+                            <div style={{ fontWeight: 600, marginBottom: 4, color: "#f59e0b" }}>Object Warnings</div>
+                            {objectValidationResults.warnings.slice(0, 5).map((warning, index) => (
+                                <div key={`${warning.type}-${index}`} style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 3 }}>
+                                    {warning.message}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </aside>
         );
@@ -444,18 +568,27 @@ export default function PropertiesPanel({
             <div className="render-props-section" style={{ height: splitHeight, overflow: "auto", flexShrink: 0 }}>
                 <h4 className="render-props-title">Outlines ({elements.length})</h4>
                 {elements.length === 0 && <p style={{ fontSize: 13, color: "var(--text-dim)", padding: 8 }}>Add outlines from the left panel</p>}
-                {elements.map(el => (
-                    <div key={el.id} className="render-tree-node"
-                        onClick={(e) => { onSelectShape?.(el.id, e.ctrlKey || e.metaKey); flyToElement(el); }}
-                        style={(el.id === selectedShape?.id || multiSelectIds.includes(el.id)) ? { background: "var(--active-bg)", color: "#fff" } : {}}>
-                        <span style={{ fontSize: 14, color: "var(--accent)", width: 20, textAlign: "center" }}>
-                            {el.type === "circle" ? "○" : el.type === "rectangle" ? "▭" : "⬡"}
-                        </span>
-                        <span style={{ flex: 1 }}>{elementLabel(el)}</span>
-                        <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10, color: "var(--danger)" }}
-                            onClick={(e) => { e.stopPropagation(); deleteElement?.(el.id); }} title="Delete">✕</button>
-                    </div>
-                ))}
+                {elements.map(el => {
+                    const summary = outlineSummary(el);
+                    const hasDeps = summary.rooms + summary.objects + summary.wallOpenings > 0;
+                    return (
+                        <div key={el.id} className="render-tree-node"
+                            onClick={(e) => { onSelectShape?.(el.id, e.ctrlKey || e.metaKey); flyToElement(el); }}
+                            style={(el.id === selectedShape?.id || multiSelectIds.includes(el.id)) ? { background: "var(--active-bg)", color: "#fff" } : {}}>
+                            <span style={{ fontSize: 14, color: hasDeps ? "#f59e0b" : "var(--accent)", width: 20, textAlign: "center" }}>
+                                {el.type === "circle" ? "○" : el.type === "rectangle" ? "▭" : "⬡"}
+                            </span>
+                            <span style={{ flex: 1 }}>{elementLabel(el)}</span>
+                            {hasDeps && (
+                                <span style={{ color: "var(--text-dim)", fontSize: 10, whiteSpace: "nowrap" }}>
+                                    {summary.rooms}r · {summary.objects}o · {summary.wallOpenings}w
+                                </span>
+                            )}
+                            <button className="tb-btn" style={{ width: 18, height: 18, fontSize: 10, color: "var(--danger)" }}
+                                onClick={(e) => { e.stopPropagation(); deleteElement?.(el.id); }} title="Delete">✕</button>
+                        </div>
+                    );
+                })}
             </div>
             <div className="split-divider" onMouseDown={handleMouseDown}>
                 <div className="divider-handle"></div>

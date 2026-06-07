@@ -20,7 +20,7 @@ const WALL_TYPES = [
     { id: "wall-full", name: "Full Wall", icon: "🧱", width: 100, height: 10, height3d: 360 },
 ];
 
-export default function DoorsWallsTab({ onSelectCatalogItem, wallHeight, onWallHeightChange }) {
+export default function DoorsWallsTab({ selectedElement, onApplyElementStyle, wallHeight, onWallHeightChange }) {
     const [activeCategory, setActiveCategory] = useState("doors");
 
     const categories = [
@@ -38,6 +38,15 @@ export default function DoorsWallsTab({ onSelectCatalogItem, wallHeight, onWallH
         }
     };
 
+    const selectedKind = selectedElement?.type === "wall"
+        ? "walls"
+        : selectedElement?.openingType === "door"
+            ? "doors"
+            : selectedElement?.openingType === "window"
+                ? "windows"
+                : null;
+    const canApply = selectedKind === activeCategory;
+
     return (
         <li className="menu-item-container">
             <div className="menu-tools-section">
@@ -54,17 +63,24 @@ export default function DoorsWallsTab({ onSelectCatalogItem, wallHeight, onWallH
                     ))}
                 </div>
 
+                <div className={`objects-target-card${canApply ? " target-ready" : ""}`}>
+                    <span>{selectedElement ? (selectedElement.name || selectedElement.styleName || selectedElement.openingType || selectedElement.wallType || "Selected element") : "No section element selected"}</span>
+                    <small>{canApply ? "Ready" : `Select a ${activeCategory === "doors" ? "door" : activeCategory === "windows" ? "window" : "wall"} from the layout tree`}</small>
+                </div>
+
                 <ul className="tool-list objects-catalog-list">
                     {getItems().map(item => (
                         <li
                             key={item.id}
-                            className="tool-item object-tool-item"
-                            onClick={() => onSelectCatalogItem?.({
-                                ...item,
-                                category: activeCategory,
-                                fill: activeCategory === "walls" ? "#9CA3AF" : "#D1D5DB",
-                                modelUrl: null,
-                            })}
+                            className={`tool-item object-tool-item${!canApply ? " tool-item-disabled" : ""}${selectedElement?.styleId === item.id ? " tool-item-active" : ""}`}
+                            onClick={() => {
+                                if (!canApply) return;
+                                onApplyElementStyle?.({
+                                    ...item,
+                                    category: activeCategory,
+                                    fill: activeCategory === "walls" ? "#9CA3AF" : "#D1D5DB",
+                                });
+                            }}
                             title={item.name}
                         >
                             <span className="object-tool-icon">{item.icon}</span>
@@ -83,7 +99,17 @@ export default function DoorsWallsTab({ onSelectCatalogItem, wallHeight, onWallH
                             max={3.6}
                             step={0.1}
                             value={wallHeight || 2.4}
-                            onChange={(e) => onWallHeightChange?.(Number(e.target.value))}
+                            onChange={(e) => {
+                                const next = Number(e.target.value);
+                                onWallHeightChange?.(next);
+                                if (selectedElement?.type === "wall") {
+                                    onApplyElementStyle?.({
+                                        id: selectedElement.styleId || "wall-standard",
+                                        name: selectedElement.styleName || selectedElement.name || "Wall",
+                                        height3d: next * 100,
+                                    });
+                                }
+                            }}
                         />
                         <span style={{ fontSize: 11, color: "var(--text-dim)" }}>
                             {wallHeight || 2.4}m

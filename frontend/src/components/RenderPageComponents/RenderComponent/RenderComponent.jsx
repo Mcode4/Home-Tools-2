@@ -81,12 +81,13 @@ function drawShapePath(ctx, shape, absolute = false) {
 
 function removeProjectedFields(shape) {
     if (!shape?._isProjected) return shape;
-    const { x, y, width, height, radius, _points, _isProjected, _sourceGeometry, ...source } = shape;
+    const { x, y, width, height, radius, wallThickness, _points, _isProjected, _sourceGeometry, ...source } = shape;
     if (_sourceGeometry?.x !== undefined) source.x = _sourceGeometry.x;
     if (_sourceGeometry?.y !== undefined) source.y = _sourceGeometry.y;
     if (_sourceGeometry?.width !== undefined && source.widthMeters == null) source.width = _sourceGeometry.width;
     if (_sourceGeometry?.height !== undefined && source.heightMeters == null) source.height = _sourceGeometry.height;
     if (_sourceGeometry?.radius !== undefined && source.radiusMeters == null) source.radius = _sourceGeometry.radius;
+    if (_sourceGeometry?.wallThickness !== undefined) source.wallThickness = _sourceGeometry.wallThickness;
     return source;
 }
 
@@ -484,6 +485,32 @@ function projectObjectToScreen(object, projection) {
     };
 }
 
+function objectTemplateScreenGeometry(template, center, projection) {
+    if (!template || !center || !Array.isArray(template.objects)) return null;
+    const objects = template.objects.map(obj => {
+        const point = { x: center.x + (obj.x || 0), y: center.y + (obj.y || 0) };
+        const size = objectScreenSize(obj, projection, point);
+        return {
+            ...obj,
+            ...point,
+            width: size.width,
+            height: size.height,
+        };
+    });
+    if (!objects.length) return null;
+    const minX = Math.min(...objects.map(obj => obj.x - (obj.width || 40) / 2));
+    const minY = Math.min(...objects.map(obj => obj.y - (obj.height || 40) / 2));
+    const maxX = Math.max(...objects.map(obj => obj.x + (obj.width || 40) / 2));
+    const maxY = Math.max(...objects.map(obj => obj.y + (obj.height || 40) / 2));
+    return {
+        objects,
+        x: center.x,
+        y: center.y,
+        width: Math.max(1, maxX - minX),
+        height: Math.max(1, maxY - minY),
+    };
+}
+
 function removeProjectedObjectFields(object) {
     if (!object?._isProjectedObject) return object;
     const { _isProjectedObject, _sourceGeometry, ...source } = object;
@@ -683,12 +710,13 @@ function renderShapeGroup(shape, shapeRef, isSelected, onSelect, onUpdate, activ
 }
 
 export default function RenderComponent({
-    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, onAddOpening, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape, onSelectFloor
+    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onPlaceObjectTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, onAddOpening, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape, onSelectFloor
 }) {
     const containerRef = useRef(null);
     const stageRef = useRef(null);
     const transformerRef = useRef(null);
     const shapeNodesRef = useRef({});
+    const objectNodesRef = useRef({});
 
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [scale, setScale] = useState(1);
@@ -750,7 +778,7 @@ export default function RenderComponent({
             }
 
             if (el.lat == null || el.lng == null) return el;
-            const sourceGeometry = { x: el.x, y: el.y, width: el.width, height: el.height, radius: el.radius };
+            const sourceGeometry = { x: el.x, y: el.y, width: el.width, height: el.height, radius: el.radius, wallThickness: el.wallThickness };
             const metricCache = projectedMetricGeometryRef.current;
             const shapeType = getShapeRenderType(el);
 
@@ -787,7 +815,7 @@ export default function RenderComponent({
             const heightPx = box.height;
             const projectedRadius = radiusPx != null ? radiusPx : (el.sides || shapeType === "circle" ? Math.min(widthPx, heightPx) / 2 : el.radius);
 
-            return {
+            const projected = {
                 ...el,
                 x: box.x,
                 y: box.y,
@@ -798,6 +826,13 @@ export default function RenderComponent({
                 _isProjected: true,
                 _sourceGeometry: sourceGeometry,
             };
+            if (el.wallThicknessMeters != null) {
+                projected.wallThickness = Math.max(1, Math.min(
+                    projection.metersToPxX(el.wallThicknessMeters, el.lng, el.lat),
+                    projection.metersToPxY(el.wallThicknessMeters, el.lng, el.lat)
+                ));
+            }
+            return projected;
         });
         lastProjectedRef.current = result;
         return result;
@@ -811,7 +846,8 @@ export default function RenderComponent({
     const clampY = (val, h, floor) => floor ? Math.max(floor.y, Math.min(val, floor.y + floor.height - h)) : val;
 
     const isObjectPlacement = pendingPlacement?.active && pendingPlacement.kind === "object";
-    const isTemplatePlacing = pendingPlacement?.active && pendingPlacement.type === "template";
+    const isObjectTemplatePlacing = pendingPlacement?.active && pendingPlacement.kind === "object-template";
+    const isTemplatePlacing = pendingPlacement?.active && pendingPlacement.type === "template" && !isObjectTemplatePlacing;
     const placementItem = pendingPlacement?.item;
     const isPolygonTool = activeTool?.type === "polygon" || pendingPlacement?.type === "polygon";
 
@@ -847,6 +883,19 @@ export default function RenderComponent({
     }, [isPolygonTool, polyVerts, polyCursor, onCompletePolygon, setPendingPlacement]);
 
     useEffect(() => {
+        if (!pendingPlacement?.active) return;
+        const onKey = (e) => {
+            if (e.key !== "Escape") return;
+            setPendingPlacement?.(null);
+            setGhostPos(null);
+            setPolyVerts([]);
+            setPolyCursor(null);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [pendingPlacement?.active, setPendingPlacement]);
+
+    useEffect(() => {
         if (activeTool?.type === "handle") {
             const newHandles = lines?.map(line => ({
                 start: [line.points[0], line.points[1]],
@@ -879,12 +928,28 @@ export default function RenderComponent({
         else delete shapeNodesRef.current[id];
     }, []);
 
+    const setObjectNodeRef = useCallback((id) => (node) => {
+        if (node) objectNodesRef.current[id] = node;
+        else delete objectNodesRef.current[id];
+    }, []);
+
     useLayoutEffect(() => {
         const tr = transformerRef.current;
         if (!tr) return;
         if (stage === "sections") {
             tr.nodes([]);
             tr.getLayer()?.batchDraw();
+            return;
+        }
+        if (stage === "objects") {
+            if (selectedObjectId && objectNodesRef.current[selectedObjectId]) {
+                tr.nodes([objectNodesRef.current[selectedObjectId]]);
+                tr.forceUpdate();
+                tr.getLayer()?.batchDraw();
+            } else {
+                tr.nodes([]);
+                tr.getLayer()?.batchDraw();
+            }
             return;
         }
         if (selectedShapeId && shapeNodesRef.current[selectedShapeId]) {
@@ -895,7 +960,7 @@ export default function RenderComponent({
             tr.nodes([]);
             tr.getLayer()?.batchDraw();
         }
-    }, [selectedShapeId, elements, projectedElements, mapVersion, stage]);
+    }, [selectedShapeId, selectedObjectId, elements, projectedElements, projectedObjects, mapVersion, stage]);
 
     const Grid = ({ bounds, gs, sc }) => {
         const g = [];
@@ -1162,6 +1227,18 @@ export default function RenderComponent({
             return;
         }
 
+        if (isObjectTemplatePlacing) {
+            const stageNode = e.target.getStage();
+            const pt = stageNode.getRelativePointerPosition();
+            if (!pt || !pendingPlacement?.template) return;
+            const room = findRoomAtPoint(pt, false);
+            if (!room) return;
+            onPlaceObjectTemplate?.(pendingPlacement.template, pt, room);
+            setPendingPlacement?.(null);
+            setGhostPos(null);
+            return;
+        }
+
         if (isTemplatePlacing) {
             const stage = e.target.getStage();
             const pt = stage.getRelativePointerPosition();
@@ -1236,10 +1313,10 @@ export default function RenderComponent({
 
     const isPlacing = !!pendingPlacement?.active;
     const isPolygonPlacing = isPlacing && pendingPlacement.type === "polygon";
-    const isShapePlacing = isPlacing && !isPolygonPlacing && !isObjectPlacement && !isTemplatePlacing;
+    const isShapePlacing = isPlacing && !isPolygonPlacing && !isObjectPlacement && !isObjectTemplatePlacing && !isTemplatePlacing;
     const hoverOrientation = hoverDivider?.combineMode || (hoverDivider?.crosses ? "both" : hoverDivider?.orientation);
     const cursorClass = isPolygonPlacing ? "cursor-crosshair"
-        : isShapePlacing || isTemplatePlacing ? "cursor-pad"
+        : isShapePlacing || isTemplatePlacing || isObjectTemplatePlacing ? "cursor-pad"
         : activeTool?.type === "divider" ? "cursor-divider"
         : activeTool?.type === "select" ? `cursor-select-${hoverOrientation || "free"}`
         : activeTool?.type === "combine" ? `cursor-combine-${hoverOrientation || "free"}`
@@ -1294,6 +1371,14 @@ export default function RenderComponent({
                 const screenSize = objectScreenSize(placementItem, projection, pt);
                 const next = room ? clampObjectCenterToRoom(pt, { ...placementItem, ...screenSize }, room) : pt;
                 setGhostPos({ ...next, ...screenSize, valid: !!room });
+            }
+        } else if (isObjectTemplatePlacing) {
+            const stage = e.target.getStage();
+            const pt = stage.getRelativePointerPosition();
+            if (pt) {
+                const room = findRoomAtPoint(pt, false);
+                const geometry = objectTemplateScreenGeometry(pendingPlacement.template, pt, projection);
+                setGhostPos(geometry ? { ...geometry, valid: !!room } : { x: pt.x, y: pt.y, valid: false });
             }
         } else if (isTemplatePlacing) {
             const stage = e.target.getStage();
@@ -1366,7 +1451,7 @@ export default function RenderComponent({
             setHoverDivider(null);
             setWallPreview(null);
         }
-    }, [mapVisible, mapRef, isPolygonPlacing, isShapePlacing, isObjectPlacement, isTemplatePlacing, placementItem, pendingPlacement, projection, activeTool?.type, elements, dividerDraw, projectedElements, canvasSettings]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [mapVisible, mapRef, isPolygonPlacing, isShapePlacing, isObjectPlacement, isObjectTemplatePlacing, isTemplatePlacing, placementItem, pendingPlacement, projection, activeTool?.type, elements, dividerDraw, projectedElements, canvasSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleCanvasMouseUp = useCallback(() => {
         mapPanRef.current.active = false;
@@ -1496,11 +1581,34 @@ export default function RenderComponent({
         );
     };
 
+    const updateRectElementFromScreen = (element, rect) => {
+        const source = removeProjectedFields(element);
+        const next = {
+            ...source,
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+        };
+        if (projection) {
+            const measured = measureScreenBox(projection, rect.x, rect.y, rect.width, rect.height);
+            next.lat = measured.center.lat;
+            next.lng = measured.center.lng;
+            next.widthMeters = measured.widthMeters;
+            next.heightMeters = measured.heightMeters;
+            delete next.x;
+            delete next.y;
+            delete next.width;
+            delete next.height;
+        }
+        onUpdateShape?.(next);
+    };
+
     const renderWall = (wall) => {
         const selected = selectedShapeId === wall.id;
         const draggable = stage === "sections" && activeTool?.type === "select";
         const common = {
-            listening: stage !== "objects",
+            listening: true,
             onClick: (e) => {
                 e.cancelBubble = true;
                 onSelectShape(wall.id);
@@ -1520,7 +1628,12 @@ export default function RenderComponent({
                         const dx = e.target.x();
                         const dy = e.target.y();
                         e.target.position({ x: 0, y: 0 });
-                        onUpdateShape({ ...wall, x: wall.x + dx, y: wall.y + dy });
+                        updateRectElementFromScreen(wall, {
+                            x: wall.x + dx,
+                            y: wall.y + dy,
+                            width: wall.width,
+                            height: wall.height,
+                        });
                     }}
                     {...common}
                 >
@@ -1552,12 +1665,17 @@ export default function RenderComponent({
         return (
             <Rect key={wall.id} x={wall.x} y={wall.y} width={wall.width} height={wall.height}
                 fill={wall.fill || "#888"} stroke={selected ? "#22c55e" : (wall.stroke || "#555")} strokeWidth={selected ? 2 : (wall.strokeWidth || 1)}
-                listening={stage !== "objects"}
+                listening={true}
                 draggable={draggable}
                 onClick={(e) => { e.cancelBubble = true; onSelectShape(wall.id); }}
                 onTap={(e) => { e.cancelBubble = true; onSelectShape(wall.id); }}
                 onDragEnd={(e) => {
-                    onUpdateShape({ ...wall, x: e.target.x(), y: e.target.y() });
+                    updateRectElementFromScreen(wall, {
+                        x: e.target.x(),
+                        y: e.target.y(),
+                        width: wall.width,
+                        height: wall.height,
+                    });
                 }} />
         );
     };
@@ -1568,7 +1686,7 @@ export default function RenderComponent({
         return (
             <Group
                 key={opening.id}
-                listening={stage !== "objects"}
+                listening={true}
                 draggable={stage === "sections" && activeTool?.type === "select"}
                 onClick={(e) => { e.cancelBubble = true; onSelectShape(opening.id); }}
                 onTap={(e) => { e.cancelBubble = true; onSelectShape(opening.id); }}
@@ -1576,7 +1694,12 @@ export default function RenderComponent({
                     const dx = e.target.x();
                     const dy = e.target.y();
                     e.target.position({ x: 0, y: 0 });
-                    onUpdateShape({ ...opening, x: opening.x + dx, y: opening.y + dy });
+                    updateRectElementFromScreen(opening, {
+                        x: opening.x + dx,
+                        y: opening.y + dy,
+                        width: opening.width,
+                        height: opening.height,
+                    });
                 }}
             >
                 <Rect
@@ -1608,13 +1731,17 @@ export default function RenderComponent({
         const width = obj.width || 40;
         const height = obj.height || 40;
         const selected = obj.id === selectedObjectId;
+        const isOverlay = stage !== "objects";
         return (
             <Group
                 key={obj.id}
+                ref={setObjectNodeRef(obj.id)}
                 x={obj.x || 0}
                 y={obj.y || 0}
                 rotation={obj.rotation || 0}
-                draggable={stage === "objects"}
+                opacity={isOverlay ? 0.34 : 1}
+                draggable={!isOverlay}
+                listening={!isOverlay}
                 dataRole="object"
                 onClick={(e) => { e.cancelBubble = true; onSelectObject?.(obj.id); }}
                 onTap={(e) => { e.cancelBubble = true; onSelectObject?.(obj.id); }}
@@ -1647,9 +1774,10 @@ export default function RenderComponent({
                     height={height}
                     cornerRadius={4}
                     fill={obj.fill || "#8B5CF6"}
-                    opacity={0.75}
+                    opacity={isOverlay ? 0.55 : 0.75}
                     stroke={selected ? "#22c55e" : "#ffffff"}
                     strokeWidth={selected ? 2 : 1}
+                    dash={isOverlay ? [5, 4] : undefined}
                     dataRole="object"
                 />
                 <Text
@@ -1821,7 +1949,7 @@ export default function RenderComponent({
                                         {openingElements.filter(el => el.floor_id === outline.id).map(renderOpening)}
                                         {renderDividerPreviews(outline.id)}
                                         {renderWallPreview(outline.id)}
-                                        {stage === "objects" && projectedObjects
+                                        {projectedObjects
                                             .filter(obj => obj.floor_id === outline.id)
                                             .map(renderObject2D)}
                                     </Group>
@@ -1834,7 +1962,7 @@ export default function RenderComponent({
                                         {openingElements.map(renderOpening)}
                                         {renderDividerPreviews()}
                                         {renderWallPreview()}
-                                        {stage === "objects" && projectedObjects.map(renderObject2D)}
+                                        {projectedObjects.map(renderObject2D)}
                                     </>
                                 )}
                                 {sectionOutlineShapes.map(renderElementShape)}
@@ -1843,6 +1971,7 @@ export default function RenderComponent({
                         ) : (
                             normalShapes.map(renderElementShape)
                         )}
+                        {!isPlanStage && projectedObjects.map(renderObject2D)}
 
                         {vertexMode && selectedShapeId && (() => {
                             const shape = (projectedElements || elements || []).find(s => s.id === selectedShapeId);
@@ -1884,7 +2013,7 @@ export default function RenderComponent({
                             });
                         })()}
 
-                        {(isShapePlacing || isObjectPlacement || isTemplatePlacing) && ghostPos && (
+                        {(isShapePlacing || isObjectPlacement || isObjectTemplatePlacing || isTemplatePlacing) && ghostPos && (
                             isObjectPlacement ? (
                                 <Group listening={false}>
                                     <Rect
@@ -1906,6 +2035,42 @@ export default function RenderComponent({
                                         fontSize={11}
                                         fill={ghostPos.valid ? "#22c55e" : "#ef4444"}
                                         width={Math.max(ghostPos.width || 40, 80)}
+                                        align="center"
+                                    />
+                                </Group>
+                            ) : isObjectTemplatePlacing && ghostPos.objects ? (
+                                <Group opacity={ghostPos.valid ? 0.58 : 0.28} listening={false}>
+                                    {ghostPos.objects.map((obj, index) => (
+                                        <Group key={`${obj.type || "object"}-${index}`} x={obj.x} y={obj.y} rotation={obj.rotation || 0}>
+                                            <Rect
+                                                x={-(obj.width || 40) / 2}
+                                                y={-(obj.height || 40) / 2}
+                                                width={obj.width || 40}
+                                                height={obj.height || 40}
+                                                cornerRadius={4}
+                                                fill={obj.fill || "#8B5CF6"}
+                                                stroke={ghostPos.valid ? "#22c55e" : "#ef4444"}
+                                                strokeWidth={2}
+                                                dash={[6, 4]}
+                                            />
+                                            <Text
+                                                x={-(obj.width || 40) / 2 + 4}
+                                                y={-(obj.height || 40) / 2 + 4}
+                                                text={obj.icon || obj.name || "Object"}
+                                                fontSize={12}
+                                                fill="#fff"
+                                                width={Math.max((obj.width || 40) - 8, 24)}
+                                                align="center"
+                                            />
+                                        </Group>
+                                    ))}
+                                    <Text
+                                        x={ghostPos.x - Math.max(ghostPos.width || 120, 120) / 2}
+                                        y={ghostPos.y - (ghostPos.height || 80) / 2 - 18}
+                                        text={ghostPos.valid ? pendingPlacement.template?.name || "Template" : "Select a room"}
+                                        fontSize={11}
+                                        fill={ghostPos.valid ? "#22c55e" : "#ef4444"}
+                                        width={Math.max(ghostPos.width || 120, 120)}
                                         align="center"
                                     />
                                 </Group>
@@ -2002,8 +2167,39 @@ export default function RenderComponent({
                                     return nb;
                                 }}
                                 onTransformEnd={(e) => {
-                                    const node = e.target;
-                                    if (!selectedShapeId) { node.scaleX(1); node.scaleY(1); return; }
+	                                    const node = transformerRef.current?.nodes?.()[0] || e.target;
+	                                    if (stage === "objects" && selectedObjectId) {
+	                                        const obj = projectedObjects.find(o => o.id === selectedObjectId);
+	                                        if (!obj) { node.scaleX(1); node.scaleY(1); return; }
+	                                        const sx = node.scaleX(), sy = node.scaleY();
+	                                        const nextWidth = Math.max(4, (obj.width || 40) * (Math.abs(sx) || 1));
+	                                        const nextHeight = Math.max(4, (obj.height || 40) * (Math.abs(sy) || 1));
+	                                        const rotation = node.rotation();
+	                                        const sourceObject = removeProjectedObjectFields(obj);
+	                                        const nextObject = { ...sourceObject, rotation };
+	                                        if (projection) {
+	                                            const center = projection.unproject(node.x(), node.y());
+	                                            nextObject.lat = center.lat;
+	                                            nextObject.lng = center.lng;
+	                                            nextObject.widthMeters = projection.pxToMetersX(nextWidth, center.lng, center.lat);
+	                                            nextObject.heightMeters = projection.pxToMetersY(nextHeight, center.lng, center.lat);
+	                                            nextObject.heightMeters3d = getObjectMetricSize(sourceObject).heightMeters3d;
+	                                            delete nextObject.x;
+	                                            delete nextObject.y;
+	                                            delete nextObject.width;
+	                                            delete nextObject.height;
+	                                            delete nextObject.height3d;
+	                                        } else {
+	                                            nextObject.x = node.x();
+	                                            nextObject.y = node.y();
+	                                            nextObject.width = nextWidth;
+	                                            nextObject.height = nextHeight;
+	                                        }
+	                                        onUpdateObject?.(nextObject);
+	                                        node.scaleX(1); node.scaleY(1);
+	                                        return;
+	                                    }
+	                                    if (!selectedShapeId) { node.scaleX(1); node.scaleY(1); return; }
                                     const shape = (projectedElements || elements || []).find(s => s.id === selectedShapeId);
                                     if (!shape) { node.scaleX(1); node.scaleY(1); return; }
                                     const sx = node.scaleX(), sy = node.scaleY();

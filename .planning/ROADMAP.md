@@ -159,6 +159,16 @@ Plans:
 10. Layer ordering controls
 11. Object validation warnings
 
+### Phase 6.2: 3D Render Stage — TransformControls, view modes, wall cutouts, GLTF export, map integration
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 6.2 to break down)
+
 ---
 
 ## Summary

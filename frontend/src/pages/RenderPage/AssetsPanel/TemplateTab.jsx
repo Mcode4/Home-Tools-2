@@ -4,7 +4,7 @@ import { BUILTIN_ROOM_TEMPLATES } from "../../../functions/roomTemplates";
 import { BUILTIN_OBJECT_TEMPLATES } from "../../../functions/objectTemplates";
 import { exportGeoJSON, exportSVG, exportPDF, parseGeoJSON, parseDXF } from "../../../functions/outlineExport";
 
-export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, onImport, stage, onApplyTemplate, onApplyObjectTemplate }) {
+export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, onImport, stage, onApplyTemplate, onApplyObjectTemplate, activeObjectTemplateId = null }) {
     const [savedTemplates, setSavedTemplates] = useState([]);
     const [importError, setImportError] = useState(null);
     const geoJsonInputRef = useRef(null);
@@ -213,7 +213,7 @@ export default function TemplateTab({ outlines, onLoadTemplate, onLoadBuiltin, o
                     <ul className="tool-list">
                         {BUILTIN_OBJECT_TEMPLATES.map(template => (
                             <li key={template.id}
-                                className="tool-item"
+                                className={`tool-item${activeObjectTemplateId === template.id ? " tool-item-active" : ""}`}
                                 onClick={() => onApplyObjectTemplate?.(template.id)}
                                 title={template.description}>
                                 <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 18, flexShrink: 0 }}>{template.icon}</span>
