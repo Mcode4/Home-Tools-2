@@ -96,35 +96,31 @@ export default function AssetsPanel({
     }
 
     if (stage === "render3d") {
-        const activeTab = ["scene", "objects", "shapes", "export", "settings"].includes(tab) ? tab : "scene";
+        const activeTab = ["build", "objects", "imports", "exports"].includes(tab) ? tab : "build";
         return (
             <aside className="app-slider">
                 <ul className="menu">
-                    <li className={`user-select-none ${activeTab === "scene" ? "menu-active" : ""}`}
-                        onClick={() => setTab("scene")} title="Scene Settings">
-                        <span style={{ fontSize: 20 }}>🏠</span>
+                    <li className={`user-select-none ${activeTab === "build" ? "menu-active" : ""}`}
+                        onClick={() => setTab("build")} title="Build Tools">
+                        <span style={{ fontSize: 20 }}>🔧</span>
                     </li>
                     <li className={`user-select-none ${activeTab === "objects" ? "menu-active" : ""}`}
                         onClick={() => setTab("objects")} title="3D Objects">
                         <span style={{ fontSize: 20 }}>🪑</span>
                     </li>
-                    <li className={`user-select-none ${activeTab === "shapes" ? "menu-active" : ""}`}
-                        onClick={() => setTab("shapes")} title="Add Shapes">
-                        <span style={{ fontSize: 20 }}>⬡</span>
+                    <li className={`user-select-none ${activeTab === "imports" ? "menu-active" : ""}`}
+                        onClick={() => setTab("imports")} title="Imports">
+                        <span style={{ fontSize: 20 }}>📥</span>
                     </li>
-                    <li className={`user-select-none ${activeTab === "export" ? "menu-active" : ""}`}
-                        onClick={() => setTab("export")} title="Export">
+                    <li className={`user-select-none ${activeTab === "exports" ? "menu-active" : ""}`}
+                        onClick={() => setTab("exports")} title="Exports">
                         <span style={{ fontSize: 20 }}>💾</span>
-                    </li>
-                    <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
-                    <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
-                        onClick={() => setTab("settings")} title="Settings">
-                        <span style={{ fontSize: 20 }}>⚙️</span>
                     </li>
                 </ul>
                 <ul id="menu-tools" style={{ width: 220 }}>
-                    {activeTab === "scene" && (
+                    {activeTab === "build" && (
                         <li className="tool-item" style={{ padding: "8px 12px" }}>
+                            <div style={{ fontSize: 12, color: "var(--text-main)", marginBottom: 8 }}>Build Tools</div>
                             <div style={{ marginBottom: 12 }}>
                                 <label style={{ fontSize: 11, color: "var(--text-dim)", display: "block", marginBottom: 4 }}>Wall Height (m)</label>
                                 <input
@@ -138,30 +134,19 @@ export default function AssetsPanel({
                                     style={{ width: "100%" }}
                                 />
                             </div>
-                            <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
-                                <p style={{ margin: "4px 0" }}>Left-click + drag: Pan</p>
-                                <p style={{ margin: "4px 0" }}>Right-click + drag: Rotate</p>
-                                <p style={{ margin: "4px 0" }}>Scroll: Zoom</p>
-                                <p style={{ margin: "4px 0" }}>Click object: Select</p>
-                            </div>
-                        </li>
-                    )}
-                    {activeTab === "objects" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} />}
-                    {activeTab === "shapes" && (
-                        <li className="tool-item" style={{ padding: "8px 12px" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-main)", marginBottom: 8 }}>Add 2D Shape</div>
+                            <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 8 }}>Primitives</div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                 {[
                                     { type: "rectangle", label: "Rectangle", icon: "▭" },
                                     { type: "circle", label: "Circle", icon: "○" },
                                     { type: "polygon", label: "Polygon", icon: "⬠" },
+                                    { type: "triangle", label: "Triangle", icon: "△" },
+                                    { type: "hexagon", label: "Hexagon", icon: "⬡" },
                                 ].map(shape => (
                                     <button
                                         key={shape.type}
                                         className="tool-item"
-                                        onClick={() => {
-                                            onSelectCatalogItem?.({ ...shape, kind: "shape" });
-                                        }}
+                                        onClick={() => onSelectCatalogItem?.({ ...shape, kind: "shape" })}
                                         style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px" }}
                                     >
                                         <span style={{ fontSize: 16 }}>{shape.icon}</span>
@@ -174,7 +159,9 @@ export default function AssetsPanel({
                             </div>
                         </li>
                     )}
-                    {activeTab === "export" && (
+                    {activeTab === "objects" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} />}
+                    {activeTab === "imports" && <ImportsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} importedObjects={importedObjects} onDeleteImport={onDeleteImport} onUploadImport={onUploadImport} />}
+                    {activeTab === "exports" && (
                         <li className="tool-item" style={{ padding: "8px 12px" }}>
                             <div style={{ fontSize: 12, color: "var(--text-main)", marginBottom: 8 }}>Export 3D Scene</div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -202,7 +189,6 @@ export default function AssetsPanel({
                             </div>
                         </li>
                     )}
-                    {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
                 </ul>
             </aside>
         );
