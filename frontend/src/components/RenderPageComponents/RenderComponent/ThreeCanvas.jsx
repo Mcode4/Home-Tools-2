@@ -6,6 +6,7 @@ import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter";
 import RoomWalls from "./RoomWalls";
 import GhostPreview from "./GhostPreview";
 import FurnitureObject from "./FurnitureObject";
+import ViewportGizmo from "./ViewportGizmo";
 
 function DoorWindowMesh({ element, room, wallHeight = 240 }) {
     if (!room) return null;
@@ -279,13 +280,19 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
 
 export default function ThreeCanvas({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode = "block", wallHeight, sceneRef, onSceneReady, transformMode, onTransformEnd }) {
     const is3D = stage === "render3d";
+    
+    const handleAxisClick = useCallback((axis) => {
+        // Placeholder for camera alignment
+        console.log("Align to axis:", axis);
+    }, []);
 
     return (
-        <Canvas
-            gl={{ alpha: !is3D, antialias: true }}
-            shadows={is3D}
-            style={{ background: is3D ? "#1a1a2e" : "transparent" }}
-            orthographic={!is3D}
+        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            <Canvas
+                gl={{ alpha: !is3D, antialias: true }}
+                shadows={is3D}
+                style={{ background: is3D ? "#1a1a2e" : "transparent" }}
+                orthographic={!is3D}
             camera={{
                 position: is3D ? [100, 150, 100] : [0, 100, 0],
                 zoom: is3D ? undefined : 1,
@@ -312,5 +319,7 @@ export default function ThreeCanvas({ stage, rooms, elements, objectsData, place
                 />
             </Suspense>
         </Canvas>
+        {is3D && <ViewportGizmo onAxisClick={handleAxisClick} />}
+        </div>
     );
 }
