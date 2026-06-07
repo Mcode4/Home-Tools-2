@@ -33,9 +33,34 @@ function WallDividerMesh({ element, wallHeight = 240 }) {
     if (!element) return null;
     
     const isDivider = element.type === "divider_line";
-    const wallWidth = element.width || element.length || 5;
-    const wallDepth = element.thickness || 4;
     const color = isDivider ? "#6366f1" : "#475569";
+    const thickness = element.thickness || 4;
+    
+    // Handle divider lines with x1/y1/x2/y2 endpoints
+    if (isDivider && element.x1 != null && element.y1 != null && element.x2 != null && element.y2 != null) {
+        const x1 = element.x1 || 0;
+        const y1 = element.y1 || 0;
+        const x2 = element.x2 || 0;
+        const y2 = element.y2 || 0;
+        const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const centerX = (x1 + x2) / 2;
+        const centerY = (y1 + y2) / 2;
+        
+        return (
+            <mesh
+                position={[centerX, wallHeight / 2, centerY]}
+                rotation={[0, -angle, 0]}
+            >
+                <boxGeometry args={[length, wallHeight, thickness]} />
+                <meshStandardMaterial color={color} transparent opacity={0.7} />
+            </mesh>
+        );
+    }
+    
+    // Handle walls with x/y/width/height
+    const wallWidth = element.width || 5;
+    const wallDepth = element.thickness || 4;
     
     return (
         <mesh position={[

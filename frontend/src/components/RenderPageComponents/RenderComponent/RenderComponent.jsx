@@ -2282,6 +2282,18 @@ export default function RenderComponent({
                         viewMode={viewMode}
                         sceneRef={sceneRef}
                         wallHeight={wallHeight}
+                        placementState={pendingPlacement}
+                        onCanvasClick={(pt) => {
+                            if (pendingPlacement?.kind === "object" && pendingPlacement.item) {
+                                onAddObject?.({
+                                    ...pendingPlacement.item,
+                                    x: pt.x,
+                                    y: pt.y,
+                                    floor_id: activeFloorId,
+                                });
+                                setPendingPlacement?.(null);
+                            }
+                        }}
                     />
                 </div>
             )}

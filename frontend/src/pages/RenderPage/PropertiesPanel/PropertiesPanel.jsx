@@ -313,34 +313,66 @@ export default function PropertiesPanel({
         );
     }
 
-    // 3D Render mode — Scene hierarchy with rooms, objects, and selected object properties
+    // 3D Render mode — Full hierarchy: Outlines → Rooms → Objects
     if (stage === "render3d") {
         const rooms = elements?.filter(el => el.type === "room" && el.floor_id && el.sectionRole !== "base") || [];
         const selectedObj = objects?.find(o => o.id === selectedObjectId) || null;
+        const levels = [...new Set((outlines || []).map(f => f.level || 1))].sort((a, b) => a - b);
 
         return (
             <aside className="app-slider-right" ref={containerRef}>
                 <div className="render-props-section" style={{ height: "100%", overflow: "auto", flexShrink: 0 }}>
                     <h4 className="render-props-title">3D Scene</h4>
                     <div className="render-tree">
-                        {rooms.map(room => (
-                            <div key={room.id} className="render-tree-node"
-                                style={{}}>
-                                <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>■</span>
-                                <span style={{ flex: 1 }}>{room.name || "Room"}</span>
-                            </div>
-                        ))}
-                        {(objects || []).map(obj => (
-                            <div key={obj.id} className="render-tree-node render-tree-child"
-                                onClick={() => onSelectObject?.(obj.id)}
-                                style={{ marginLeft: 12, ...(obj.id === selectedObjectId ? { background: "var(--active-bg)", color: "#fff" } : {}) }}>
-                                <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>{obj.icon || "□"}</span>
-                                <span style={{ flex: 1 }}>{obj.name || "Object"}</span>
-                            </div>
-                        ))}
-                        {rooms.length === 0 && (objects || []).length === 0 && (
+                        {levels.map(lvl => {
+                            const lvlOutlines = (outlines || []).filter(f => (f.level || 1) === lvl);
+                            return (
+                                <div key={lvl}>
+                                    <div className="render-tree-node" style={{ fontWeight: "bold" }}>
+                                        <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>📁</span>
+                                        <span style={{ flex: 1 }}>Level {lvl}</span>
+                                    </div>
+                                    {lvlOutlines.map(outline => {
+                                        const outlineRooms = rooms.filter(r => r.floor_id === outline.id);
+                                        const outlineObjects = (objects || []).filter(o => o.floor_id === outline.id || outlineRooms.some(r => r.id === o.room_id));
+                                        return (
+                                            <div key={outline.id} style={{ marginLeft: 12 }}>
+                                                <div className="render-tree-node">
+                                                    <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>▲</span>
+                                                    <span style={{ flex: 1 }}>{outline.name || "Outline"}</span>
+                                                </div>
+                                                {outlineRooms.map(room => {
+                                                    const roomObjects = (objects || []).filter(o => o.room_id === room.id);
+                                                    return (
+                                                        <div key={room.id} style={{ marginLeft: 12 }}>
+                                                            <div className="render-tree-node"
+                                                                style={{}}>
+                                                                <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>■</span>
+                                                                <span style={{ flex: 1 }}>{room.name || "Room"}</span>
+                                                            </div>
+                                                            {roomObjects.map(obj => (
+                                                                <div key={obj.id} className="render-tree-node render-tree-child"
+                                                                    onClick={() => onSelectObject?.(obj.id)}
+                                                                    style={{ marginLeft: 12, ...(obj.id === selectedObjectId ? { background: "var(--active-bg)", color: "#fff" } : {}) }}>
+                                                                    <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>{obj.icon || "□"}</span>
+                                                                    <span style={{ flex: 1 }}>{obj.name || "Object"}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })}
+                                                {outlineRooms.length === 0 && outlineObjects.length === 0 && (
+                                                    <p style={{ fontSize: 11, color: "var(--text-dim)", padding: "4px 8px" }}>No rooms</p>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })}
+                        {levels.length === 0 && (
                             <p style={{ fontSize: 13, color: "var(--text-dim)", padding: 8 }}>
-                                Add rooms in Sections stage first
+                                Add outlines in the Outline stage first
                             </p>
                         )}
                     </div>

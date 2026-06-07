@@ -93,13 +93,21 @@ export default function AssetsPanel({
     }
 
     if (stage === "render3d") {
-        const activeTab = ["scene", "settings"].includes(tab) ? tab : "scene";
+        const activeTab = ["scene", "objects", "shapes", "settings"].includes(tab) ? tab : "scene";
         return (
             <aside className="app-slider">
                 <ul className="menu">
                     <li className={`user-select-none ${activeTab === "scene" ? "menu-active" : ""}`}
-                        onClick={() => setTab("scene")} title="3D Scene">
+                        onClick={() => setTab("scene")} title="Scene Settings">
                         <span style={{ fontSize: 20 }}>🏠</span>
+                    </li>
+                    <li className={`user-select-none ${activeTab === "objects" ? "menu-active" : ""}`}
+                        onClick={() => setTab("objects")} title="3D Objects">
+                        <span style={{ fontSize: 20 }}>🪑</span>
+                    </li>
+                    <li className={`user-select-none ${activeTab === "shapes" ? "menu-active" : ""}`}
+                        onClick={() => setTab("shapes")} title="Add Shapes">
+                        <span style={{ fontSize: 20 }}>⬡</span>
                     </li>
                     <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
                     <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
@@ -128,6 +136,34 @@ export default function AssetsPanel({
                                 <p style={{ margin: "4px 0" }}>Right-click + drag: Rotate</p>
                                 <p style={{ margin: "4px 0" }}>Scroll: Zoom</p>
                                 <p style={{ margin: "4px 0" }}>Click object: Select</p>
+                            </div>
+                        </li>
+                    )}
+                    {activeTab === "objects" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} />}
+                    {activeTab === "shapes" && (
+                        <li className="tool-item" style={{ padding: "8px 12px" }}>
+                            <div style={{ fontSize: 12, color: "var(--text-main)", marginBottom: 8 }}>Add 2D Shape</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                {[
+                                    { type: "rectangle", label: "Rectangle", icon: "▭" },
+                                    { type: "circle", label: "Circle", icon: "○" },
+                                    { type: "polygon", label: "Polygon", icon: "⬠" },
+                                ].map(shape => (
+                                    <button
+                                        key={shape.type}
+                                        className="tool-item"
+                                        onClick={() => {
+                                            onSelectCatalogItem?.({ ...shape, kind: "shape" });
+                                        }}
+                                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px" }}
+                                    >
+                                        <span style={{ fontSize: 16 }}>{shape.icon}</span>
+                                        <span>{shape.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 8 }}>
+                                Click on 3D scene to place
                             </div>
                         </li>
                     )}

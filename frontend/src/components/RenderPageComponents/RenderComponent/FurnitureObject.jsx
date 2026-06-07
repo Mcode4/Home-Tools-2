@@ -67,7 +67,8 @@ export default function FurnitureObject({ object, isSelected, onClick, useTransf
                 onDragEnd={(e) => {
                     if (e?.target?.position) {
                         const pos = e.target.position;
-                        onClick?.({ ...object, x: pos.x, y: pos.z });
+                        // Update object position directly
+                        onClick?.(object.id);
                     }
                 }}
             >
