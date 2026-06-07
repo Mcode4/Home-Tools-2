@@ -169,6 +169,36 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd-plan-phase 6.2 to break down)
 
+### Phase 6.4: 3D Render Stage Enhancements — Build Tools, TransformControls, CSG, Elevation, Navigation Gizmo, Export
+
+**Goal:** Transform 3D render stage into complete Blender-like building platform with proper menus, interactive manipulation, wall cutouts, and navigation gizmo
+**Requirements**: (infrastructure — no REQ-IDs)
+**Depends on:** Phase 6.2
+**Plans:** 8 plans
+
+**Plans:**
+- [ ] 06.4-01-PLAN.md — Restructure AssetsPanel into 4-menu structure (Build Tools, Objects, Imports, Exports)
+- [ ] 06.4-02-PLAN.md — Create BuildToolsTab with shape primitives and transform tools
+- [ ] 06.4-03-PLAN.md — Implement interactive TransformControls for 3D manipulation
+- [ ] 06.4-04-PLAN.md — Implement wall cutouts for doors/windows using CSG
+- [ ] 06.4-05-PLAN.md — Add object elevation for placing items at different heights
+- [ ] 06.4-06-PLAN.md — Add 3D navigation gizmo in top right corner
+- [ ] 06.4-07-PLAN.md — Create enhanced export with customization options
+- [ ] 06.4-08-PLAN.md — Final integration and polish
+
+**Success Criteria:**
+1. 4-menu structure with proper icons (Build Tools, Objects, Imports, Exports)
+2. Build Tools menu with shape primitives and transform tools
+3. Interactive TransformControls for move/rotate/scale
+4. Wall cutouts for doors/windows using CSG
+5. Object elevation control
+6. 3D navigation gizmo in top right corner
+7. Enhanced export with format/quality settings
+8. Block View shows 1m grid (Minecraft-style)
+9. Pure View shows clean 3D without outlines
+10. Keyboard shortcuts (G/R/S) for transform modes
+11. Build passes, tests pass
+
 ---
 
 ## Summary
@@ -182,5 +212,6 @@ Plans:
 | 5 | Render Page — 2D Tools | ○ Pending | RENDER-01 to RENDER-04 |
 | 5.1 | Outline Stage Enhancements | ○ Pending | (infrastructure) |
 | 6 | Objects Stage + 3D Render | ○ Pending | RENDER-05 |
+| 6.4 | 3D Render Stage Enhancements | ○ Pending | (infrastructure) |
 
-**10 requirements** across **4 pending phases** | All v1 requirements covered ✓
+**10 requirements** across **5 pending phases** | All v1 requirements covered ✓
