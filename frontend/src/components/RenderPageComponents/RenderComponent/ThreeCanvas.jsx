@@ -1,6 +1,6 @@
-import { Suspense, useCallback } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrthographicCamera, PerspectiveCamera, OrbitControls, Grid } from "@react-three/drei";
+import { Suspense, useCallback, useRef, useEffect } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
+import { OrthographicCamera, PerspectiveCamera, OrbitControls, Grid, TransformControls } from "@react-three/drei";
 import RoomWalls from "./RoomWalls";
 import GhostPreview from "./GhostPreview";
 import FurnitureObject from "./FurnitureObject";
@@ -106,6 +106,27 @@ function Scene({ stage, rooms, objectsData, placementState, selectedObjectId, on
                     onClick={onObjectClick}
                 />
             ))}
+
+            {is3D && selectedObjectId && (() => {
+                const selectedObj = (objectsData || []).find(o => o.id === selectedObjectId);
+                if (!selectedObj) return null;
+                const h = selectedObj.height3d || 80;
+                return (
+                    <TransformControls
+                        object={null}
+                        mode="translate"
+                        size={0.7}
+                        onDragEnd={(e) => {
+                            if (e?.target?.position) {
+                                const pos = e.target.position;
+                                onObjectClick?.({ ...selectedObj, x: pos.x, y: pos.z });
+                            }
+                        }}
+                    >
+                        <group position={[selectedObj.x, h / 2, selectedObj.y]} />
+                    </TransformControls>
+                );
+            })()}
         </>
     );
 }
