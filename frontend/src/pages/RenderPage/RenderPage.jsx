@@ -1718,6 +1718,10 @@ export default function RenderPage() {
         }
     }, [outlines, activeFloorId, stagedItems, addItem, removeItem, canvasSettings.roomAutoColors]);
 
+    const addObject = useCallback((obj) => {
+        setObjects(prev => [...prev, obj]);
+    }, [setObjects]);
+
     const applyObjectTemplate = useCallback((templateId) => {
         const outline = outlines.find(o => o.id === activeFloorId) || outlines[0];
         if (!outline) return;
@@ -1875,10 +1879,6 @@ export default function RenderPage() {
         }
         setSelectedShapeId(null);
     }, [selectedShapeId, stagedItems, removeItem, stage, setOutlines]);
-
-    const addObject = useCallback((obj) => {
-        setObjects(prev => [...prev, obj]);
-    }, [setObjects]);
 
     const updateObject = useCallback((updated) => {
         setObjects(prev => prev.map(o => o.id === updated.id ? updated : o));
