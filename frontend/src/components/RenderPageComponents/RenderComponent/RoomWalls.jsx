@@ -1,9 +1,15 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 
-export default function RoomWalls({ room, stage }) {
+const DEFAULT_WALL_HEIGHT = 240;
+const DEFAULT_DOOR_WIDTH = 90;
+const DEFAULT_DOOR_HEIGHT = 210;
+const DEFAULT_WINDOW_WIDTH = 120;
+const DEFAULT_WINDOW_HEIGHT = 80;
+
+export default function RoomWalls({ room, stage, wallHeight: wallHeightProp, elements = [] }) {
     const is3D = stage === "render3d";
-    const wallHeight = is3D ? 240 : 30;
+    const wallHeight = wallHeightProp || (is3D ? DEFAULT_WALL_HEIGHT : 30);
     const opacity = is3D ? 0.85 : 0.3;
 
     const geometry = useMemo(() => {

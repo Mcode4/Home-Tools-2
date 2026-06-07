@@ -1,11 +1,26 @@
-import { Suspense, useCallback, useRef, useEffect } from "react";
+import { Suspense, useCallback, useRef, useEffect, useMemo } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrthographicCamera, PerspectiveCamera, OrbitControls, Grid, TransformControls } from "@react-three/drei";
+import * as THREE from "three";
 import RoomWalls from "./RoomWalls";
 import GhostPreview from "./GhostPreview";
 import FurnitureObject from "./FurnitureObject";
 
-function Scene({ stage, rooms, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode }) {
+function DoorWindowMesh({ element, wallHeight = 240 }) {
+    const isWindow = element.openingType === "window";
+    const doorWidth = isWindow ? (element.width || 120) : (element.width || 90);
+    const doorHeight = isWindow ? (element.height || 80) : (element.height || 210);
+    const color = isWindow ? "#38bdf8" : "#f8fafc";
+    
+    return (
+        <mesh position={[element.x, doorHeight / 2, element.y]}>
+            <boxGeometry args={[doorWidth, doorHeight, 5]} />
+            <meshStandardMaterial color={color} />
+        </mesh>
+    );
+}
+
+function Scene({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode, wallHeight }) {
     const is3D = stage === "render3d";
     const showOutlines = viewMode === "block";
 
@@ -89,7 +104,11 @@ function Scene({ stage, rooms, objectsData, placementState, selectedObjectId, on
             </mesh>
 
             {(rooms || []).map(room => (
-                <RoomWalls key={room.id} room={room} stage={stage} />
+                <RoomWalls key={room.id} room={room} stage={stage} wallHeight={wallHeight} />
+            ))}
+
+            {(elements || []).map(element => (
+                <DoorWindowMesh key={element.id} element={element} wallHeight={wallHeight} />
             ))}
 
             <GhostPreview
@@ -131,7 +150,7 @@ function Scene({ stage, rooms, objectsData, placementState, selectedObjectId, on
     );
 }
 
-export default function ThreeCanvas({ stage, rooms, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode = "block" }) {
+export default function ThreeCanvas({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode = "block", wallHeight }) {
     const is3D = stage === "render3d";
 
     return (
@@ -150,6 +169,7 @@ export default function ThreeCanvas({ stage, rooms, objectsData, placementState,
                 <Scene
                     stage={stage}
                     rooms={rooms}
+                    elements={elements}
                     objectsData={objectsData}
                     placementState={placementState}
                     selectedObjectId={selectedObjectId}
@@ -157,6 +177,7 @@ export default function ThreeCanvas({ stage, rooms, objectsData, placementState,
                     onCanvasClick={onCanvasClick}
                     onPointerMissed={onPointerMissed}
                     viewMode={viewMode}
+                    wallHeight={wallHeight}
                 />
             </Suspense>
         </Canvas>

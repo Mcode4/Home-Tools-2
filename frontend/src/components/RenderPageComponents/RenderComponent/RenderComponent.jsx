@@ -2274,6 +2274,7 @@ export default function RenderComponent({
                     <ThreeCanvas
                         stage={stage}
                         rooms={renderedElements?.filter(el => el.type === "room" && el.floor_id && el.sectionRole !== "base") || []}
+                        elements={renderedElements?.filter(el => el.type === "opening") || []}
                         objectsData={projectedObjects}
                         selectedObjectId={selectedObjectId}
                         onObjectClick={onSelectObject}
