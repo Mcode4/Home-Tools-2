@@ -1,5 +1,5 @@
 import { Suspense, useRef } from "react";
-import { useGLTF } from "@react-three/drei";
+import { useGLTF, TransformControls } from "@react-three/drei";
 import * as THREE from "three";
 
 function GLBModel({ url, scale = 1 }) {
@@ -20,7 +20,7 @@ function BoxFurniture({ object }) {
     );
 }
 
-export default function FurnitureObject({ object, isSelected, onClick }) {
+export default function FurnitureObject({ object, isSelected, onClick, useTransformControls = false }) {
     const meshRef = useRef();
 
     if (!object) return null;
@@ -28,7 +28,7 @@ export default function FurnitureObject({ object, isSelected, onClick }) {
     const rotation = (object.rotation || 0) * (Math.PI / 180);
     const h = object.height3d || 20;
 
-    return (
+    const content = (
         <group
             position={[object.x, h / 2, object.y]}
             rotation={[0, rotation, 0]}
@@ -58,4 +58,23 @@ export default function FurnitureObject({ object, isSelected, onClick }) {
             )}
         </group>
     );
+
+    if (useTransformControls && isSelected) {
+        return (
+            <TransformControls
+                mode="translate"
+                size={0.7}
+                onDragEnd={(e) => {
+                    if (e?.target?.position) {
+                        const pos = e.target.position;
+                        onClick?.({ ...object, x: pos.x, y: pos.z });
+                    }
+                }}
+            >
+                {content}
+            </TransformControls>
+        );
+    }
+
+    return content;
 }

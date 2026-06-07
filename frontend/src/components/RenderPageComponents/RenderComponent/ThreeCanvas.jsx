@@ -137,6 +137,7 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
                     object={obj}
                     isSelected={obj.id === selectedObjectId}
                     onClick={onObjectClick}
+                    useTransformControls={is3D}
                 />
             ))}
 
@@ -145,19 +146,12 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
                 if (!selectedObj) return null;
                 const h = selectedObj.height3d || 80;
                 return (
-                    <TransformControls
-                        object={null}
-                        mode="translate"
-                        size={0.7}
-                        onDragEnd={(e) => {
-                            if (e?.target?.position) {
-                                const pos = e.target.position;
-                                onObjectClick?.({ ...selectedObj, x: pos.x, y: pos.z });
-                            }
-                        }}
-                    >
-                        <group position={[selectedObj.x, h / 2, selectedObj.y]} />
-                    </TransformControls>
+                    <FurnitureObject
+                        key={selectedObj.id}
+                        object={selectedObj}
+                        isSelected={true}
+                        onClick={onObjectClick}
+                    />
                 );
             })()}
 

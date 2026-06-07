@@ -2917,6 +2917,24 @@ export default function RenderPage() {
                         </span>
                     </div>
                     )}
+                    {stage === "render3d" && (
+                    <div className="render-toolbar">
+                        <span className="render-tools">
+                            <button 
+                                className={viewMode === "block" ? "tool-item-active" : ""}
+                                onClick={() => setViewMode("block")}
+                            >Block View</button>
+                            <button 
+                                className={viewMode === "pure" ? "tool-item-active" : ""}
+                                onClick={() => setViewMode("pure")}
+                            >Pure View</button>
+                            <button onClick={exportGLTF}>Export GLTF</button>
+                            {selectedObjectId && (
+                                <button onClick={exportSelectedGLTF}>Export Selected</button>
+                            )}
+                        </span>
+                    </div>
+                    )}
                     <RenderComponent
                         activeTool={tool}
                         floors={visibleFloors}
