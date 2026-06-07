@@ -2275,7 +2275,7 @@ export default function RenderComponent({
                         stage={stage}
                         rooms={renderedElements?.filter(el => el.type === "room" && el.floor_id && el.sectionRole !== "base") || []}
                         elements={renderedElements?.filter(el => el.type === "opening" || el.type === "wall" || el.type === "divider_line") || []}
-                        objectsData={projectedObjects}
+                        objectsData={objectsData}
                         selectedObjectId={selectedObjectId}
                         onObjectClick={onSelectObject}
                         onPointerMissed={() => onSelectShape?.(null)}
