@@ -1102,6 +1102,7 @@ export default function RenderPage() {
     const [importedObjects, setImportedObjects] = useState([]);
     const importedObjectsLoadedRef = useRef(false);
     const [wallHeight, setWallHeight] = useState(2.4);
+    const [viewMode, setViewMode] = useState("block");
     const [objectValidationResults, setObjectValidationResults] = useState({ isValid: true, warnings: [] });
 
     const [stage, setStage] = useState("outline");
@@ -2899,11 +2900,12 @@ export default function RenderPage() {
                         vertexMode={vertexMode}
                         selectedVertexIndex={selectedVertexIndex}
                         onSelectVertex={setSelectedVertexIndex}
-                        onMoveVertex={handleMoveVertex}
-                        offsetPreviewShape={offsetPreviewShape}
-                        onPlaceShape={addShape}
-                        onPlaceTemplate={(templateId, point) => addShape(createTemplateShapeData(templateId, point))}
-                        onPlaceObjectTemplate={placeObjectTemplate}
+                    onMoveVertex={handleMoveVertex}
+                    offsetPreviewShape={offsetPreviewShape}
+                    onPlaceShape={addShape}
+                    onPlaceTemplate={(templateId, point) => addShape(createTemplateShapeData(templateId, point))}
+                    onPlaceObjectTemplate={placeObjectTemplate}
+                    viewMode={viewMode}
                         onSplitRoom={splitRoom}
                         onCombineByDivider={combineByDivider}
                         onMoveDividerLine={moveDividerLine}

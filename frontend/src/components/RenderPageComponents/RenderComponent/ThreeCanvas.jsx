@@ -1,12 +1,13 @@
 import { Suspense, useCallback } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrthographicCamera, PerspectiveCamera, OrbitControls } from "@react-three/drei";
+import { OrthographicCamera, PerspectiveCamera, OrbitControls, Grid } from "@react-three/drei";
 import RoomWalls from "./RoomWalls";
 import GhostPreview from "./GhostPreview";
 import FurnitureObject from "./FurnitureObject";
 
-function Scene({ stage, rooms, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed }) {
+function Scene({ stage, rooms, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode }) {
     const is3D = stage === "render3d";
+    const showOutlines = viewMode === "block";
 
     const handleCanvasClick = useCallback((e) => {
         if (placementState?.isActive) {
@@ -64,6 +65,19 @@ function Scene({ stage, rooms, objectsData, placementState, selectedObjectId, on
 
             {is3D && <fog attach="fog" args={["#1a1a2e", 200, 800]} />}
 
+            {is3D && showOutlines && (
+                <Grid
+                    args={[200, 200]}
+                    position={[0, -0.05, 0]}
+                    rotation={[-Math.PI / 2, 0, 0]}
+                    cellSize={10}
+                    cellThickness={0.5}
+                    cellColor="#4a4a6a"
+                    fadeSize={1}
+                    fadeStrength={1}
+                />
+            )}
+
             <mesh
                 position={[0, -0.1, 0]}
                 rotation={[-Math.PI / 2, 0, 0]}
@@ -96,7 +110,7 @@ function Scene({ stage, rooms, objectsData, placementState, selectedObjectId, on
     );
 }
 
-export default function ThreeCanvas({ stage, rooms, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed }) {
+export default function ThreeCanvas({ stage, rooms, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode = "block" }) {
     const is3D = stage === "render3d";
 
     return (
@@ -121,6 +135,7 @@ export default function ThreeCanvas({ stage, rooms, objectsData, placementState,
                     onObjectClick={onObjectClick}
                     onCanvasClick={onCanvasClick}
                     onPointerMissed={onPointerMissed}
+                    viewMode={viewMode}
                 />
             </Suspense>
         </Canvas>
