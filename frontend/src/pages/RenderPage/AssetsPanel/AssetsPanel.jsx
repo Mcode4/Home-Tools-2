@@ -39,19 +39,24 @@ export default function AssetsPanel({
     onBatchFullWall,
     multiSelectIds,
     onApplyTemplate,
+    onApplyObjectTemplate,
     selectedShape,
     onUpdateShape,
 }) {
     const [tab, setTab] = useState("tools");
 
     if (stage === "objects") {
-        const activeTab = ["catalog", "settings"].includes(tab) ? tab : "catalog";
+        const activeTab = ["catalog", "templates", "settings"].includes(tab) ? tab : "catalog";
         return (
             <aside className="app-slider">
                 <ul className="menu">
                     <li className={`user-select-none ${activeTab === "catalog" ? "menu-active" : ""}`}
                         onClick={() => setTab("catalog")} title="Furniture Catalog">
                         <span style={{ fontSize: 20 }}>🪑</span>
+                    </li>
+                    <li className={`user-select-none ${activeTab === "templates" ? "menu-active" : ""}`}
+                        onClick={() => setTab("templates")} title="Templates">
+                        <span style={{ fontSize: 20 }}>📋</span>
                     </li>
                     <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
                     <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
@@ -61,6 +66,7 @@ export default function AssetsPanel({
                 </ul>
                 <ul id="menu-tools" style={{ width: 220 }}>
                     {activeTab === "catalog" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} />}
+                    {activeTab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} stage={stage} onApplyTemplate={onApplyTemplate} onApplyObjectTemplate={onApplyObjectTemplate} />}
                     {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
                 </ul>
             </aside>

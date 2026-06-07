@@ -19,6 +19,8 @@ import { generateRoomTemplate } from "../../functions/roomTemplates";
 import { booleanUnion, booleanSubtract, booleanIntersect } from "../../functions/booleanOps";
 import { validateOutlines } from "../../functions/outlineValidation";
 import { getOutlineArea, getOutlinePerimeter } from "../../functions/outlineValidation";
+import { handleSearchAddress as handleSearchAddressNominatim, reverseLookupAddress } from "../../functions/nominatim";
+import { FURNITURE_CATALOG } from "../RenderPage/AssetsPanel/FurnitureCatalog";
 import * as turf from "@turf/turf";
 import "./RenderPage.css"
 
@@ -1702,6 +1704,43 @@ export default function RenderPage() {
         }
     }, [outlines, activeFloorId, stagedItems, addItem, removeItem, canvasSettings.roomAutoColors]);
 
+    const applyObjectTemplate = useCallback((templateId) => {
+        const outline = outlines.find(o => o.id === activeFloorId) || outlines[0];
+        if (!outline) return;
+        try {
+            const { generateObjectTemplate } = require("../../../functions/objectTemplates");
+            const templateObjects = generateObjectTemplate(templateId, outline);
+            templateObjects.forEach((objData, i) => {
+                const proj = makeProjection(mapRef.current);
+                let geoAttrs = {};
+                if (proj && outline.lat != null) {
+                    const centerGeo = proj.unproject(objData.x, objData.y);
+                    geoAttrs = { lat: centerGeo.lat, lng: centerGeo.lng };
+                }
+                const catalogItem = FURNITURE_CATALOG.find(item => item.id === objData.type) || {};
+                addObject({
+                    id: objData.id,
+                    name: catalogItem.name || objData.type,
+                    category: catalogItem.category || "Custom",
+                    width: catalogItem.width || 100,
+                    height: catalogItem.height || 100,
+                    height3d: catalogItem.height3d || 80,
+                    widthMeters: catalogItem.widthMeters || 1,
+                    heightMeters: catalogItem.heightMeters || 1,
+                    heightMeters3d: catalogItem.heightMeters3d || 0.8,
+                    fill: objData.fill || catalogItem.fill || "#8B5CF6",
+                    icon: catalogItem.icon || "📦",
+                    modelUrl: catalogItem.modelUrl || null,
+                    x: objData.x,
+                    y: objData.y,
+                    ...geoAttrs,
+                });
+            });
+        } catch (e) {
+            console.error("Object template application failed:", e);
+        }
+    }, [outlines, activeFloorId, addObject]);
+
     const startObjectPlacement = useCallback((item) => {
         if (!hasRooms || !item) return;
         setTool(null);
@@ -2250,6 +2289,7 @@ export default function RenderPage() {
                     onBatchFullWall={batchFullWall}
                     multiSelectIds={multiSelectIds}
                     onApplyTemplate={applyRoomTemplate}
+                    onApplyObjectTemplate={applyObjectTemplate}
                     selectedShape={selectedShape}
                     onUpdateShape={updateShape}
                 />
