@@ -153,20 +153,6 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
                 />
             ))}
 
-            {is3D && selectedObjectId && (() => {
-                const selectedObj = (objectsData || []).find(o => o.id === selectedObjectId);
-                if (!selectedObj) return null;
-                const h = selectedObj.height3d || 80;
-                return (
-                    <FurnitureObject
-                        key={selectedObj.id}
-                        object={selectedObj}
-                        isSelected={true}
-                        onClick={onObjectClick}
-                    />
-                );
-            })()}
-
             <SceneExporter sceneRef={sceneRef} onSceneReady={onSceneReady} />
         </>
     );

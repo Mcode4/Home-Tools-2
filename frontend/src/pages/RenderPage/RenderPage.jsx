@@ -1682,7 +1682,7 @@ export default function RenderPage() {
     const allElements = Object.values(stagedItems).filter(s => s.type !== "floor" && s.floor_id);
     const hasFloors = floors.length > 0;
     const hasRooms = allElements.some(isVisibleSectionRoom);
-    const isPlanStage = stage === "sections" || stage === "objects";
+    const isPlanStage = stage === "sections" || stage === "objects" || stage === "render3d";
     const outlineElements = stage === "outline" ? outlines : outlines;
     const currentLevelOutlines = isPlanStage ? outlines.filter(o => (o.level || 1) === selectedLevel) : outlines;
     const currentLevelFloorIds = new Set(currentLevelOutlines.map(outline => outline.id));
