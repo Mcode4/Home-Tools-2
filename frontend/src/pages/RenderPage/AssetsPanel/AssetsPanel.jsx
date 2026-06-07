@@ -7,6 +7,7 @@ import TemplateTab from "./TemplateTab";
 import ImportsTab from "./ImportsTab";
 import DoorsWallsTab from "./DoorsWallsTab";
 import BuildToolsTab from "./BuildToolsTab";
+import ExportsTab from "./ExportsTab";
 
 export default function AssetsPanel({
     stage,
@@ -131,32 +132,11 @@ export default function AssetsPanel({
                     {activeTab === "objects" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} />}
                     {activeTab === "imports" && <ImportsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} importedObjects={importedObjects} onDeleteImport={onDeleteImport} onUploadImport={onUploadImport} />}
                     {activeTab === "exports" && (
-                        <li className="tool-item" style={{ padding: "8px 12px" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-main)", marginBottom: 8 }}>Export 3D Scene</div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                <button
-                                    className="tool-item"
-                                    onClick={onExportGLTF}
-                                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px" }}
-                                >
-                                    <span style={{ fontSize: 16 }}>📦</span>
-                                    <span>Export Entire Scene</span>
-                                </button>
-                                {selectedObjectId && (
-                                    <button
-                                        className="tool-item"
-                                        onClick={onExportSelectedGLTF}
-                                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px" }}
-                                    >
-                                        <span style={{ fontSize: 16 }}>🎯</span>
-                                        <span>Export Selected Object</span>
-                                    </button>
-                                )}
-                            </div>
-                            <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 8 }}>
-                                Downloads as .gltf file
-                            </div>
-                        </li>
+                        <ExportsTab
+                            onExportGLTF={onExportGLTF}
+                            onExportSelectedGLTF={onExportSelectedGLTF}
+                            selectedObjectId={selectedObjectId}
+                        />
                     )}
                 </ul>
             </aside>
