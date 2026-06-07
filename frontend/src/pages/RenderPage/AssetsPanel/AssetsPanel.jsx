@@ -6,6 +6,7 @@ import ObjectsTab from "./ObjectsTab";
 import TemplateTab from "./TemplateTab";
 import ImportsTab from "./ImportsTab";
 import DoorsWallsTab from "./DoorsWallsTab";
+import BuildToolsTab from "./BuildToolsTab";
 
 export default function AssetsPanel({
     stage,
@@ -119,45 +120,13 @@ export default function AssetsPanel({
                 </ul>
                 <ul id="menu-tools" style={{ width: 220 }}>
                     {activeTab === "build" && (
-                        <li className="tool-item" style={{ padding: "8px 12px" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-main)", marginBottom: 8 }}>Build Tools</div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ fontSize: 11, color: "var(--text-dim)", display: "block", marginBottom: 4 }}>Wall Height (m)</label>
-                                <input
-                                    type="number"
-                                    className="input"
-                                    min={0.5}
-                                    max={10}
-                                    step={0.1}
-                                    value={wallHeight ?? 2.4}
-                                    onChange={e => onWallHeightChange?.(Math.max(0.5, Math.min(10, parseFloat(e.target.value) || 2.4)))}
-                                    style={{ width: "100%" }}
-                                />
-                            </div>
-                            <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 8 }}>Primitives</div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                {[
-                                    { type: "rectangle", label: "Rectangle", icon: "▭" },
-                                    { type: "circle", label: "Circle", icon: "○" },
-                                    { type: "polygon", label: "Polygon", icon: "⬠" },
-                                    { type: "triangle", label: "Triangle", icon: "△" },
-                                    { type: "hexagon", label: "Hexagon", icon: "⬡" },
-                                ].map(shape => (
-                                    <button
-                                        key={shape.type}
-                                        className="tool-item"
-                                        onClick={() => onSelectCatalogItem?.({ ...shape, kind: "shape" })}
-                                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px" }}
-                                    >
-                                        <span style={{ fontSize: 16 }}>{shape.icon}</span>
-                                        <span>{shape.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                            <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 8 }}>
-                                Click on 3D scene to place
-                            </div>
-                        </li>
+                        <BuildToolsTab
+                            onSelectCatalogItem={onSelectCatalogItem}
+                            activeTool={activeTool}
+                            onSelectTool={onSelectTool}
+                            wallHeight={wallHeight}
+                            onWallHeightChange={onWallHeightChange}
+                        />
                     )}
                     {activeTab === "objects" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} />}
                     {activeTab === "imports" && <ImportsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} importedObjects={importedObjects} onDeleteImport={onDeleteImport} onUploadImport={onUploadImport} />}
