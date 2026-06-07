@@ -19,6 +19,7 @@ import { generateRoomTemplate } from "../../functions/roomTemplates";
 import { booleanUnion, booleanSubtract, booleanIntersect } from "../../functions/booleanOps";
 import { validateOutlines } from "../../functions/outlineValidation";
 import { getOutlineArea, getOutlinePerimeter } from "../../functions/outlineValidation";
+import { validateObjects } from "../../functions/objectValidation";
 import { handleSearchAddress as handleSearchAddressNominatim, reverseLookupAddress } from "../../functions/nominatim";
 import { FURNITURE_CATALOG } from "../RenderPage/AssetsPanel/FurnitureCatalog";
 import * as turf from "@turf/turf";
@@ -937,6 +938,7 @@ export default function RenderPage() {
     const [selectedObjectId, setSelectedObjectId] = useState(null);
     const [importedObjects, setImportedObjects] = useState([]);
     const [wallHeight, setWallHeight] = useState(2.4);
+    const [objectValidationResults, setObjectValidationResults] = useState({ isValid: true, warnings: [] });
 
     const [stage, setStage] = useState("outline");
 
@@ -1537,6 +1539,16 @@ export default function RenderPage() {
     useEffect(() => {
         handleSectionValidation();
     }, [handleSectionValidation]);
+
+    useEffect(() => {
+        if (stage !== "objects" || !objects.length) return;
+        const timer = setTimeout(() => {
+            const rooms = Object.values(stagedItems).filter(el => el.type === "room" && el.sectionRole !== "base");
+            const results = validateObjects(objects, rooms);
+            setObjectValidationResults(results);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [objects, stage, stagedItems]);
 
     const batchMerge = useCallback(() => {
         if (multiSelectIds.length < 2) return;
@@ -2335,6 +2347,7 @@ export default function RenderPage() {
                     showMeasurements={canvasSettings.showMeasurements}
                     unit={canvasSettings.unit}
                     sectionWarnings={sectionWarnings}
+                    objectValidationResults={objectValidationResults}
                     liveMeasurements={selectedShape ? {
                         area: getOutlineArea(selectedShape),
                         perimeter: getOutlinePerimeter(selectedShape),
