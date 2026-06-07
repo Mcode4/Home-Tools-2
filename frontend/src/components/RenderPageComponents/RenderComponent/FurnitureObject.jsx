@@ -59,29 +59,29 @@ export default function FurnitureObject({ object, isSelected, onClick, useTransf
                     {/* X axis arrow (red) */}
                     <mesh position={[15, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
                         <cylinderGeometry args={[0.5, 0.5, 20, 8]} />
-                        <meshBasicMaterial color="#ff4444" />
+                        <meshBasicMaterial color="#ff4444" depthTest={false} />
                     </mesh>
-                    <mesh position={[26, 0, 0]}>
+                    <mesh position={[26, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
                         <coneGeometry args={[2, 4, 8]} />
-                        <meshBasicMaterial color="#ff4444" />
+                        <meshBasicMaterial color="#ff4444" depthTest={false} />
                     </mesh>
                     {/* Y axis arrow (green) */}
                     <mesh position={[0, 15, 0]}>
                         <cylinderGeometry args={[0.5, 0.5, 20, 8]} />
-                        <meshBasicMaterial color="#44ff44" />
+                        <meshBasicMaterial color="#44ff44" depthTest={false} />
                     </mesh>
                     <mesh position={[0, 26, 0]}>
                         <coneGeometry args={[2, 4, 8]} />
-                        <meshBasicMaterial color="#44ff44" />
+                        <meshBasicMaterial color="#44ff44" depthTest={false} />
                     </mesh>
                     {/* Z axis arrow (blue) */}
                     <mesh position={[0, 0, 15]} rotation={[Math.PI / 2, 0, 0]}>
                         <cylinderGeometry args={[0.5, 0.5, 20, 8]} />
-                        <meshBasicMaterial color="#4444ff" />
+                        <meshBasicMaterial color="#4444ff" depthTest={false} />
                     </mesh>
                     <mesh position={[0, 0, 26]} rotation={[Math.PI / 2, 0, 0]}>
                         <coneGeometry args={[2, 4, 8]} />
-                        <meshBasicMaterial color="#4444ff" />
+                        <meshBasicMaterial color="#4444ff" depthTest={false} />
                     </mesh>
                 </group>
             )}
