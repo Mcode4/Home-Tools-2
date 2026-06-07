@@ -4,6 +4,7 @@ import CanvasTab from "./CanvasTab";
 import SectionsTab from "./SectionsTab";
 import ObjectsTab from "./ObjectsTab";
 import TemplateTab from "./TemplateTab";
+import ImportsTab from "./ImportsTab";
 
 export default function AssetsPanel({
     stage,
@@ -42,11 +43,14 @@ export default function AssetsPanel({
     onApplyObjectTemplate,
     selectedShape,
     onUpdateShape,
+    importedObjects,
+    onDeleteImport,
+    onUploadImport,
 }) {
     const [tab, setTab] = useState("tools");
 
     if (stage === "objects") {
-        const activeTab = ["catalog", "templates", "settings"].includes(tab) ? tab : "catalog";
+        const activeTab = ["catalog", "templates", "imports", "settings"].includes(tab) ? tab : "catalog";
         return (
             <aside className="app-slider">
                 <ul className="menu">
@@ -58,6 +62,10 @@ export default function AssetsPanel({
                         onClick={() => setTab("templates")} title="Templates">
                         <span style={{ fontSize: 20 }}>📋</span>
                     </li>
+                    <li className={`user-select-none ${activeTab === "imports" ? "menu-active" : ""}`}
+                        onClick={() => setTab("imports")} title="Imports">
+                        <span style={{ fontSize: 20 }}>📥</span>
+                    </li>
                     <div className="menu-spacer" style={{ flexGrow: 1 }}></div>
                     <li className={`user-select-none ${activeTab === "settings" ? "menu-active" : ""}`}
                         onClick={() => setTab("settings")} title="Settings">
@@ -67,6 +75,7 @@ export default function AssetsPanel({
                 <ul id="menu-tools" style={{ width: 220 }}>
                     {activeTab === "catalog" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} />}
                     {activeTab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} stage={stage} onApplyTemplate={onApplyTemplate} onApplyObjectTemplate={onApplyObjectTemplate} />}
+                    {activeTab === "imports" && <ImportsTab onSelectCatalogItem={onSelectCatalogItem} importedObjects={importedObjects} onDeleteImport={onDeleteImport} onUploadImport={onUploadImport} />}
                     {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
                 </ul>
             </aside>

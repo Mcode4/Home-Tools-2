@@ -935,6 +935,7 @@ export default function RenderPage() {
     const { objects, setObjects, canUndo: canUndoObjects, canRedo: canRedoObjects, undo: undoObjects, redo: redoObjects, saveObjects } = objectsHistory;
 
     const [selectedObjectId, setSelectedObjectId] = useState(null);
+    const [importedObjects, setImportedObjects] = useState([]);
 
     const [stage, setStage] = useState("outline");
 
@@ -1870,6 +1871,14 @@ export default function RenderPage() {
         setObjects(prev => prev.map(o => o.id === updated.id ? updated : o));
     }, [setObjects]);
 
+    const deleteImportedObject = useCallback((id) => {
+        setImportedObjects(prev => prev.filter(obj => obj.id !== id));
+    }, []);
+
+    const uploadImportedObject = useCallback((obj) => {
+        setImportedObjects(prev => [...prev, obj]);
+    }, []);
+
     const duplicateShape = useCallback(() => {
         if (!selectedShape) return;
         const id = `shape-${Date.now()}`;
@@ -2292,6 +2301,9 @@ export default function RenderPage() {
                     onApplyObjectTemplate={applyObjectTemplate}
                     selectedShape={selectedShape}
                     onUpdateShape={updateShape}
+                    importedObjects={importedObjects}
+                    onDeleteImport={deleteImportedObject}
+                    onUploadImport={uploadImportedObject}
                 />
                 <PropertiesPanel
                     stage={stage}
