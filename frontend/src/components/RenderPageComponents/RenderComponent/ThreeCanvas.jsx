@@ -195,10 +195,10 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
 
             {is3D && showOutlines && (
                 <Grid
-                    args={[200, 200]}
+                    args={[100, 100]}
                     position={[0, -0.05, 0]}
                     rotation={[-Math.PI / 2, 0, 0]}
-                    cellSize={10}
+                    cellSize={1}
                     cellThickness={0.5}
                     cellColor="#4a4a6a"
                     fadeSize={1}
