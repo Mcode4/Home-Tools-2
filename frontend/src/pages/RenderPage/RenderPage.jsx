@@ -2963,6 +2963,7 @@ export default function RenderPage() {
                     onPlaceTemplate={(templateId, point) => addShape(createTemplateShapeData(templateId, point))}
                     onPlaceObjectTemplate={placeObjectTemplate}
                     viewMode={viewMode}
+                    wallHeight={wallHeight}
                         onSplitRoom={splitRoom}
                         onCombineByDivider={combineByDivider}
                         onMoveDividerLine={moveDividerLine}

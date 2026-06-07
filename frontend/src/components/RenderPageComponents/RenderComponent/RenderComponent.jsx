@@ -710,7 +710,7 @@ function renderShapeGroup(shape, shapeRef, isSelected, onSelect, onUpdate, activ
 }
 
 export default function RenderComponent({
-    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onPlaceObjectTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, onAddOpening, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape, onSelectFloor, viewMode = "block", sceneRef, onExportGLTF, onExportSelectedGLTF
+    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onPlaceObjectTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, onAddOpening, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape, onSelectFloor, viewMode = "block", sceneRef, onExportGLTF, onExportSelectedGLTF, wallHeight
 }) {
     const containerRef = useRef(null);
     const stageRef = useRef(null);
@@ -2281,6 +2281,7 @@ export default function RenderComponent({
                         onPointerMissed={() => onSelectShape?.(null)}
                         viewMode={viewMode}
                         sceneRef={sceneRef}
+                        wallHeight={wallHeight}
                     />
                 </div>
             )}
