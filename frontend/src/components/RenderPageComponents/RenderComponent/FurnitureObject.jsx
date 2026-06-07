@@ -25,10 +25,11 @@ export default function FurnitureObject({ object, isSelected, onClick, useTransf
 
     const rotation = (object.rotation || 0) * (Math.PI / 180);
     const h = object.height3d || 20;
+    const elevation = object.elevation || 0;
 
     const content = (
         <group
-            position={[object.x, h / 2, object.y]}
+            position={[object.x, elevation + h / 2, object.y]}
             rotation={[0, rotation, 0]}
             onClick={(e) => {
                 e.stopPropagation();

@@ -396,6 +396,10 @@ export default function PropertiesPanel({
                             <label style={{ fontSize: 11, color: "var(--text-dim)" }}>Rotation</label>
                             <input className="input" type="number" value={selectedObj.rotation || 0} onChange={e => onUpdateObject?.({ ...selectedObj, rotation: parseFloat(e.target.value) || 0 })} />
                         </div>
+                        <div style={{ padding: 4 }}>
+                            <label style={{ fontSize: 11, color: "var(--text-dim)" }}>Elevation (m)</label>
+                            <input className="input" type="number" step={0.1} value={selectedObj.elevation || 0} onChange={e => onUpdateObject?.({ ...selectedObj, elevation: parseFloat(e.target.value) || 0 })} />
+                        </div>
                     </div>
                 )}
             </aside>
