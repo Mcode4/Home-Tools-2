@@ -2,6 +2,7 @@ import { Suspense, useCallback, useRef, useEffect, useMemo } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrthographicCamera, PerspectiveCamera, OrbitControls, Grid, TransformControls } from "@react-three/drei";
 import * as THREE from "three";
+import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter";
 import RoomWalls from "./RoomWalls";
 import GhostPreview from "./GhostPreview";
 import FurnitureObject from "./FurnitureObject";
@@ -20,7 +21,20 @@ function DoorWindowMesh({ element, wallHeight = 240 }) {
     );
 }
 
-function Scene({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode, wallHeight }) {
+function SceneExporter({ sceneRef, onSceneReady }) {
+    const { scene } = useThree();
+    
+    useEffect(() => {
+        if (scene) {
+            sceneRef.current = scene;
+            onSceneReady?.(scene);
+        }
+    }, [scene, sceneRef, onSceneReady]);
+    
+    return null;
+}
+
+function Scene({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode, wallHeight, sceneRef, onSceneReady }) {
     const is3D = stage === "render3d";
     const showOutlines = viewMode === "block";
 
@@ -146,11 +160,13 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
                     </TransformControls>
                 );
             })()}
+
+            <SceneExporter sceneRef={sceneRef} onSceneReady={onSceneReady} />
         </>
     );
 }
 
-export default function ThreeCanvas({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode = "block", wallHeight }) {
+export default function ThreeCanvas({ stage, rooms, elements, objectsData, placementState, selectedObjectId, onObjectClick, onCanvasClick, onPointerMissed, viewMode = "block", wallHeight, sceneRef, onSceneReady }) {
     const is3D = stage === "render3d";
 
     return (
@@ -178,6 +194,8 @@ export default function ThreeCanvas({ stage, rooms, elements, objectsData, place
                     onPointerMissed={onPointerMissed}
                     viewMode={viewMode}
                     wallHeight={wallHeight}
+                    sceneRef={sceneRef}
+                    onSceneReady={onSceneReady}
                 />
             </Suspense>
         </Canvas>

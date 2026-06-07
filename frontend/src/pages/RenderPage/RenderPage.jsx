@@ -1104,6 +1104,7 @@ export default function RenderPage() {
     const [wallHeight, setWallHeight] = useState(2.4);
     const [viewMode, setViewMode] = useState("block");
     const [objectValidationResults, setObjectValidationResults] = useState({ isValid: true, warnings: [] });
+    const sceneRef = useRef(null);
 
     const [stage, setStage] = useState("outline");
 
@@ -2028,6 +2029,44 @@ export default function RenderPage() {
         });
     }, [stage, selectedObjectId, selectedShapeId, setObjects]);
 
+    const exportGLTF = useCallback(() => {
+        if (!sceneRef.current) return;
+        import("three/examples/jsm/exporters/GLTFExporter").then(({ GLTFExporter }) => {
+            const exporter = new GLTFExporter();
+            exporter.parse(sceneRef.current, (gltf) => {
+                const blob = new Blob([JSON.stringify(gltf)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "scene.gltf";
+                link.click();
+                URL.revokeObjectURL(url);
+            }, (error) => {
+                console.error("GLTF export error:", error);
+            }, { binary: false });
+        });
+    }, []);
+
+    const exportSelectedGLTF = useCallback(() => {
+        if (!sceneRef.current || !selectedObjectId) return;
+        import("three/examples/jsm/exporters/GLTFExporter").then(({ GLTFExporter }) => {
+            const exporter = new GLTFExporter();
+            const selectedObj = sceneRef.current.getObjectById(selectedObjectId);
+            if (!selectedObj) return;
+            exporter.parse(selectedObj, (gltf) => {
+                const blob = new Blob([JSON.stringify(gltf)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "object.gltf";
+                link.click();
+                URL.revokeObjectURL(url);
+            }, (error) => {
+                console.error("GLTF export error:", error);
+            }, { binary: false });
+        });
+    }, [selectedObjectId]);
+
     const applyObjectTemplate = useCallback((templateId) => {
         try {
             if (pendingPlacement?.kind === "object-template" && pendingPlacement.templateId === templateId) {
@@ -2928,6 +2967,9 @@ export default function RenderPage() {
                             });
                             setPendingPlacement(null);
                         }}
+                        sceneRef={sceneRef}
+                        onExportGLTF={exportGLTF}
+                        onExportSelectedGLTF={exportSelectedGLTF}
                     />
                 </div>
             </div>
