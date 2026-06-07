@@ -29,6 +29,26 @@ function DoorWindowMesh({ element, room, wallHeight = 240 }) {
     );
 }
 
+function WallDividerMesh({ element, wallHeight = 240 }) {
+    if (!element) return null;
+    
+    const isDivider = element.type === "divider_line";
+    const wallWidth = element.width || element.length || 5;
+    const wallDepth = element.thickness || 4;
+    const color = isDivider ? "#6366f1" : "#475569";
+    
+    return (
+        <mesh position={[
+            (element.x || 0) + wallWidth / 2,
+            wallHeight / 2,
+            (element.y || 0) + wallDepth / 2
+        ]}>
+            <boxGeometry args={[wallWidth, wallHeight, wallDepth]} />
+            <meshStandardMaterial color={color} transparent opacity={0.7} />
+        </mesh>
+    );
+}
+
 function SceneExporter({ sceneRef, onSceneReady }) {
     const { scene } = useThree();
     
@@ -46,13 +66,57 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
     const is3D = stage === "render3d";
     const showOutlines = viewMode === "block";
 
+    // Normalize coordinates: compute center of all rooms and offset to origin
+    const { normalizedRooms, normalizedObjects, normalizedElements, center } = useMemo(() => {
+        if (!rooms || rooms.length === 0) return { normalizedRooms: [], normalizedObjects: [], center: { x: 0, y: 0 } };
+        
+        // Find bounding box of all rooms
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        rooms.forEach(room => {
+            const rx = room.x || 0;
+            const ry = room.y || 0;
+            const rw = room.width || 100;
+            const rh = room.height || 100;
+            minX = Math.min(minX, rx);
+            minY = Math.min(minY, ry);
+            maxX = Math.max(maxX, rx + rw);
+            maxY = Math.max(maxY, ry + rh);
+        });
+        
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        
+        // Normalize rooms
+        const normRooms = rooms.map(room => ({
+            ...room,
+            x: (room.x || 0) - cx,
+            y: (room.y || 0) - cy,
+        }));
+        
+        // Normalize objects
+        const normObjects = (objectsData || []).map(obj => ({
+            ...obj,
+            x: (obj.x || 0) - cx,
+            y: (obj.y || 0) - cy,
+        }));
+        
+        // Normalize openings
+        const normElements = (elements || []).map(el => ({
+            ...el,
+            x: (el.x || 0) - cx,
+            y: (el.y || 0) - cy,
+        }));
+        
+        return { normalizedRooms: normRooms, normalizedObjects: normObjects, normalizedElements: normElements, center: { x: cx, y: cy } };
+    }, [rooms, objectsData, elements]);
+
     const handleCanvasClick = useCallback((e) => {
         if (placementState?.isActive) {
             e.stopPropagation();
             const point = e.point;
-            onCanvasClick?.({ x: point.x, y: point.z });
+            onCanvasClick?.({ x: point.x + center.x, y: point.z + center.y });
         }
-    }, [placementState, onCanvasClick]);
+    }, [placementState, onCanvasClick, center]);
 
     return (
         <>
@@ -125,13 +189,16 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
                 <meshBasicMaterial transparent opacity={0} />
             </mesh>
 
-            {(rooms || []).map(room => (
+            {(normalizedRooms || []).map(room => (
                 <RoomWalls key={room.id} room={room} stage={stage} wallHeight={wallHeight} />
             ))}
 
-            {(elements || []).map(element => {
-                // Find the parent room for this element
-                const parentRoom = (rooms || []).find(r => r.id === element.parent_id);
+            {(normalizedElements || []).map(element => {
+                if (element.type === "wall" || element.type === "divider_line") {
+                    return <WallDividerMesh key={element.id} element={element} wallHeight={wallHeight} />;
+                }
+                // Find the parent room for openings
+                const parentRoom = (normalizedRooms || []).find(r => r.id === element.parent_id);
                 return (
                     <DoorWindowMesh key={element.id} element={element} room={parentRoom} wallHeight={wallHeight} />
                 );
@@ -143,7 +210,7 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
                 visible={placementState?.isActive || false}
             />
 
-            {(objectsData || []).map(obj => (
+            {(normalizedObjects || []).map(obj => (
                 <FurnitureObject
                     key={obj.id}
                     object={obj}

@@ -52,16 +52,20 @@ export default function useRenderStaging(propertyId) {
 
     const staging = useStaging({ storageKey: `render_${propertyId || "new"}`, onSave, disableKeyboard: true });
 
-    // Load floors + rooms from API on mount
+    // Load floors from API on mount - merge with existing staged items, don't wipe
     useEffect(() => {
         if (!propertyId || dataLoaded) return;
         const load = async () => {
             const floorsRes = await dispatch(thunkGetFloors(propertyId));
             const floors = floorsRes?.data?.floors || [];
 
-            staging.setItems({});
+            // Only add floors that don't already exist in staged items
+            const existingItems = staging.items || {};
             floors.forEach(f => {
-                staging.addItem(`floor-${f.id}`, { ...f, id: `floor-${f.id}`, type: "floor", level_number: f.level_number || 1, x: 50, y: 50, width: 700, height: 500, fill: "#2a2a3e", stroke: "#555" });
+                const floorKey = `floor-${f.id}`;
+                if (!existingItems[floorKey]) {
+                    staging.addItem(floorKey, { ...f, id: floorKey, type: "floor", level_number: f.level_number || 1, x: 50, y: 50, width: 700, height: 500, fill: "#2a2a3e", stroke: "#555" });
+                }
             });
             setDataLoaded(true);
             staging.setLoaded(true);
