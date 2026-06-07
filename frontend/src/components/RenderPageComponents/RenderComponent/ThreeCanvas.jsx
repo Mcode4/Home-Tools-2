@@ -245,6 +245,21 @@ function Scene({ stage, rooms, elements, objectsData, placementState, selectedOb
                 />
             ))}
 
+            {is3D && selectedObjectId && (() => {
+                const selectedObj = (normalizedObjects || []).find(o => o.id === selectedObjectId);
+                if (!selectedObj) return null;
+                const h = selectedObj.height3d || 80;
+                return (
+                    <TransformControls
+                        object={null}
+                        mode="translate"
+                        size={0.7}
+                    >
+                        <group position={[selectedObj.x, h / 2, selectedObj.y]} />
+                    </TransformControls>
+                );
+            })()}
+
             <SceneExporter sceneRef={sceneRef} onSceneReady={onSceneReady} />
         </>
     );
