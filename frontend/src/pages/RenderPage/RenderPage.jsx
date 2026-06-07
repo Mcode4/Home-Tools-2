@@ -936,6 +936,7 @@ export default function RenderPage() {
 
     const [selectedObjectId, setSelectedObjectId] = useState(null);
     const [importedObjects, setImportedObjects] = useState([]);
+    const [wallHeight, setWallHeight] = useState(2.4);
 
     const [stage, setStage] = useState("outline");
 
@@ -2304,6 +2305,8 @@ export default function RenderPage() {
                     importedObjects={importedObjects}
                     onDeleteImport={deleteImportedObject}
                     onUploadImport={uploadImportedObject}
+                    wallHeight={wallHeight}
+                    onWallHeightChange={setWallHeight}
                 />
                 <PropertiesPanel
                     stage={stage}

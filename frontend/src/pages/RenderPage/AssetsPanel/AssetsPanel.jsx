@@ -5,6 +5,7 @@ import SectionsTab from "./SectionsTab";
 import ObjectsTab from "./ObjectsTab";
 import TemplateTab from "./TemplateTab";
 import ImportsTab from "./ImportsTab";
+import DoorsWallsTab from "./DoorsWallsTab";
 
 export default function AssetsPanel({
     stage,
@@ -46,11 +47,13 @@ export default function AssetsPanel({
     importedObjects,
     onDeleteImport,
     onUploadImport,
+    wallHeight,
+    onWallHeightChange,
 }) {
     const [tab, setTab] = useState("tools");
 
     if (stage === "objects") {
-        const activeTab = ["catalog", "templates", "imports", "settings"].includes(tab) ? tab : "catalog";
+        const activeTab = ["catalog", "templates", "doorswalls", "imports", "settings"].includes(tab) ? tab : "catalog";
         return (
             <aside className="app-slider">
                 <ul className="menu">
@@ -61,6 +64,10 @@ export default function AssetsPanel({
                     <li className={`user-select-none ${activeTab === "templates" ? "menu-active" : ""}`}
                         onClick={() => setTab("templates")} title="Templates">
                         <span style={{ fontSize: 20 }}>📋</span>
+                    </li>
+                    <li className={`user-select-none ${activeTab === "doorswalls" ? "menu-active" : ""}`}
+                        onClick={() => setTab("doorswalls")} title="Doors & Walls">
+                        <span style={{ fontSize: 20 }}>🚪</span>
                     </li>
                     <li className={`user-select-none ${activeTab === "imports" ? "menu-active" : ""}`}
                         onClick={() => setTab("imports")} title="Imports">
@@ -75,6 +82,7 @@ export default function AssetsPanel({
                 <ul id="menu-tools" style={{ width: 220 }}>
                     {activeTab === "catalog" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} />}
                     {activeTab === "templates" && <TemplateTab outlines={outlines} onLoadTemplate={onLoadTemplate} onLoadBuiltin={onLoadBuiltin} onImport={onImport} stage={stage} onApplyTemplate={onApplyTemplate} onApplyObjectTemplate={onApplyObjectTemplate} />}
+                    {activeTab === "doorswalls" && <DoorsWallsTab onSelectCatalogItem={onSelectCatalogItem} wallHeight={wallHeight} onWallHeightChange={onWallHeightChange} />}
                     {activeTab === "imports" && <ImportsTab onSelectCatalogItem={onSelectCatalogItem} importedObjects={importedObjects} onDeleteImport={onDeleteImport} onUploadImport={onUploadImport} />}
                     {activeTab === "settings" && <CanvasTab canvasSettings={canvasSettings} setCanvasSettings={setCanvasSettings} mapDistance={mapDistance} setMapDistance={setMapDistance} />}
                 </ul>
