@@ -200,6 +200,32 @@ Plans:
 11. Build passes, tests pass
 
 ---
+## Phase 7: shadcn UI Overhaul — Global to Page-by-Page
+
+**Goal:** Migrate entire project from plain CSS to shadcn/ui (mira preset). Initialize shadcn first (global CSS, Tailwind, theme), then convert pages one at a time: Home → Auth → Dashboard → MapPage → RenderPage.
+**Requirements:** (infrastructure — no REQ-IDs)
+**Depends on:** None (standalone styling phase)
+**Plans:** 7 plans
+
+**Plans:**
+- [ ] 07-01-PLAN.md — Initialize shadcn: run init with mira preset, set up Tailwind, install core components, migrate global index.css
+- [ ] 07-02-PLAN.md — HomePage: convert to shadcn Card/Button/Typography, remove HomePage.css
+- [ ] 07-03-PLAN.md — Auth Pages (Login + Signup): convert forms to shadcn Card/Input/Button/FieldGroup
+- [ ] 07-04-PLAN.md — Dashboard: convert property listing to shadcn Card grid
+- [ ] 07-05-PLAN.md — MapPage: convert panels to shadcn Sheet/Tabs/Button, style sidebar
+- [ ] 07-06-PLAN.md — RenderHomePage + Navbar: convert landing page and navigation
+- [ ] 07-07-PLAN.md — RenderPage (largest): convert left panel, right panel, StageBar, Toolbar, canvas layer
+
+**Success Criteria:**
+1. shadcn init completes with mira preset
+2. Tailwind CSS working with dark/light themes
+3. All pages use shadcn components (no custom CSS buttons/inputs/cards)
+4. No broken layouts or regressions
+5. Old CSS files removed per-page after conversion
+6. Build passes after each page conversion
+7. All 31 tests pass
+
+---
 
 ## Summary
 
@@ -213,5 +239,6 @@ Plans:
 | 5.1 | Outline Stage Enhancements | ○ Pending | (infrastructure) |
 | 6 | Objects Stage + 3D Render | ○ Pending | RENDER-05 |
 | 6.4 | 3D Render Stage Enhancements | ○ Pending | (infrastructure) |
+| 7 | shadcn UI Overhaul | ○ Pending | (infrastructure) |
 
-**10 requirements** across **5 pending phases** | All v1 requirements covered ✓
+**10 requirements** across **6 pending phases** | Phase 7 is standalone styling
