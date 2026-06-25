@@ -16,7 +16,8 @@ export default function Layout() {
     useEffect(()=> {
         dispatch(sessions())
             .then(() => dispatch(thunkGetSettings()))
-            .then(()=> setIsLoaded(true));
+            .then(()=> setIsLoaded(true))
+            .catch(() => setIsLoaded(true));
     }, [dispatch]);
 
     return (
