@@ -7,6 +7,7 @@ import { Outlet } from "react-router-dom";
 import { ModalProvider, Modal } from "../context/Modal"
 import Navbar from "../components/Page/Navbar";
 import Footer from "../components/Page/Footer"
+import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function Layout() {
     const dispatch = useDispatch();
@@ -14,22 +15,33 @@ export default function Layout() {
     const [isLoaded, setIsLoaded] = useState(false);
     
     useEffect(()=> {
+        console.log("Layout mounted, dispatching sessions...");
         dispatch(sessions())
             .then(() => dispatch(thunkGetSettings()))
-            .then(()=> setIsLoaded(true))
-            .catch(() => setIsLoaded(true));
+            .then(()=> {
+                console.log("isLoaded set to true");
+                setIsLoaded(true);
+            })
+            .catch((err) => {
+                console.error("Layout init error:", err);
+                setIsLoaded(true);
+            });
     }, [dispatch]);
 
+    console.log("Render Layout, isLoaded:", isLoaded);
+
     return (
+        <ErrorBoundary>
             <ModalProvider>
                 <div className={`app-container${settings.theme ? ` theme-${settings.theme}` : ''}`}>
                     <Navbar isLoaded={isLoaded} />
                     <main>
-                        {isLoaded && <Outlet />}
+                        {isLoaded ? <Outlet /> : <div style={{ padding: 40, color: "white" }}>Loading...</div>}
                     </main>
                     <Footer />
                     <Modal />
                 </div>
             </ModalProvider>
+        </ErrorBoundary>
     )
 }
