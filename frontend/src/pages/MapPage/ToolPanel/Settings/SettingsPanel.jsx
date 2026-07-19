@@ -13,15 +13,17 @@ export default function SettingsPanel({ onClose }) {
     };
 
     return (
-        <div className="settings-panel-content">
-            <div className="menu-item-title-row">
-                <h4 className="user-select-none">Editor Settings</h4>
-                <button onClick={onClose}>X</button>
+        <div className="flex flex-col p-4 gap-6">
+            <div className="flex items-center justify-between pb-2 border-b">
+                <h4 className="font-semibold tracking-tight text-foreground">Editor Settings</h4>
+                <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+                    X
+                </button>
             </div>
 
-            <div className="menu-tools-section">
-                <h4 className="user-select-none">Visual Theme</h4>
-                <div className="theme-options">
+            <div className="flex flex-col gap-3">
+                <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Visual Theme</h4>
+                <div className="flex flex-col gap-2">
                     <Button
                         variant={settings.theme === "light" ? "default" : "outline"}
                         size="sm"
@@ -39,6 +41,14 @@ export default function SettingsPanel({ onClose }) {
                         🌙 Dark
                     </Button>
                     <Button
+                        variant={settings.theme === "system" ? "default" : "outline"}
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleUpdate({ theme: "system" })}
+                    >
+                        ⚙️ System
+                    </Button>
+                    <Button
                         variant={settings.theme === "blueprint" ? "default" : "outline"}
                         size="sm"
                         className="w-full"
@@ -49,18 +59,18 @@ export default function SettingsPanel({ onClose }) {
                 </div>
             </div>
 
-            <div className="menu-tools-section">
-                <h4 className="user-select-none">Map Style</h4>
-                <div className="tool-list">
+            <div className="flex flex-col gap-3">
+                <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Map Style</h4>
+                <div className="flex flex-col gap-2">
                     <div 
-                        className={`tool-item ${settings.map_layer === "osm-layer" ? "tool-active" : ""}`}
+                        className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-accent ${settings.map_layer === "osm-layer" ? "bg-accent border border-primary/20" : "border border-transparent"}`}
                         onClick={() => handleUpdate({ map_layer: "osm-layer" })}
                     >
                         <div className="tool-icon">🗺️</div>
                         <span>Street Map (2D)</span>
                     </div>
                     <div 
-                        className={`tool-item ${settings.map_layer === "satellite-layer" ? "tool-active" : ""}`}
+                        className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-accent ${settings.map_layer === "satellite-layer" ? "bg-accent border border-primary/20" : "border border-transparent"}`}
                         onClick={() => handleUpdate({ map_layer: "satellite-layer" })}
                     >
                         <div className="tool-icon">🛰️</div>
@@ -69,17 +79,18 @@ export default function SettingsPanel({ onClose }) {
                 </div>
             </div>
 
-            <div className="menu-tools-section">
-                <h4 className="user-select-none">Marker Scaling</h4>
-                <div className="setting-control">
+            <div className="flex flex-col gap-4 mt-2">
+                <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Marker Scaling</h4>
+                <div className="flex flex-col gap-2">
                     <Label>Icon Size ({settings.icon_size}px)</Label>
                     <input
                         type="range" min="16" max="64"
                         value={settings.icon_size}
                         onChange={(e) => handleUpdate({ icon_size: parseInt(e.target.value) })}
+                        className="w-full"
                     />
                 </div>
-                <div className="setting-control" style={{ marginTop: "12px" }}>
+                <div className="flex flex-col gap-2">
                     <Label>Label Text Size ({settings.text_size}px)</Label>
                     <input
                         type="range" min="8" max="24"

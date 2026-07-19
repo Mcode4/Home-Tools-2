@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { handleSearchAddress } from "../../functions/nominatim";
 import MapComponent from "../../components/MapPageComponents/Map";
-import "./MapPage.css";
+// import "./MapPage.css";
 import ToolPanel from "./ToolPanel";
 import DetailPanel from "./DetailPanel";
 import useCanvasStaging from "../../hooks/useMapStaging";
@@ -156,15 +156,15 @@ export default function MapPage() {
     };
 
     return (
-        <div className={`editor-app-wrapper theme-${settings.theme}`}>
+        <div className="h-screen w-full overflow-hidden bg-background text-foreground flex flex-col">
             {!loaded ? (
-                <div className="landing-load">
-                    <i className="fa-solid fa-spinner fa-spin-pulse"></i>
+                <div className="flex-1 flex items-center justify-center">
+                    <i className="fa-solid fa-spinner fa-spin-pulse text-4xl"></i>
                 </div>
             ) : (
-                <div id="editor">
-                    <header id="editor-top">
-                        <div className="header-nav-left">
+                <div id="editor" className="flex flex-col h-full w-full">
+                    <header className="flex items-center justify-between px-4 py-2 bg-card border-b z-50">
+                        <div className="flex items-center gap-2">
                             <Button variant="ghost" size="sm" onClick={() => navigate("/")}>Home</Button>
                             <Button
                                 variant="default"
@@ -174,15 +174,15 @@ export default function MapPage() {
                             >Save All</Button>
                         </div>
 
-                        <div className="header-nav-center">
-                            <div className="search-container" ref={searchRef}>
-                                <span className="search-icon">🔍</span>
+                        <div className="flex-1 flex justify-center px-4">
+                            <div className="relative w-full max-w-md flex items-center" ref={searchRef}>
+                                <span className="absolute left-3 text-muted-foreground">🔍</span>
                                 <Input
                                     type="text"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     placeholder="Find addresses or points..."
-                                    className="app-searchbar"
+                                    className="pl-9 w-full bg-input/50 border-input"
                                     onFocus={() => setShowSearchResults(true)}
                                 />
                                 {showSearchResults && search.length > 0 && search.length <= 2 && (
@@ -216,7 +216,7 @@ export default function MapPage() {
                             </div>
                         </div>
 
-                        <div className="header-nav-right">
+                        <div className="flex items-center gap-2">
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -232,7 +232,7 @@ export default function MapPage() {
                         </div>
                     </header>
 
-                    <section id="editor-main">
+                    <section className="flex flex-1 overflow-hidden relative">
                         <ToolPanel
                             menu={menu}
                             selectMenu={selectMenu}

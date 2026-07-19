@@ -9,7 +9,7 @@ class Settings(Base):
     __tablename__ = "settings"
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    theme = Column(TEXT, default='dark')
+    theme = Column(TEXT, default='system')
     map_layer = Column(TEXT, default='osm-layer')
     icon_size = Column(Integer, default=24)
     text_size = Column(Integer, default=12)
@@ -20,7 +20,7 @@ class Settings(Base):
     user = relationship("User", back_populates="settings")
 
 class SettingsSchema(BaseModel):
-    theme: str = "dark"
+    theme: str = "system"
     map_layer: str = "osm-layer"
     icon_size: int = 24
     text_size: int = 12

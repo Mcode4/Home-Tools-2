@@ -42,55 +42,6 @@
     gap: 8px;
 }
 
-.pin-btn, .close-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    color: var(--text-dim);
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.pin-btn:hover, .close-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-main);
-}
-
-.pin-btn.pinned {
-    color: var(--accent);
-    filter: drop-shadow(0 0 5px var(--accent));
-}
-
-.sidebar-tabs {
-    display: flex;
-    gap: 4px;
-    padding: 0 16px 8px 16px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 0;
-}
-
-.sidebar-tab {
-    background: transparent;
-    border: none;
-    color: var(--text-dim);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.sidebar-tab.active {
-    color: var(--accent);
-    background: rgba(99, 102, 241, 0.1);
-}
-
 .sidebar-form {
     flex-grow: 1;
     overflow-y: hidden;
@@ -99,20 +50,7 @@
     flex-direction: column;
 }
 
-.sidebar-pane {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.flex-pane {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.tree-scroll-container {
+.sidebar-group {
     overflow-y: auto;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 4px;
@@ -155,38 +93,27 @@
     border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.flex-pane {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tree-scroll-container {
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+}
+
 .sidebar-group {
     display: flex;
     flex-direction: column;
     gap: 8px;
     margin-bottom: 16px;
     width: 100%;
-}
-
-.sidebar-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-dim);
-    width: 100%;
-}
-
-.sidebar-input, .sidebar-select, .sidebar-textarea {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    padding: 10px 12px;
-    color: var(--text-main);
-    font-size: 13px;
-    transition: all 0.2s ease;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.sidebar-input:focus {
-    outline: none;
-    border-color: var(--accent);
 }
 
 .dimensions-grid {
@@ -245,15 +172,6 @@
     color: #ff4444;
 }
 
-.confirm-delete-btn {
-    background: #ff4444;
-    color: white;
-    border: none;
-    padding: 6px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
 .sidebar-readonly {
     opacity: 0.7;
     cursor: default;
@@ -286,23 +204,6 @@
     background: #4f46e5;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.delete-action-btn {
-    background: transparent;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    color: #ef4444;
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.delete-action-btn:hover {
-    background: #ef4444;
-    color: white;
 }
 
 .confirm-delete-row {
@@ -416,15 +317,6 @@
     transition: all 0.2s ease;
 }
 
-.sidebar-tab:hover {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.sidebar-tab.active {
-    color: var(--accent);
-    background: rgba(99, 102, 241, 0.1);
-}
-
 /* Tree Styling */
 .sidebar-tree-container {
     flex-grow: 1;
@@ -478,60 +370,11 @@
     display: flex;
 }
 
-.node-action-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--text-dim);
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-}
 
-.node-action-btn:hover {
-    background: var(--accent);
-    color: white;
-    transform: scale(1.1);
-}
 
 /* Tree Node Styling */
 
-.note-toggle-btn {
-    width: 36px;
-    height: 36px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    padding: 0;
-}
 
-.note-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.note-toggle-btn.active {
-    background: rgba(245, 158, 11, 0.15);
-    border-color: #f59e0b;
-}
-
-.toggle-grid-svg {
-    width: 20px;
-    height: 20px;
-    filter: invert(75%) sepia(82%) saturate(464%) hue-rotate(351deg) brightness(101%) contrast(101%);
-}
-
-.note-toggle-btn.active .toggle-grid-svg {
-    filter: invert(75%) sepia(82%) saturate(464%) hue-rotate(351deg) brightness(1.2) contrast(101%);
-}
 
 /* Tree Node Styling */
 .node-container {
@@ -550,39 +393,7 @@
     justify-content: center;
 }
 
-.node-toggle-btn {
-    background: transparent;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
 
-.toggle-svg {
-    width: 18px;
-    height: 18px;
-    filter: invert(1) brightness(0.9);
-    opacity: 0.7;
-    transition: all 0.2s;
-}
-
-.node-toggle-btn:hover .toggle-svg {
-    opacity: 1;
-    filter: invert(1) brightness(1.2);
-}
-
-/* Theme Awareness for Toggles */
-.theme-blueprint .toggle-svg {
-    filter: invert(86%) sepia(91%) saturate(2352%) hue-rotate(170deg) brightness(105%) contrast(104%); /* Cyan-white */
-}
-
-.theme-dark .toggle-svg {
-    filter: invert(1) brightness(1);
-}
 
 .type-svg {
     width: 18px;
@@ -682,25 +493,7 @@
     overflow: hidden;
 }
 
-.count-badge {
-    font-size: 10px;
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 10px;
-    min-width: 16px;
-    text-align: center;
-}
 
-.count-badge.empty {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-dim);
-    opacity: 0.5;
-}
-
-.count-badge.populated {
-    background: var(--accent);
-    color: white;
-}
 
 .add-room-container {
     position: relative;
@@ -783,15 +576,7 @@
     color: var(--text-dim);
 }
 
-.node-edit-input {
-    background: var(--bg-panel);
-    border: 1px solid var(--accent);
-    color: var(--text-main);
-    padding: 2px 4px;
-    border-radius: 4px;
-    font-size: 13px;
-    width: 100%;
-}
+
 
 /* Inspection Worksheet Styles */
 .inspection-worksheet {
@@ -933,26 +718,7 @@
     white-space: nowrap;
 }
 
-.portal-add-btn {
-    background: var(--accent);
-    color: white;
-    border: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s, background 0.2s;
-}
 
-.portal-add-btn:hover {
-    transform: scale(1.1);
-    background: white;
-    color: var(--accent);
-}
 
 .portal-docs {
     display: flex;
@@ -1148,21 +914,7 @@
     flex: 1;
 }
 
-.editor-topbar-input {
-    background: transparent;
-    border: none;
-    color: var(--text-main);
-    font-size: 15px;
-    font-weight: 700;
-    width: 100%;
-    outline: none;
-    padding: 4px 0;
-    transition: color 0.2s;
-}
 
-.editor-topbar-input:focus {
-    color: var(--accent);
-}
 
 .topbar-right {
     display: flex;
@@ -1174,25 +926,7 @@
     position: relative;
 }
 
-.utility-trigger {
-    background: transparent;
-    border: none;
-    color: var(--text-dim);
-    font-size: 20px;
-    cursor: pointer;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    transition: background 0.2s, color 0.2s;
-}
 
-.utility-trigger:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-main);
-}
 
 .utility-dropdown {
     position: absolute;
@@ -1229,29 +963,7 @@
     font-size: 14px;
 }
 
-.exit-editor-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
 
-.exit-editor-btn:hover {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.2);
-}
-
-.exit-editor-btn img {
-    width: 16px;
-    height: 16px;
-    opacity: 0.7;
-}
 
 .editor-scroll-body {
     flex: 1;
@@ -1284,45 +996,4 @@
     padding: 16px; /* Portal needs padding */
 }
 
-.details-note-view {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-    background: var(--bg-panel);
-    overflow-x: hidden; /* Prevent horizontal drift */
-    box-sizing: border-box;
-}
 
-.editor-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    background: var(--bg-panel);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-
-.exit-editor-btn {
-    background: transparent;
-    border: none;
-    color: #ef4444; 
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.exit-editor-btn:hover {
-    background: rgba(239, 68, 68, 0.1);
-    transform: scale(1.1);
-}
-
-.exit-editor-btn svg {
-    filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.3));
-}

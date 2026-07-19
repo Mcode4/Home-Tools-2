@@ -40,7 +40,7 @@ export const thunkUpdateSettings = (settingsObj) => async(dispatch) => {
 }
 
 const initialState = {
-    theme: "dark",
+    theme: "system",
     map_layer: "osm-layer",
     icon_size: 24,
     text_size: 12,

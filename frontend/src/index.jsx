@@ -8,11 +8,15 @@ import { RouterProvider } from 'react-router-dom';
 import { reduxStore } from './redux/store.js'
 import { router } from './router';
 
+import ThemeProvider from './context/ThemeProvider';
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <Provider store={reduxStore}>
-      <RouterProvider router={router} />
+      <ThemeProvider>
+        <RouterProvider router={router} />
+      </ThemeProvider>
     </Provider>
   </React.StrictMode>
 );

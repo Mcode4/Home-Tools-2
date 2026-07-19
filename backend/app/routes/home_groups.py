@@ -45,7 +45,7 @@ def create_home_group(group_schema: HomeGroupSchema, current_user = Depends(get_
 @router.patch("/{id}")
 def edit_home_group(id: int, group_schema: HomeGroupSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        group = db.query(HomeGroup).join(Property, Property.group_id == HomeGroup.id).filter(HomeGroup.id == id, Property.owner_id == current_user["id"]).first()
+        group = db.query(HomeGroup).filter(HomeGroup.id == id).first()
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
             
@@ -56,6 +56,8 @@ def edit_home_group(id: int, group_schema: HomeGroupSchema, current_user = Depen
         db.commit()
         db.refresh(group)
         return ResponseModel(True, "Group updated", {"group": group})
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -65,13 +67,15 @@ def edit_home_group(id: int, group_schema: HomeGroupSchema, current_user = Depen
 @router.delete("/{id}")
 def delete_home_group(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        group = db.query(HomeGroup).join(Property, Property.group_id == HomeGroup.id).filter(HomeGroup.id == id, Property.owner_id == current_user["id"]).first()
+        group = db.query(HomeGroup).filter(HomeGroup.id == id).first()
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
             
         db.delete(group)
         db.commit()
         return ResponseModel(True, "Group deleted")
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

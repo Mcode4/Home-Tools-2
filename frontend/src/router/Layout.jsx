@@ -24,7 +24,7 @@ export default function Layout() {
     return (
         <ErrorBoundary>
             <ModalProvider>
-                <div className={`app-container${settings.theme ? ` theme-${settings.theme}` : ''}`}>
+                <div className="app-container">
                     <Navbar isLoaded={isLoaded} />
                     <main>
                         {isLoaded ? <Outlet /> : <div style={{ padding: 40, color: "white" }}>Loading...</div>}

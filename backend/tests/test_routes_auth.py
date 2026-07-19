@@ -17,7 +17,7 @@ def test_register_duplicate_email(client):
         "email": "dup@example.com",
         "password": "TestPass123!"
     })
-    assert res.status_code == 500
+    assert res.status_code == 409
 
 def test_login_success(client):
     client.post("/api/auth/register", json={

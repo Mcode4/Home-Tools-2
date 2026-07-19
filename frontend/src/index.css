@@ -148,26 +148,9 @@
   --input-focus: #6366f1;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg-main: #f8fafc;
-    --bg-panel: #ffffff;
-    --bg-sidebar: rgba(255, 255, 255, 0.95);
-    --accent-legacy: #4f46e5;
-    --accent-hover: #4338ca;
-    --text-main: #0f172a;
-    --text-dim: #64748b;
-    --border-legacy: rgba(0, 0, 0, 0.1);
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    --hover-bg: rgba(0, 0, 0, 0.05);
-    --active-bg: rgba(79, 70, 229, 0.1);
-    --input-bg: #f1f5f9;
-    --input-border: rgba(0, 0, 0, 0.15);
-    --input-focus: #4f46e5;
-  }
-}
 
-.theme-light {
+
+:root, .light {
   --bg-main: #ffffff;
   --bg-panel: #f3f4f6;
   --bg-sidebar: rgba(255, 255, 255, 0.95);
@@ -184,7 +167,7 @@
   --input-focus: #4f46e5;
 }
 
-.theme-dark {
+.dark {
   --bg-main: #0a0a0a;
   --bg-panel: #141414;
   --bg-sidebar: rgba(10, 10, 10, 0.98);
@@ -202,6 +185,28 @@
 }
 
 .theme-blueprint {
+  /* Shadcn modern overrides */
+  --background: oklch(0.15 0.04 260);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.20 0.04 260);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.20 0.04 260);
+  --popover-foreground: oklch(0.98 0 0);
+  --primary: oklch(0.75 0.15 220); /* Cyan-ish */
+  --primary-foreground: oklch(0.15 0.04 260);
+  --secondary: oklch(0.25 0.04 260);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.25 0.04 260);
+  --muted-foreground: oklch(0.70 0.02 260);
+  --accent: oklch(0.28 0.05 260);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.40 0.12 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.30 0.05 260);
+  --input: oklch(0.30 0.05 260);
+  --ring: oklch(0.75 0.15 220);
+
+  /* Legacy variables */
   --bg-main: #020617;
   --bg-panel: #0f172a;
   --bg-sidebar: rgba(15, 23, 42, 0.98);
