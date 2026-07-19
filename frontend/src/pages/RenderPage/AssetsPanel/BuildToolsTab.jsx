@@ -1,25 +1,15 @@
 import { useState } from "react";
 
 const PRIMITIVES = [
-    { type: "rectangle", label: "Rectangle", icon: "▭" },
-    { type: "circle", label: "Circle", icon: "○" },
-    { type: "polygon", label: "Polygon", icon: "⬠" },
-    { type: "triangle", label: "Triangle", icon: "△" },
-    { type: "hexagon", label: "Hexagon", icon: "⬡" },
-    { type: "octagon", label: "Octagon", icon: "⬢" },
-];
-
-const TRANSFORM_TOOLS = [
-    { type: "move", label: "Move", icon: "↕", key: "G" },
-    { type: "rotate", label: "Rotate", icon: "↻", key: "R" },
-    { type: "scale", label: "Scale", icon: "⇔", key: "S" },
+    { id: "primitive-cube", label: "Cube", icon: "□", widthMeters: 1, heightMeters: 1, heightMeters3d: 1, fill: "#38bdf8" },
+    { id: "primitive-slab", label: "Slab", icon: "▭", widthMeters: 2, heightMeters: 1, heightMeters3d: 0.2, fill: "#94a3b8" },
+    { id: "primitive-column", label: "Column", icon: "▮", widthMeters: 0.35, heightMeters: 0.35, heightMeters3d: 2.4, fill: "#cbd5e1" },
+    { id: "primitive-panel", label: "Panel", icon: "▯", widthMeters: 1.2, heightMeters: 0.16, heightMeters3d: 2.4, fill: "#64748b" },
 ];
 
 const OPERATIONS = [
-    { type: "extrude", label: "Extrude", icon: "⬆" },
-    { type: "union", label: "Union", icon: "∪" },
-    { type: "intersect", label: "Intersect", icon: "∩" },
-    { type: "subtract", label: "Subtract", icon: "−" },
+    { type: "extrude-up", label: "Extrude +0.25m", icon: "↑" },
+    { type: "extrude-down", label: "Extrude -0.25m", icon: "↓" },
 ];
 
 export default function BuildToolsTab({
@@ -28,78 +18,91 @@ export default function BuildToolsTab({
     onSelectTool,
     wallHeight,
     onWallHeightChange,
+    viewMode,
+    onViewModeChange,
+    blockSize,
+    onBlockSizeChange,
 }) {
     const [gridSnap, setGridSnap] = useState(true);
     const [surfaceSnap, setSurfaceSnap] = useState(false);
 
+    const selectPrimitive = (primitive) => {
+        onSelectCatalogItem?.({
+            ...primitive,
+            id: primitive.id,
+            name: primitive.label,
+            type: "object",
+            category: "3D Primitive",
+            width: primitive.widthMeters * 100,
+            height: primitive.heightMeters * 100,
+            height3d: primitive.heightMeters3d * 100,
+            icon: primitive.icon,
+            modelUrl: null,
+        });
+    };
+
+    const handleOperation = (type) => {
+        if (type === "extrude-up") {
+            onWallHeightChange?.(Math.min(10, Number(wallHeight || 2.4) + 0.25));
+            return;
+        }
+        if (type === "extrude-down") {
+            onWallHeightChange?.(Math.max(0.5, Number(wallHeight || 2.4) - 0.25));
+            return;
+        }
+        onSelectTool?.({ type });
+    };
+
     return (
-        <div style={{ padding: "8px 12px" }}>
-            {/* Primitives Section */}
-            <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 6, fontWeight: "bold" }}>
-                    PRIMITIVES
+        <li className="menu-item-container">
+            <div className="menu-tools-section">
+                <h4>Build</h4>
+                <div className="render3d-view-row">
+                    <button
+                        className={`tb-btn render3d-mode-btn${viewMode === "block" ? " tb-btn-active" : ""}`}
+                        onClick={() => onViewModeChange?.("block")}
+                        title="Block View"
+                    >
+                        Block
+                    </button>
+                    <button
+                        className={`tb-btn render3d-mode-btn${viewMode === "pure" ? " tb-btn-active" : ""}`}
+                        onClick={() => onViewModeChange?.("pure")}
+                        title="Pure View"
+                    >
+                        Pure
+                    </button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+
+                <h4>Primitives</h4>
+                <div className="render3d-primitive-grid">
                     {PRIMITIVES.map(shape => (
                         <button
-                            key={shape.type}
+                            key={shape.id}
                             className="tool-item"
-                            onClick={() => onSelectCatalogItem?.({ ...shape, kind: "shape" })}
-                            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", fontSize: 12 }}
+                            onClick={() => selectPrimitive(shape)}
                         >
-                            <span style={{ fontSize: 14 }}>{shape.icon}</span>
+                            <span className="tool-icon">{shape.icon}</span>
                             <span>{shape.label}</span>
                         </button>
                     ))}
                 </div>
-            </div>
 
-            {/* Transform Section */}
-            <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 6, fontWeight: "bold" }}>
-                    TRANSFORM
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {TRANSFORM_TOOLS.map(tool => (
-                        <button
-                            key={tool.type}
-                            className={`tool-item ${activeTool?.type === tool.type ? "tool-item-active" : ""}`}
-                            onClick={() => onSelectTool?.({ type: tool.type })}
-                            style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: 12 }}
-                        >
-                            <span style={{ fontSize: 14 }}>{tool.icon}</span>
-                            <span>{tool.label}</span>
-                            <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--text-dim)" }}>{tool.key}</span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Operations Section */}
-            <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 6, fontWeight: "bold" }}>
-                    OPERATIONS
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <h4>Extrude</h4>
+                <div className="tool-list">
                     {OPERATIONS.map(op => (
                         <button
                             key={op.type}
-                            className="tool-item"
-                            onClick={() => onSelectTool?.({ type: op.type })}
-                            style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: 12 }}
+                            className={`tool-item ${activeTool?.type === op.type ? "tool-item-active" : ""}`}
+                            onClick={() => handleOperation(op.type)}
                         >
-                            <span style={{ fontSize: 14 }}>{op.icon}</span>
+                            <span className="tool-icon">{op.icon}</span>
                             <span>{op.label}</span>
                         </button>
                     ))}
                 </div>
-            </div>
 
-            {/* Wall Height */}
-            <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 6, fontWeight: "bold" }}>
-                    WALL HEIGHT
-                </div>
+                <h4>Wall Height</h4>
                 <input
                     type="number"
                     className="input"
@@ -110,13 +113,22 @@ export default function BuildToolsTab({
                     onChange={e => onWallHeightChange?.(Math.max(0.5, Math.min(10, parseFloat(e.target.value) || 2.4)))}
                     style={{ width: "100%" }}
                 />
-            </div>
 
-            {/* Snapping Section */}
-            <div>
-                <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 6, fontWeight: "bold" }}>
-                    SNAPPING
+                <h4>Block Size</h4>
+                <div className="render3d-view-row">
+                    {[1, 5].map(size => (
+                        <button
+                            key={size}
+                            className={`tb-btn render3d-mode-btn${Number(blockSize || 1) === size ? " tb-btn-active" : ""}`}
+                            onClick={() => onBlockSizeChange?.(size)}
+                            title={`${size} meter blocks`}
+                        >
+                            {size}m
+                        </button>
+                    ))}
                 </div>
+
+                <h4>Snapping</h4>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: 12, cursor: "pointer" }}>
                         <input
@@ -136,15 +148,6 @@ export default function BuildToolsTab({
                     </label>
                 </div>
             </div>
-
-            {/* Keyboard Shortcuts Help */}
-            <div style={{ marginTop: 16, fontSize: 10, color: "var(--text-dim)" }}>
-                <div style={{ fontWeight: "bold", marginBottom: 4 }}>SHORTCUTS</div>
-                <div>G - Move</div>
-                <div>R - Rotate</div>
-                <div>S - Scale</div>
-                <div>Esc - Deselect</div>
-            </div>
-        </div>
+        </li>
     );
 }

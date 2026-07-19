@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db_session
 from app.models.render import Render, RenderSchema
+from app.models.property import Property
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 
@@ -9,6 +10,9 @@ router = APIRouter(prefix="/renders", tags=["Renders"])
 
 @router.get("/{property_id}")
 def get_render(property_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    prop = db.query(Property).filter(Property.id == property_id, Property.owner_id == current_user["id"]).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
     render = db.query(Render).filter(Render.property_id == property_id).first()
     if not render:
         return ResponseModel(True, "", {"render": None})
@@ -16,6 +20,9 @@ def get_render(property_id: int, current_user = Depends(get_current_user), db: S
 
 @router.post("/{property_id}")
 def create_or_update_render(property_id: int, render_schema: RenderSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    prop = db.query(Property).filter(Property.id == property_id, Property.owner_id == current_user["id"]).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
     render = db.query(Render).filter(Render.property_id == property_id).first()
     if render:
         render.has_render = render_schema.has_render

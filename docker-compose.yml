@@ -5,7 +5,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: appuser
-      POSTGRES_PASSWORD: strongpassword
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: appdb
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
@@ -22,8 +22,8 @@ services:
       - db
     environment:
       - PROJECT_ENV=production
-      - POSTGRES_URL=postgresql://appuser:strongpassword@db:5432/appdb
-      - SECRET_KEY=supersecretkey123
+      - POSTGRES_URL=${POSTGRES_URL:?POSTGRES_URL must be set in .env}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env}
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=60
       - BACKEND_INTERNAL_PORT=${BACKEND_INTERNAL_PORT:-8000}
@@ -75,7 +75,7 @@ services:
     environment:
       DATABASE_URL: postgresql://umami:umami@umami-db:5432/umami
       DATABASE_TYPE: postgres
-      APP_SECRET: ht-home-tools-umami-secret-2026
+      APP_SECRET: ${APP_SECRET:?APP_SECRET must be set in .env}
     depends_on:
       - umami-db
     networks:

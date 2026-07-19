@@ -1,6 +1,8 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 
+const LEGACY_OBJECT_PX_TO_METERS = 0.01;
+
 export default function GhostPreview({ position, catalogItem, visible }) {
     const meshRef = useRef();
 
@@ -12,14 +14,14 @@ export default function GhostPreview({ position, catalogItem, visible }) {
 
     if (!visible || !position || !catalogItem) return null;
 
-    const w = catalogItem.width || 40;
-    const h = catalogItem.height3d || 20;
-    const d = catalogItem.height || 40;
+    const w = catalogItem.widthMeters || (catalogItem.width || 100) * LEGACY_OBJECT_PX_TO_METERS;
+    const h = catalogItem.heightMeters3d || (catalogItem.height3d || 80) * LEGACY_OBJECT_PX_TO_METERS;
+    const d = catalogItem.heightMeters || (catalogItem.height || 100) * LEGACY_OBJECT_PX_TO_METERS;
 
     return (
         <mesh
             ref={meshRef}
-            position={[position.x, h / 2, position.y]}
+            position={[position.x, h / 2, position.z ?? position.y ?? 0]}
         >
             <boxGeometry args={[w, h, d]} />
             <meshStandardMaterial

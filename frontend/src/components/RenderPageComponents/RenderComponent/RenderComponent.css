@@ -25,3 +25,69 @@
     inset: 0;
     display: block;
 }
+
+.viewport-gizmo {
+    position: absolute;
+    top: 58px;
+    right: 18px;
+    z-index: 18;
+    width: 116px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: rgba(15, 23, 42, 0.88);
+    box-shadow: var(--shadow);
+    pointer-events: auto;
+}
+
+.viewport-gizmo-axis {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.viewport-axis,
+.viewport-gizmo-btn {
+    border: 1px solid var(--border);
+    background: var(--bg-main);
+    color: var(--text-main);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.viewport-axis {
+    width: 26px;
+    height: 26px;
+}
+
+.viewport-axis:hover,
+.viewport-gizmo-btn:hover {
+    background: var(--active-bg);
+    border-color: var(--accent);
+}
+
+.viewport-axis-x {
+    color: #fb7185;
+}
+
+.viewport-axis-y {
+    color: #4ade80;
+}
+
+.viewport-axis-z {
+    color: #60a5fa;
+}
+
+.viewport-gizmo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
+.viewport-gizmo-btn {
+    height: 24px;
+}

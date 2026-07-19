@@ -29,12 +29,12 @@ def serialize_user(user):
     }
 
 @router.get("/all")
-def get_all_users(db: Session = Depends(get_db_session)):
+def get_all_users(current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     users = db.query(User).all()
     return ResponseModel(True, "", {"users": [serialize_user(u) for u in users]})
 
 @router.get("/{id}")
-def get_user_by_id(id: int, db: Session = Depends(get_db_session)):
+def get_user_by_id(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     user = db.query(User).filter(User.id == id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

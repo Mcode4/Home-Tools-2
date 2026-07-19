@@ -81,7 +81,7 @@ def edit_property(id: int, property_schema: PropertySchema, current_user = Depen
         if prop.owner_id != current_user["id"]:
             raise HTTPException(status_code=403, detail="You do not have permission to access this property")
             
-        update_data = property_schema.dict(exclude_unset=True)
+        update_data = property_schema.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(prop, key, value)
 
@@ -110,8 +110,8 @@ def delete_property(id: int, current_user = Depends(get_current_user), db: Sessi
                 try:
                     if img.filepath:
                         delete_image(img.filepath) 
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Warning: Failed to delete image: {e}")
                     
         db.delete(prop)
         db.commit()

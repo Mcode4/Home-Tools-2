@@ -1103,6 +1103,7 @@ export default function RenderPage() {
     const importedObjectsLoadedRef = useRef(false);
     const [wallHeight, setWallHeight] = useState(2.4);
     const [viewMode, setViewMode] = useState("block");
+    const [blockSize, setBlockSize] = useState(1);
     const [transformMode, setTransformMode] = useState("translate");
     const [objectValidationResults, setObjectValidationResults] = useState({ isValid: true, warnings: [] });
     const sceneRef = useRef(null);
@@ -1655,7 +1656,7 @@ export default function RenderPage() {
                 if (e.shiftKey) stageRedo();
                 else stageUndo();
             }
-            if ((e.key === "Delete" || e.key === "Backspace") && stage === "objects" && selectedObjectId) {
+            if ((e.key === "Delete" || e.key === "Backspace") && (stage === "objects" || stage === "render3d") && selectedObjectId) {
                 e.preventDefault();
                 deleteObject(selectedObjectId);
             }
@@ -2023,7 +2024,7 @@ export default function RenderPage() {
     }, []);
 
     const bringForward = useCallback(() => {
-        const targetId = stage === "objects" ? selectedObjectId : selectedShapeId;
+        const targetId = (stage === "objects" || stage === "render3d") ? selectedObjectId : selectedShapeId;
         if (!targetId) return;
         setObjects(prev => {
             const idx = prev.findIndex(o => o.id === targetId);
@@ -2035,7 +2036,7 @@ export default function RenderPage() {
     }, [stage, selectedObjectId, selectedShapeId, setObjects]);
 
     const sendBackward = useCallback(() => {
-        const targetId = stage === "objects" ? selectedObjectId : selectedShapeId;
+        const targetId = (stage === "objects" || stage === "render3d") ? selectedObjectId : selectedShapeId;
         if (!targetId) return;
         setObjects(prev => {
             const idx = prev.findIndex(o => o.id === targetId);
@@ -2046,43 +2047,54 @@ export default function RenderPage() {
         });
     }, [stage, selectedObjectId, selectedShapeId, setObjects]);
 
-    const exportGLTF = useCallback(() => {
+    const downloadExport = useCallback((payload, filename, binary = false) => {
+        const blob = binary
+            ? new Blob([payload], { type: "model/gltf-binary" })
+            : new Blob([JSON.stringify(payload, null, 2)], { type: "model/gltf+json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+    }, []);
+
+    const findSceneObjectByAppId = useCallback((appId) => {
+        if (!sceneRef.current || !appId) return null;
+        let found = null;
+        sceneRef.current.traverse(object => {
+            if (!found && object.userData?.appObjectId === appId) found = object;
+        });
+        return found;
+    }, []);
+
+    const exportGLTF = useCallback((settings = {}) => {
         if (!sceneRef.current) return;
         import("three/examples/jsm/exporters/GLTFExporter").then(({ GLTFExporter }) => {
             const exporter = new GLTFExporter();
+            const binary = settings.format === "glb";
             exporter.parse(sceneRef.current, (gltf) => {
-                const blob = new Blob([JSON.stringify(gltf)], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = "scene.gltf";
-                link.click();
-                URL.revokeObjectURL(url);
+                downloadExport(gltf, binary ? "scene.glb" : "scene.gltf", binary);
             }, (error) => {
                 console.error("GLTF export error:", error);
-            }, { binary: false });
+            }, { binary, onlyVisible: true, includeCustomExtensions: false });
         });
-    }, []);
+    }, [downloadExport]);
 
-    const exportSelectedGLTF = useCallback(() => {
+    const exportSelectedGLTF = useCallback((settings = {}) => {
         if (!sceneRef.current || !selectedObjectId) return;
         import("three/examples/jsm/exporters/GLTFExporter").then(({ GLTFExporter }) => {
             const exporter = new GLTFExporter();
-            const selectedObj = sceneRef.current.getObjectById(selectedObjectId);
+            const selectedObj = findSceneObjectByAppId(selectedObjectId);
             if (!selectedObj) return;
+            const binary = settings.format === "glb";
             exporter.parse(selectedObj, (gltf) => {
-                const blob = new Blob([JSON.stringify(gltf)], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = "object.gltf";
-                link.click();
-                URL.revokeObjectURL(url);
+                downloadExport(gltf, binary ? "object.glb" : "object.gltf", binary);
             }, (error) => {
                 console.error("GLTF export error:", error);
-            }, { binary: false });
+            }, { binary, onlyVisible: true, includeCustomExtensions: false });
         });
-    }, [selectedObjectId]);
+    }, [downloadExport, findSceneObjectByAppId, selectedObjectId]);
 
     const applyObjectTemplate = useCallback((templateId) => {
         try {
@@ -2264,7 +2276,7 @@ export default function RenderPage() {
     }
 
     const deleteShape = useCallback(() => {
-        if (stage === "objects" && selectedObjectId) {
+        if ((stage === "objects" || stage === "render3d") && selectedObjectId) {
             deleteObject(selectedObjectId);
             return;
         }
@@ -2322,7 +2334,7 @@ export default function RenderPage() {
     }, []);
 
     const duplicateShape = useCallback(() => {
-        if (stage === "objects" && selectedObject) {
+        if ((stage === "objects" || stage === "render3d") && selectedObject) {
             const id = `obj-${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
             const dup = {
                 ...selectedObject,
@@ -2781,12 +2793,16 @@ export default function RenderPage() {
                     importedObjects={importedObjects}
                     onDeleteImport={deleteImportedObject}
                     onUploadImport={uploadImportedObject}
-                    wallHeight={wallHeight}
-                    onWallHeightChange={setWallHeight}
-                    onExportGLTF={exportGLTF}
-                    onExportSelectedGLTF={exportSelectedGLTF}
-                    selectedObjectId={selectedObjectId}
-                />
+	                    wallHeight={wallHeight}
+	                    onWallHeightChange={setWallHeight}
+	                    onExportGLTF={exportGLTF}
+	                    onExportSelectedGLTF={exportSelectedGLTF}
+	                    selectedObjectId={selectedObjectId}
+	                    viewMode={viewMode}
+	                    onViewModeChange={setViewMode}
+	                    blockSize={blockSize}
+	                    onBlockSizeChange={setBlockSize}
+	                />
                 <PropertiesPanel
                     stage={stage}
                     selectedShape={selectedShape}
@@ -2887,11 +2903,12 @@ export default function RenderPage() {
                         if (el) updateShape({ ...el, floor_id: toFloorId });
                     }}
                 />
-                <Toolbar
-                    selectedShape={stage === "objects" ? selectedObject : selectedShape}
-                    updateShape={stage === "objects" ? updateObject : updateShape}
-                    deleteShape={deleteShape}
-                    duplicateShape={duplicateShape}
+	                <Toolbar
+	                    stage={stage}
+	                    selectedShape={(stage === "objects" || stage === "render3d") ? selectedObject : selectedShape}
+	                    updateShape={(stage === "objects" || stage === "render3d") ? updateObject : updateShape}
+	                    deleteShape={deleteShape}
+	                    duplicateShape={duplicateShape}
                     showOffset={stage !== "objects" && showOffset}
                     onToggleOffset={onShowOffset}
                     onOffset={handleOffset}
@@ -2905,10 +2922,16 @@ export default function RenderPage() {
                     onChamfer={handleChamfer}
                     onFillet={handleFillet}
                     multiSelectIds={multiSelectIds}
-                    onBooleanOp={handleBooleanOp}
-                    onBringForward={bringForward}
-                    onSendBackward={sendBackward}
-                />
+	                    onBooleanOp={handleBooleanOp}
+	                    onBringForward={bringForward}
+	                    onSendBackward={sendBackward}
+	                    transformMode={transformMode}
+	                    onTransformModeChange={setTransformMode}
+	                    viewMode={viewMode}
+	                    onViewModeChange={setViewMode}
+	                    blockSize={blockSize}
+	                    onBlockSizeChange={setBlockSize}
+	                />
                 <div className="top-bars">
                     <StageBar stage={stage} setStage={setStage} hasOutlines={outlines.length > 0} hasRooms={hasRooms} />
                     {stage === "render3d" ? (
@@ -2968,9 +2991,10 @@ export default function RenderPage() {
                     onPlaceShape={addShape}
                     onPlaceTemplate={(templateId, point) => addShape(createTemplateShapeData(templateId, point))}
                     onPlaceObjectTemplate={placeObjectTemplate}
-                    viewMode={viewMode}
-                    wallHeight={wallHeight}
-                    transformMode={transformMode}
+	                    viewMode={viewMode}
+	                    wallHeight={wallHeight}
+	                    blockSize={blockSize}
+	                    transformMode={transformMode}
                         onSplitRoom={splitRoom}
                         onCombineByDivider={combineByDivider}
                         onMoveDividerLine={moveDividerLine}

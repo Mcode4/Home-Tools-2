@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import datetime, timedelta
 from jose import jwt
 from dotenv import load_dotenv
@@ -10,7 +11,7 @@ from pathlib import Path
 
 # load_dotenv(env_path)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME_IN_PRODUCTION!..")
+SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(64)
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60)
@@ -25,5 +26,5 @@ def create_access_token(data: dict) -> str:
 def decode_access_token(token:str):
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except:
+    except (jwt.JWTError, jwt.ExpiredSignatureError, Exception) as e:
         return None

@@ -1,10 +1,46 @@
 export default function Toolbar({
+    stage,
     selectedShape, updateShape, deleteShape, duplicateShape,
     showOffset, onToggleOffset, onOffset, offsetDistance = 1, onOffsetDistanceChange,
     vertexMode, selectedVertexIndex = -1, onToggleVertexMode, onAddVertex, onRemoveVertex, onChamfer, onFillet,
-    multiSelectIds = [], onBooleanOp, onBringForward, onSendBackward
+    multiSelectIds = [], onBooleanOp, onBringForward, onSendBackward,
+    transformMode = "translate", onTransformModeChange,
+    viewMode = "block", onViewModeChange,
+    blockSize = 1, onBlockSizeChange,
 }) {
-    if (!selectedShape && multiSelectIds.length === 0) return null;
+    if (stage !== "render3d" && !selectedShape && multiSelectIds.length === 0) return null;
+
+    if (stage === "render3d") {
+        const hasObject = !!selectedShape;
+        return (
+            <div className="render-floating-toolbar render3d-floating-toolbar">
+                <button className={`tb-btn${transformMode === "translate" ? " tb-btn-active" : ""}`} onClick={() => onTransformModeChange?.("translate")} disabled={!hasObject} title="Move (G)">G</button>
+                <button className={`tb-btn${transformMode === "rotate" ? " tb-btn-active" : ""}`} onClick={() => onTransformModeChange?.("rotate")} disabled={!hasObject} title="Rotate (R)">R</button>
+                <button className={`tb-btn${transformMode === "scale" ? " tb-btn-active" : ""}`} onClick={() => onTransformModeChange?.("scale")} disabled={!hasObject} title="Scale (S)">S</button>
+                <span className="tb-sep" />
+                <button className={`tb-btn render3d-text-btn${viewMode === "block" ? " tb-btn-active" : ""}`} onClick={() => onViewModeChange?.("block")} title="Block View">Block</button>
+                <button className={`tb-btn render3d-text-btn${viewMode === "pure" ? " tb-btn-active" : ""}`} onClick={() => onViewModeChange?.("pure")} title="Pure View">Pure</button>
+                <span className="tb-sep" />
+                {[1, 5].map(size => (
+                    <button
+                        key={size}
+                        className={`tb-btn render3d-text-btn${Number(blockSize) === size ? " tb-btn-active" : ""}`}
+                        onClick={() => onBlockSizeChange?.(size)}
+                        title={`${size} meter block grid`}
+                    >
+                        {size}m
+                    </button>
+                ))}
+                {hasObject && (
+                    <>
+                        <span className="tb-sep" />
+                        <button className="tb-btn" onClick={duplicateShape} title="Duplicate">⧉</button>
+                        <button className="tb-btn tb-danger" onClick={deleteShape} title="Delete">🗑</button>
+                    </>
+                )}
+            </div>
+        );
+    }
 
     const isPolygon = selectedShape && (selectedShape.type === "polygon" || Array.isArray(selectedShape.points));
     const isObject = selectedShape?.type === "object";

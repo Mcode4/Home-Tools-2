@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.db.session import get_db_session
 from app.models.room import Room, RoomSchema
+from app.models.floor import Floor
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 
@@ -10,6 +11,9 @@ router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
 @router.get("/{id}/all")
 def get_rooms_by_floor_id(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    floor = db.query(Floor).filter(Floor.id == id, Floor.owner_id == current_user["id"]).first()
+    if not floor:
+        raise HTTPException(status_code=404, detail="Floor not found")
     rooms = db.query(Room).filter(Room.floor_id == id).all()
     return ResponseModel(True, "", {"rooms": rooms})
 
@@ -38,7 +42,7 @@ def create_room(room_schema: RoomSchema, current_user = Depends(get_current_user
 
 @router.patch("/{id}")
 def edit_room(id: int, room_schema: RoomSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
-    room = db.query(Room).filter(Room.id == id).first()
+    room = db.query(Room).join(Floor, Room.floor_id == Floor.id).filter(Room.id == id, Floor.owner_id == current_user["id"]).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     try:
@@ -54,7 +58,7 @@ def edit_room(id: int, room_schema: RoomSchema, current_user = Depends(get_curre
 
 @router.delete("/{id}")
 def delete_room(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
-    room = db.query(Room).filter(Room.id == id).first()
+    room = db.query(Room).join(Floor, Room.floor_id == Floor.id).filter(Room.id == id, Floor.owner_id == current_user["id"]).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     try:

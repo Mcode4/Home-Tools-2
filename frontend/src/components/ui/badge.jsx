@@ -24,4 +24,4 @@ const badgeVariants = cva(
 )
 
 
-export { Badge, badgeVariants }
+export { badgeVariants }

@@ -56,6 +56,10 @@ export default function AssetsPanel({
     onExportGLTF,
     onExportSelectedGLTF,
     selectedObjectId,
+    viewMode,
+    onViewModeChange,
+    blockSize,
+    onBlockSizeChange,
 }) {
     const [tab, setTab] = useState("tools");
 
@@ -125,10 +129,14 @@ export default function AssetsPanel({
                             onSelectCatalogItem={onSelectCatalogItem}
                             activeTool={activeTool}
                             onSelectTool={onSelectTool}
-                            wallHeight={wallHeight}
-                            onWallHeightChange={onWallHeightChange}
-                        />
-                    )}
+	                            wallHeight={wallHeight}
+	                            onWallHeightChange={onWallHeightChange}
+	                            viewMode={viewMode}
+	                            onViewModeChange={onViewModeChange}
+	                            blockSize={blockSize}
+	                            onBlockSizeChange={onBlockSizeChange}
+	                        />
+	                    )}
                     {activeTab === "objects" && <ObjectsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} />}
                     {activeTab === "imports" && <ImportsTab onSelectCatalogItem={onSelectCatalogItem} activeItemId={pendingPlacement?.kind === "object" ? pendingPlacement.item?.id : null} importedObjects={importedObjects} onDeleteImport={onDeleteImport} onUploadImport={onUploadImport} />}
                     {activeTab === "exports" && (

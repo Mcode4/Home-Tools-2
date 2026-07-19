@@ -710,7 +710,7 @@ function renderShapeGroup(shape, shapeRef, isSelected, onSelect, onUpdate, activ
 }
 
 export default function RenderComponent({
-    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onPlaceObjectTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, onAddOpening, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape, onSelectFloor, viewMode = "block", sceneRef, onExportGLTF, onExportSelectedGLTF, wallHeight, transformMode
+    activeTool, floors, elements, selectedShapeId, onSelectShape, onUpdateShape, canvasSettings, onGridSelect, activeFloorId, hasFloors, stage, mapVisible, onCompletePolygon, onPlaceShape, onPlaceTemplate, onPlaceObjectTemplate, onSplitRoom, onCombineByDivider, onMoveDividerLine, onAddWallPad, onAddOpening, objectsData, selectedObjectId, onSelectObject, onUpdateObject, onAddObject, mapRef, mapVersion, toolActive, pendingPlacement, setPendingPlacement, multiSelectIds = [], vertexMode = false, selectedVertexIndex = -1, onSelectVertex, onMoveVertex, offsetPreviewShape, onSelectFloor, viewMode = "block", sceneRef, onExportGLTF, onExportSelectedGLTF, wallHeight, blockSize = 1, transformMode
 }) {
     const containerRef = useRef(null);
     const stageRef = useRef(null);
@@ -841,6 +841,38 @@ export default function RenderComponent({
     const projectedObjects = useMemo(() => {
         return (objectsData || []).map(object => projectObjectToScreen(object, projection));
     }, [objectsData, projection]);
+
+    const handle3DTransformEnd = useCallback((transform) => {
+        if (!transform?.id) return;
+        const projectedObject = projectedObjects.find(object => object.id === transform.id);
+        const sourceObject = (objectsData || []).find(object => object.id === transform.id) || projectedObject;
+        if (!sourceObject) return;
+
+        const baseObject = projectedObject?._isProjectedObject
+            ? removeProjectedObjectFields(projectedObject)
+            : { ...sourceObject };
+        const updated = {
+            ...baseObject,
+            x: transform.x,
+            y: transform.y,
+            rotation: transform.rotation,
+            elevation: transform.elevation,
+            widthMeters: transform.widthMeters,
+            heightMeters: transform.heightMeters,
+            heightMeters3d: transform.heightMeters3d,
+            width: transform.widthMeters * 100,
+            height: transform.heightMeters * 100,
+            height3d: transform.heightMeters3d * 100,
+        };
+
+        if (projection && Number.isFinite(transform.x) && Number.isFinite(transform.y)) {
+            const geo = projection.unproject(transform.x, transform.y);
+            updated.lat = geo.lat;
+            updated.lng = geo.lng;
+        }
+
+        onUpdateObject?.(updated);
+    }, [objectsData, onUpdateObject, projectedObjects, projection]);
 
     const clampX = (val, w, floor) => floor ? Math.max(floor.x, Math.min(val, floor.x + floor.width - w)) : val;
     const clampY = (val, h, floor) => floor ? Math.max(floor.y, Math.min(val, floor.y + floor.height - h)) : val;
@@ -2278,23 +2310,51 @@ export default function RenderComponent({
                         objectsData={projectedObjects}
                         selectedObjectId={selectedObjectId}
                         onObjectClick={onSelectObject}
-                        onPointerMissed={() => onSelectShape?.(null)}
+                        onPointerMissed={() => {
+                            onSelectShape?.(null);
+                            onSelectObject?.(null);
+                        }}
                         viewMode={viewMode}
                         sceneRef={sceneRef}
                         wallHeight={wallHeight}
+                        blockSize={blockSize}
                         transformMode={transformMode}
                         placementState={pendingPlacement}
                         onCanvasClick={(pt) => {
                             if (pendingPlacement?.kind === "object" && pendingPlacement.item) {
+                                const room = findRoomAtPoint(pt, false);
+                                if (!room) return;
+                                const screenSize = objectScreenSize(pendingPlacement.item, projection, pt);
+                                const snapped = clampObjectCenterToRoom(pt, { ...pendingPlacement.item, ...screenSize }, room);
+                                const geo = projection?.unproject(snapped.x, snapped.y);
+                                const metricSize = getObjectMetricSize(pendingPlacement.item);
+                                const objectId = `obj-${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
                                 onAddObject?.({
-                                    ...pendingPlacement.item,
-                                    x: pt.x,
-                                    y: pt.y,
-                                    floor_id: activeFloorId,
+                                    id: objectId,
+                                    name: pendingPlacement.item.name,
+                                    type: "object",
+                                    category: pendingPlacement.item.category,
+                                    x: snapped.x,
+                                    y: snapped.y,
+                                    width: screenSize.width,
+                                    height: screenSize.height,
+                                    height3d: screenSize.height3d,
+                                    widthMeters: metricSize.widthMeters,
+                                    heightMeters: metricSize.heightMeters,
+                                    heightMeters3d: metricSize.heightMeters3d,
+                                    ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
+                                    rotation: 0,
+                                    floor_id: room.floor_id || activeFloorId,
+                                    room_id: room.id,
+                                    fill: pendingPlacement.item.fill || "#888",
+                                    icon: pendingPlacement.item.icon,
+                                    modelUrl: pendingPlacement.item.modelUrl || null,
                                 });
+                                onSelectObject?.(objectId);
                                 setPendingPlacement?.(null);
                             }
                         }}
+                        onTransformEnd={handle3DTransformEnd}
                     />
                 </div>
             )}

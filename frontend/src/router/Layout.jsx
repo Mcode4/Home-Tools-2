@@ -15,20 +15,11 @@ export default function Layout() {
     const [isLoaded, setIsLoaded] = useState(false);
     
     useEffect(()=> {
-        console.log("Layout mounted, dispatching sessions...");
         dispatch(sessions())
             .then(() => dispatch(thunkGetSettings()))
-            .then(()=> {
-                console.log("isLoaded set to true");
-                setIsLoaded(true);
-            })
-            .catch((err) => {
-                console.error("Layout init error:", err);
-                setIsLoaded(true);
-            });
+            .then(()=> setIsLoaded(true))
+            .catch(() => setIsLoaded(true));
     }, [dispatch]);
-
-    console.log("Render Layout, isLoaded:", isLoaded);
 
     return (
         <ErrorBoundary>

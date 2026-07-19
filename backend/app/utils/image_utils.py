@@ -24,7 +24,8 @@ def upload_image(image: Image, file: UploadFile = File(...)):
         with open(filepath, "wb") as f:
             f.write(file.file.read())
         return {"filename": filename, "filepath": filepath}
-    except:
+    except Exception as e:
+        print(f"Warning: Failed to upload image: {e}")
         return False
     
 

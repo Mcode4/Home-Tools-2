@@ -59,7 +59,7 @@ def edit_floor(id: int, floor_schema: FloorSchema, current_user = Depends(get_cu
         raise HTTPException(status_code=404, detail="Floor not found")
 
     try:
-        update_data = floor_schema.dict(exclude_unset=True)
+        update_data = floor_schema.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(floor, key, value)
         db.commit()

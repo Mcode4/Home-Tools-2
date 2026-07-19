@@ -27,7 +27,7 @@ def validate_password(plain_password):
     if not all(c in ALLOWED for c in plain_password):
         raise HTTPException(status_code=400, detail=f'Password contains characters not allowed. Only A-Z, 0-9, and !@#$%?.-')
     if len(plain_password) < 8 or len(plain_password) > 25:
-        raise HTTPException(status_code=400, detail="Password be between 5 and 25 character")
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     def is_valid(p: str) -> bool:
         return (
             any(c.isupper() for c in p) and
@@ -91,7 +91,7 @@ def register(user_schema: UserCreate, db: Session = Depends(get_db_session)):
     except IntegrityError as e:
         db.rollback()
         if 'unique constraint' in str(e).lower():
-            raise HTTPException(status_code=500, detail="User already exists")
+            raise HTTPException(status_code=409, detail="User already exists")
         raise HTTPException(status_code=500, detail="Server error please try again")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -141,26 +141,6 @@ def login(user_schema: UserCreate, response: Response, db: Session = Depends(get
     return ResponseModel(True, "User logged in successfully", {"db_user": user_obj, "token": access_token})
 
 
-# Verify User
-def get_current_user(
-    response: Response | None = None, 
-    access_token: str | None = Cookie(None, alias="access_token"),
-    authorization: str | None = Depends(lambda x=None: x), # Placeholder for Header support
-    db: Session = Depends(get_db_session)
-):
-    from fastapi import Header
-    def get_token(auth_header: str | None, cookie_token: str | None):
-        if cookie_token:
-            return cookie_token
-        if auth_header and auth_header.startswith("Bearer "):
-            return auth_header.split(" ")[1]
-        return None
-
-    # We need a way to get the Header in a dependency that might be called with or without it
-    # FastAPI handles this better with security schemes, but let's keep it simple for now.
-    pass
-
-# Actually, let's use a cleaner approach for get_current_user
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 security = HTTPBearer(auto_error=False)
 

@@ -42,17 +42,6 @@ export function ModalProvider({ children }) {
         document.body.classList.add("no-scroll");
     };
 
-    useEffect(()=> {
-        const handleKeyDown = (e) => {
-            if(e.key === "Escape") {
-                closeModal();
-            }
-        };
-        
-        document.addEventListener('keydown', handleKeyDown);
-        return ()=> document.removeEventListener('keydown', handleKeyDown);
-    }, [closeModal]);
-
     const contextValue = {
         modalRef,
         modalContent,

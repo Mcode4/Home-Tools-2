@@ -29,7 +29,7 @@ def update_settings(update: SettingsUpdateSchema, current_user = Depends(get_cur
         db.add(settings)
         db.flush()
     
-    update_data = update.dict(exclude_unset=True)
+    update_data = update.model_dump(exclude_unset=True)
     if not update_data:
         return ResponseModel(True, "No changes provided")
     

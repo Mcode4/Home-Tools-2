@@ -31,4 +31,4 @@ router.include_router(renders_router)
 
 @router.get("/")
 def health_check():
-    return {"status", "API running"}
+    return {"status": "API running"}

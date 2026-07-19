@@ -35,6 +35,8 @@ def validate_point_data(point_schema: PointSchema, is_patch=False):
         if point_schema.end_lat is not None and not (-90 <= point_schema.end_lat <= 90):
             raise HTTPException(status_code=400, detail="Invalid end latitude")
             
+    if not (-180 <= point_schema.lng <= 180):
+        raise HTTPException(status_code=400, detail="Longitude must be between -180 and 180")
     if not (-90 <= point_schema.lat <= 90):
         raise HTTPException(status_code=400, detail="Invalid latitude")
 
@@ -87,7 +89,7 @@ def edit_point(id: int, point_schema: PointSchema, current_user = Depends(get_cu
         if not point:
             raise HTTPException(status_code=404, detail="Point not found")
 
-        update_data = point_schema.dict(exclude_unset=True)
+        update_data = point_schema.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(point, key, value)
             

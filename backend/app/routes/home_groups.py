@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from app.db.session import get_db_session
 from app.models.home_group import HomeGroup, HomeGroupSchema
+from app.models.property import Property
 from app.models.response_model import ResponseModel
 from app.routes.auth import get_current_user
 
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/groups", tags=["HomeGroups"])
 # Get All Groups
 @router.get("")
 def get_home_group(current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
-    groups = db.query(HomeGroup).all()
+    groups = db.query(HomeGroup).join(Property, Property.group_id == HomeGroup.id).filter(Property.owner_id == current_user["id"]).distinct().all()
     return ResponseModel(True, "", {"groups": groups})
 
 
@@ -44,7 +45,7 @@ def create_home_group(group_schema: HomeGroupSchema, current_user = Depends(get_
 @router.patch("/{id}")
 def edit_home_group(id: int, group_schema: HomeGroupSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        group = db.query(HomeGroup).filter(HomeGroup.id == id).first()
+        group = db.query(HomeGroup).join(Property, Property.group_id == HomeGroup.id).filter(HomeGroup.id == id, Property.owner_id == current_user["id"]).first()
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
             
@@ -64,7 +65,7 @@ def edit_home_group(id: int, group_schema: HomeGroupSchema, current_user = Depen
 @router.delete("/{id}")
 def delete_home_group(id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
     try:
-        group = db.query(HomeGroup).filter(HomeGroup.id == id).first()
+        group = db.query(HomeGroup).join(Property, Property.group_id == HomeGroup.id).filter(HomeGroup.id == id, Property.owner_id == current_user["id"]).first()
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
             

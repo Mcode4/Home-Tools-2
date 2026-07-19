@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, TEXT, TIMESTAMP, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.session import Base
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 
 class User(Base):
@@ -57,24 +57,26 @@ class UserProfileSchema(BaseModel):
     profile_icon: Optional[str] = None
     username: Optional[str] = None
 
-    class Config:
-        @staticmethod
-        def validate_phone(cls, v):
-            if v is not None and not PHONE_REGEX.match(v):
-                raise ValueError("Invalid phone number format")
-            return v
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if v is not None and not PHONE_REGEX.match(v):
+            raise ValueError("Invalid phone number format")
+        return v
 
-        @staticmethod
-        def validate_country_code(cls, v):
-            if v is not None and not COUNTRY_CODE_REGEX.match(v):
-                raise ValueError("Country code must be like +1, +44, +81")
-            return v
+    @field_validator('country_code')
+    @classmethod
+    def validate_country_code(cls, v):
+        if v is not None and not COUNTRY_CODE_REGEX.match(v):
+            raise ValueError("Country code must be like +1, +44, +81")
+        return v
 
-        @staticmethod
-        def validate_area_code(cls, v):
-            if v is not None and not AREA_CODE_REGEX.match(v):
-                raise ValueError("Area code must be exactly 3 digits")
-            return v
+    @field_validator('area_code')
+    @classmethod
+    def validate_area_code(cls, v):
+        if v is not None and not AREA_CODE_REGEX.match(v):
+            raise ValueError("Area code must be exactly 3 digits")
+        return v
 
 class UserAccountSchema(BaseModel):
     email: EmailStr
