@@ -2,10 +2,10 @@ import { configureStore } from "@reduxjs/toolkit";
 import savedTypesReducer, { thunkGetSavedTypes, thunkCreateSavedType, thunkDeleteSavedType } from "../../redux/savedTypes";
 
 const mockFetch = (response) =>
-    jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(response) }));
+    vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(response) }));
 
 describe("savedTypes thunks", () => {
-    afterEach(() => jest.restoreAllMocks());
+    afterEach(() => vi.restoreAllMocks());
 
     test("thunkGetSavedTypes loads types", async () => {
         global.fetch = mockFetch({ success: true, data: { types: [{ id: 1, name: "Pizza", type: "🍕" }] } });

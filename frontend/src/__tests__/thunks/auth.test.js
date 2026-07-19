@@ -2,7 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import sessionReducer, { thunkLogin, thunkSignup, thunkLogout } from "../../redux/session";
 
 const mockFetch = (response, ok = true) =>
-    jest.fn(() =>
+    vi.fn(() =>
         Promise.resolve({
             ok,
             json: () => Promise.resolve(response),
@@ -15,7 +15,7 @@ describe("session thunks", () => {
     });
 
     afterEach(() => {
-        jest.restoreAllMocks();
+        vi.restoreAllMocks();
     });
 
     test("thunkLogin dispatches setUser on success", async () => {

@@ -2,7 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import propertiesReducer, { thunkGetAllProperties, thunkCreateProperty, thunkDeleteProperty } from "../../redux/properties";
 
 const mockFetch = (response) =>
-    jest.fn(() =>
+    vi.fn(() =>
         Promise.resolve({
             ok: true,
             json: () => Promise.resolve(response),
@@ -15,7 +15,7 @@ describe("properties thunks", () => {
     });
 
     afterEach(() => {
-        jest.restoreAllMocks();
+        vi.restoreAllMocks();
     });
 
     test("thunkGetAllProperties loads properties into state", async () => {

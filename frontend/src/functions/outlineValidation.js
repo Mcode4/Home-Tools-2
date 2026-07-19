@@ -190,7 +190,7 @@ export function metersToAreaUnit(metersSq, unit = "metric") {
     return { value: metersSq, label: "sq m" };
 }
 
-export function checkEdgeSnap(outlineA, outlines, threshold = 10) {
+function checkEdgeSnap(outlineA, outlines, threshold = 10) {
     if (!outlineA || !Array.isArray(outlineA.points)) return null;
 
     const otherOutlines = outlines.filter(o => o.id !== outlineA.id);
@@ -214,7 +214,7 @@ export function checkEdgeSnap(outlineA, outlines, threshold = 10) {
     return bestSnap;
 }
 
-export function checkAlignmentGuides(outline, outlines) {
+function checkAlignmentGuides(outline, outlines) {
     const guides = [];
     if (!outline) return guides;
 

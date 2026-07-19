@@ -2,10 +2,10 @@ import { configureStore } from "@reduxjs/toolkit";
 import settingsReducer, { thunkGetSettings, thunkUpdateSettings } from "../../redux/settings";
 
 const mockFetch = (response, ok = true) =>
-    jest.fn(() => Promise.resolve({ ok, json: () => Promise.resolve(response) }));
+    vi.fn(() => Promise.resolve({ ok, json: () => Promise.resolve(response) }));
 
 describe("settings thunks", () => {
-    afterEach(() => jest.restoreAllMocks());
+    afterEach(() => vi.restoreAllMocks());
 
     test("thunkGetSettings stores settings", async () => {
         global.fetch = mockFetch({ success: true, data: { settings: { theme: "dark" } } });

@@ -1,5 +1,7 @@
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import { thunkUpdateSettings } from "../../../../redux/settings";
 
 export default function SettingsPanel({ onClose }) {
@@ -20,24 +22,30 @@ export default function SettingsPanel({ onClose }) {
             <div className="menu-tools-section">
                 <h4 className="user-select-none">Visual Theme</h4>
                 <div className="theme-options">
-                    <button 
-                        className={`theme-btn ${settings.theme === "light" ? "active" : ""}`}
+                    <Button
+                        variant={settings.theme === "light" ? "default" : "outline"}
+                        size="sm"
+                        className="w-full"
                         onClick={() => handleUpdate({ theme: "light" })}
                     >
                         ☀️ Light
-                    </button>
-                    <button 
-                        className={`theme-btn ${settings.theme === "dark" ? "active" : ""}`}
+                    </Button>
+                    <Button
+                        variant={settings.theme === "dark" ? "default" : "outline"}
+                        size="sm"
+                        className="w-full"
                         onClick={() => handleUpdate({ theme: "dark" })}
                     >
                         🌙 Dark
-                    </button>
-                    <button 
-                        className={`theme-btn ${settings.theme === "blueprint" ? "active" : ""}`}
+                    </Button>
+                    <Button
+                        variant={settings.theme === "blueprint" ? "default" : "outline"}
+                        size="sm"
+                        className="w-full"
                         onClick={() => handleUpdate({ theme: "blueprint" })}
                     >
                         📐 Blueprint
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -64,17 +72,17 @@ export default function SettingsPanel({ onClose }) {
             <div className="menu-tools-section">
                 <h4 className="user-select-none">Marker Scaling</h4>
                 <div className="setting-control">
-                    <label>Icon Size ({settings.icon_size}px)</label>
-                    <input 
-                        type="range" min="16" max="64" 
+                    <Label>Icon Size ({settings.icon_size}px)</Label>
+                    <input
+                        type="range" min="16" max="64"
                         value={settings.icon_size}
                         onChange={(e) => handleUpdate({ icon_size: parseInt(e.target.value) })}
                     />
                 </div>
                 <div className="setting-control" style={{ marginTop: "12px" }}>
-                    <label>Label Text Size ({settings.text_size}px)</label>
-                    <input 
-                        type="range" min="8" max="24" 
+                    <Label>Label Text Size ({settings.text_size}px)</Label>
+                    <input
+                        type="range" min="8" max="24"
                         value={settings.text_size}
                         onChange={(e) => handleUpdate({ text_size: parseInt(e.target.value) })}
                     />

@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo, useRef, createContext, useContext, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Tree } from "react-arborist";
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { reverseLookupAddress } from "../../../../functions/nominatim";
 import NodeDetailsEditor from "./NodeDetailsEditor";
 import NoteCanvas from "./NoteCanvas";
@@ -87,13 +93,13 @@ const NodeRenderer = ({ node, style, dragHandle, tree }) => {
         >
             <div className="node-toggle-col">
                 {hasChildren && (
-                    <button className="node-toggle-btn" onClick={(e) => { e.stopPropagation(); node.toggle(); }}>
-                        <img 
-                            src={node.isOpen ? "/icons/arrow_drop_down.svg" : "/icons/arrow_drop_up.svg"} 
+                    <Button variant="ghost" size="icon" className="node-toggle-btn" onClick={(e) => { e.stopPropagation(); node.toggle(); }}>
+                        <img
+                            src={node.isOpen ? "/icons/arrow_drop_down.svg" : "/icons/arrow_drop_up.svg"}
                             alt="toggle"
                             className="toggle-svg"
                         />
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -102,19 +108,19 @@ const NodeRenderer = ({ node, style, dragHandle, tree }) => {
             </div>
             
             {isEditing ? (
-                <input 
-                    className="node-edit-input"
+                <Input
                     value={tempName}
                     onChange={(e) => setTempName(e.target.value)}
                     onBlur={() => { setIsEditing(false); handleRenameNode(node.id, tempName); }}
                     onKeyDown={(e) => { if (e.key === 'Enter') { setIsEditing(false); handleRenameNode(node.id, tempName); } }}
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
+                    className="h-7 text-sm"
                 />
             ) : (
                 <div className="node-text-wrapper">
                     <span className="node-text">{node.data.name}</span>
-                    {node.data.type === 'notes-folder' && <span className={`count-badge ${noteCount > 0 ? 'populated' : 'empty'}`}>{noteCount}</span>}
+                    {node.data.type === 'notes-folder' && <Badge variant={noteCount > 0 ? "default" : "outline"} className="ml-auto">{noteCount}</Badge>}
                     {isDirty && !isFolder && <span className="dirty-indicator">●</span>}
                 </div>
             )}
@@ -122,23 +128,25 @@ const NodeRenderer = ({ node, style, dragHandle, tree }) => {
             <div className="node-actions">
                 {node.data.type === 'property' && (
                     <>
-                        <button 
-                            className={`node-action-btn ${hideAllNotes ? 'active' : ''}`} 
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             title={hideAllNotes ? "Show Notes" : "Hide Notes"}
                             onClick={(e) => { e.stopPropagation(); setHideAllNotes(!hideAllNotes); }}
+                            className={hideAllNotes ? 'active' : ''}
                         >
                             <img src={hideAllNotes ? "/icons/folder_off.svg" : "/icons/folder.svg"} className="action-svg icon-notes" alt="toggle" />
-                        </button>
-                        <button className="node-action-btn" title="Add Floor" onClick={(e) => { e.stopPropagation(); handleCreateChild('root', 'floor'); }}>
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Add Floor" onClick={(e) => { e.stopPropagation(); handleCreateChild('root', 'floor'); }}>
                             <img src="/icons/add-custom.svg" alt="add" className="action-svg" />
-                        </button>
+                        </Button>
                     </>
                 )}
                 {node.data.type === 'floor' && (
                     <div className="add-room-container">
-                        <button className="node-action-btn" title="Add Room..." onClick={(e) => { e.stopPropagation(); setShowRoomTypes(!showRoomTypes); }}>
+                        <Button variant="ghost" size="icon" title="Add Room..." onClick={(e) => { e.stopPropagation(); setShowRoomTypes(!showRoomTypes); }}>
                             <img src="/icons/add-custom.svg" alt="add" className="action-svg" />
-                        </button>
+                        </Button>
                         {showRoomTypes && (
                             <div className="room-type-dropdown">
                                 {roomTypes.map(type => (
@@ -156,18 +164,18 @@ const NodeRenderer = ({ node, style, dragHandle, tree }) => {
                     </div>
                 )}
                 {(node.data.type === 'notes-folder' || node.data.type === 'exterior-folder') && (
-                    <button className="node-action-btn" title="Add Note" onClick={(e) => { e.stopPropagation(); handleCreateChild(node.data.parentId, 'note'); }}>
+                    <Button variant="ghost" size="icon" title="Add Note" onClick={(e) => { e.stopPropagation(); handleCreateChild(node.data.parentId, 'note'); }}>
                         <img src="/icons/assignment_add.svg" alt="add" className="action-svg" />
-                    </button>
+                    </Button>
                 )}
                 {node.data.type !== 'property' && !isFolder && (
                     <>
-                        <button className="node-action-btn" title="Rename" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+                        <Button variant="ghost" size="icon" title="Rename" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
                             <img src="/icons/brush.svg" alt="edit" className="action-svg" />
-                        </button>
-                        <button className="node-action-btn" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}>
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}>
                             <img src="/icons/delete.svg" className="action-svg icon-danger" alt="delete" />
-                        </button>
+                        </Button>
                     </>
                 )}
             </div>
@@ -610,236 +618,240 @@ export default function PropertyDetailsSidebar({ point, onClose, onUpdate, onDel
                         <p className="sidebar-subtitle">Editing {name}</p>
                     </div>
                     <div className="sidebar-header-actions">
-                        <button className={`pin-btn ${isPinned ? 'pinned' : ''}`} onClick={onPinToggle}>
+                        <Button variant="ghost" size="icon" onClick={onPinToggle}>
                             {isPinned ? '📍' : '📌'}
-                        </button>
-                        <button className="close-btn" onClick={onClose}>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={onClose}>
                              <img src="/icons/delete.svg" className="close-svg" alt="close" />
-                        </button>
+                        </Button>
                     </div>
                 </header>
 
-                <div className="sidebar-tabs">
-                    <button className={`sidebar-tab ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')}>General</button>
-                    <button className={`sidebar-tab ${activeTab === 'structure' ? 'active' : ''}`} onClick={() => setActiveTab('structure')}>Details</button>
-                    <button className={`sidebar-tab ${activeTab === 'editor' ? 'active' : ''}`} onClick={() => setActiveTab('editor')}>Editor</button>
-                </div>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
+                    <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 gap-0">
+                        <TabsTrigger value="general" className="rounded-none data-active:bg-transparent data-active:border-b-2 data-active:border-primary flex-1">General</TabsTrigger>
+                        <TabsTrigger value="structure" className="rounded-none data-active:bg-transparent data-active:border-b-2 data-active:border-primary flex-1">Details</TabsTrigger>
+                        <TabsTrigger value="editor" className="rounded-none data-active:bg-transparent data-active:border-b-2 data-active:border-primary flex-1">Editor</TabsTrigger>
+                    </TabsList>
 
-                <div className="sidebar-form" ref={containerRef}>
-                    {activeTab === 'general' && (
-                        <div className="sidebar-pane">
-                            <div className="sidebar-group">
-                                <label className="sidebar-label">Name</label>
-                                <input className="sidebar-input" value={name} onChange={(e) => { 
-                                    const val = e.target.value;
-                                    setName(val);
-                                    onUpdate({ ...point, name: `(Unsaved) ${val}` });
-                                }} />
-                            </div>
-                            <div className="sidebar-group">
-                                <label className="sidebar-label">Type</label>
-                                <select className="sidebar-input sidebar-select" value={type} onChange={(e) => {
-                                    const val = e.target.value;
-                                    setType(val);
-                                    onUpdate({ ...point, type: val, name: `(Unsaved) ${name}` });
-                                }}>
-                                    <option value="home">Home</option>
-                                    <option value="apartment">Apartment</option>
-                                    <option value="unit">Unit</option>
-                                    <option value="point">Point</option>
-                                </select>
-                            </div>
-                            <div className="sidebar-group">
-                                <label className="sidebar-label">Address</label>
-                                <input className="sidebar-input" value={location || ""} onChange={(e) => {
-                                    const val = e.target.value;
-                                    setLocation(val);
-                                    onUpdate({ ...point, location: val, name: `(Unsaved) ${name}` });
-                                }} placeholder="Enter address..." />
-                            </div>
-                            <div className="sidebar-group">
-                                <label className="sidebar-label">Coordinates</label>
-                                <div className="sidebar-coords">
-                                    <span>LAT {point.lat.toFixed(6)}</span>
-                                    <span>LNG {point.lng.toFixed(6)}</span>
+                    <div className="sidebar-form" ref={containerRef}>
+                        <TabsContent value="general">
+                            <Card className="sidebar-pane border-0 shadow-none">
+                                <div className="sidebar-group">
+                                    <Label>Name</Label>
+                                    <Input value={name} onChange={(e) => { 
+                                        const val = e.target.value;
+                                        setName(val);
+                                        onUpdate({ ...point, name: `(Unsaved) ${val}` });
+                                    }} />
                                 </div>
-                            </div>
-                            <div className="sidebar-footer-push"></div>
-                            <div className="sidebar-footer-anchor">
-                                {!confirmingDelete ? (
-                                    <button className="delete-action-btn" onClick={() => setConfirmingDelete(true)}>Delete Point</button>
-                                ) : (
-                                    <div className="delete-confirm">
-                                        <span>Confirm Deletion?</span>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button className="confirm-delete-btn" onClick={() => onDelete(point.id)}>Confirm</button>
-                                            <button className="cancel-btn" onClick={() => setConfirmingDelete(false)}>Cancel</button>
-                                        </div>
+                                <div className="sidebar-group">
+                                    <Label>Type</Label>
+                                    <select className="sidebar-input sidebar-select" value={type} onChange={(e) => {
+                                        const val = e.target.value;
+                                        setType(val);
+                                        onUpdate({ ...point, type: val, name: `(Unsaved) ${name}` });
+                                    }}>
+                                        <option value="home">Home</option>
+                                        <option value="apartment">Apartment</option>
+                                        <option value="unit">Unit</option>
+                                        <option value="point">Point</option>
+                                    </select>
+                                </div>
+                                <div className="sidebar-group">
+                                    <Label>Address</Label>
+                                    <Input value={location || ""} onChange={(e) => {
+                                        const val = e.target.value;
+                                        setLocation(val);
+                                        onUpdate({ ...point, location: val, name: `(Unsaved) ${name}` });
+                                    }} placeholder="Enter address..." />
+                                </div>
+                                <div className="sidebar-group">
+                                    <Label>Coordinates</Label>
+                                    <div className="sidebar-coords">
+                                        <span>LAT {point.lat.toFixed(6)}</span>
+                                        <span>LNG {point.lng.toFixed(6)}</span>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                                </div>
+                                <div className="sidebar-footer-push"></div>
+                                <div className="sidebar-footer-anchor">
+                                    {!confirmingDelete ? (
+                                        <Button variant="destructive" size="sm" className="w-full" onClick={() => setConfirmingDelete(true)}>Delete Point</Button>
+                                    ) : (
+                                        <div className="delete-confirm">
+                                            <span>Confirm Deletion?</span>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <Button variant="destructive" size="sm" onClick={() => onDelete(point.id)}>Confirm</Button>
+                                                <Button variant="ghost" size="sm" onClick={() => setConfirmingDelete(false)}>Cancel</Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </Card>
+                        </TabsContent>
 
-                    {activeTab === 'structure' && (
-                        <div className="sidebar-pane flex-pane">
-                            <div className="tree-scroll-container" style={{ height: `${splitHeight}px` }}>
-                                <Tree
-                                    ref={treeRef}
-                                    data={treeData}
-                                    width="100%"
-                                    height={splitHeight}
-                                    indent={20}
-                                    rowHeight={36}
-                                    overscanCount={1}
-                                >
-                                    {NodeRenderer}
-                                </Tree>
-                            </div>
+                        <TabsContent value="structure">
+                            <Card className="sidebar-pane flex-pane border-0 shadow-none">
+                                <div className="tree-scroll-container" style={{ height: `${splitHeight}px` }}>
+                                    <Tree
+                                        ref={treeRef}
+                                        data={treeData}
+                                        width="100%"
+                                        height={splitHeight}
+                                        indent={20}
+                                        rowHeight={36}
+                                        overscanCount={1}
+                                    >
+                                        {NodeRenderer}
+                                    </Tree>
+                                </div>
 
-                            <div className="split-divider" onMouseDown={handleMouseDown}>
-                                <div className="divider-handle"></div>
-                            </div>
+                                <div className="split-divider" onMouseDown={handleMouseDown}>
+                                    <div className="divider-handle"></div>
+                                </div>
 
-                            <div className="editor-scroll-container">
-                                {selectedNodeData && (
-                                    <NodeDetailsEditor 
-                                        nodeData={selectedNodeData} 
-                                        onUpdate={(details) => handleUpdateNodeDetails(selectedNodeId, details)}
-                                        onUpdateNode={handleUpdateNodeDetails}
-                                        onCreateChild={handleCreateChild}
-                                        hierarchy={hierarchy}
-                                    />
-                                )}
-                             </div>
-                        </div>
-                    )}
+                                <div className="editor-scroll-container">
+                                    {selectedNodeData && (
+                                        <NodeDetailsEditor 
+                                            nodeData={selectedNodeData} 
+                                            onUpdate={(details) => handleUpdateNodeDetails(selectedNodeId, details)}
+                                            onUpdateNode={handleUpdateNodeDetails}
+                                            onCreateChild={handleCreateChild}
+                                            hierarchy={hierarchy}
+                                        />
+                                    )}
+                                 </div>
+                            </Card>
+                        </TabsContent>
 
-                    {activeTab === 'editor' && (
-                        <div className="sidebar-pane editor-pane">
-                            {!selectedDetailNoteId ? (
-                                <>
-                                    <PersonaMenu />
-                                    <div className="document-portal">
-                                        <label className="sidebar-label">Document Portal</label>
-                                        <div className="portal-navigator">
-                                            {groupedDocuments.map(group => {
-                                                const isOpen = expandedFolders.has(group.id);
-                                                return (
-                                                    <div key={group.id} className={`portal-group ${isOpen ? 'is-open' : 'is-closed'}`}>
-                                                        <div className="portal-group-header" onClick={() => toggleFolder(group.id)}>
-                                                            <div className="folder-name">
-                                                                <img 
-                                                                    src={isOpen ? "/icons/arrow_drop_down.svg" : "/icons/arrow_drop_up.svg"} 
-                                                                    alt="toggle"
-                                                                    className="portal-toggle-icon"
-                                                                />
-                                                                <span>{group.name}</span>
+                        <TabsContent value="editor">
+                            <Card className="sidebar-pane editor-pane border-0 shadow-none">
+                                {!selectedDetailNoteId ? (
+                                    <>
+                                        <PersonaMenu />
+                                        <div className="document-portal">
+                                            <Label>Document Portal</Label>
+                                            <div className="portal-navigator">
+                                                {groupedDocuments.map(group => {
+                                                    const isOpen = expandedFolders.has(group.id);
+                                                    return (
+                                                        <div key={group.id} className={`portal-group ${isOpen ? 'is-open' : 'is-closed'}`}>
+                                                            <div className="portal-group-header" onClick={() => toggleFolder(group.id)}>
+                                                                <div className="folder-name">
+                                                                    <img 
+                                                                        src={isOpen ? "/icons/arrow_drop_down.svg" : "/icons/arrow_drop_up.svg"} 
+                                                                        alt="toggle"
+                                                                        className="portal-toggle-icon"
+                                                                    />
+                                                                    <span>{group.name}</span>
+                                                                </div>
+                                                                <Button variant="ghost" size="sm" className="portal-add-btn" title="New Document" onMouseDown={(e) => handleOpenTemplateMenu(e, group.id)}>+</Button>
                                                             </div>
-                                                            <button className="portal-add-btn" title="New Document" onMouseDown={(e) => handleOpenTemplateMenu(e, group.id)}>+</button>
+                                                            {isOpen && (
+                                                                <div className="portal-docs">
+                                                                     {group.docs.map(doc => (
+                                                                        <div 
+                                                                            key={doc.id} 
+                                                                            className={`portal-doc-item ${selectedDetailNoteId === doc.id ? 'active' : ''}`}
+                                                                            onClick={() => setSelectedDetailNoteId(doc.id)}
+                                                                        >
+                                                                            <img src="/icons/assignment.svg" alt="doc" className="doc-icon" />
+                                                                            <span>{doc.title || doc.name}</span>
+                                                                            {doc.isDirty && <span className="dirty-dot" title="Unsaved changes">●</span>}
+                                                                        </div>
+                                                                    ))}
+                                                                    {group.docs.length === 0 && <span className="empty-msg">No documents available</span>}
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        {isOpen && (
-                                                            <div className="portal-docs">
-                                                                 {group.docs.map(doc => (
-                                                                    <div 
-                                                                        key={doc.id} 
-                                                                        className={`portal-doc-item ${selectedDetailNoteId === doc.id ? 'active' : ''}`}
-                                                                        onClick={() => setSelectedDetailNoteId(doc.id)}
-                                                                    >
-                                                                        <img src="/icons/assignment.svg" alt="doc" className="doc-icon" />
-                                                                        <span>{doc.title || doc.name}</span>
-                                                                        {doc.isDirty && <span className="dirty-dot" title="Unsaved changes">●</span>}
-                                                                    </div>
-                                                                ))}
-                                                                {group.docs.length === 0 && <span className="empty-msg">No documents available</span>}
-                                                            </div>
-                                                        )}
+                                                    );
+                                                })}
+                                                {groupedDocuments.length === 0 && (
+                                                    <div className="portal-empty-state">
+                                                        <p>Initializing property hierarchy...</p>
                                                     </div>
-                                                );
-                                            })}
-                                            {groupedDocuments.length === 0 && (
-                                                <div className="portal-empty-state">
-                                                    <p>Initializing property hierarchy...</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                selectedDetailNote && (() => {
-                                    const isInspection = (selectedDetailNote.name || "").includes("Inspection");
-                                    const isBuild = (selectedDetailNote.name || "").includes("Build");
-                                    const isCreative = (selectedDetailNote.name || "").includes("Creative");
-                                    const noteColor = isInspection ? "#60a5fa" : isBuild ? "#34d399" : isCreative ? "#a78bfa" : "var(--accent)";
-
-                                    const handleAddBlockInternal = (type) => {
-                                        const id = `b-${Math.random().toString(36).substr(2, 9)}`;
-                                        let data = "";
-                                        if (type === 'inspector_findings') data = [{ label: "General Condition", status: "ok" }];
-                                        if (type === 'builder_cost') data = [{ item: "Initial Material", est: 0, act: 0 }];
-                                        
-                                        const updatedBlocks = [...(selectedDetailNote.blocks || []), { id, type, data }];
-                                        handleUpdateNodeDetails(selectedDetailNoteId, { blocks: updatedBlocks });
-                                        setUtilityMenuOpen(false);
-                                    };
-
-                                    return (
-                                        <div className="details-note-view fullscreen-integrated">
-                                            <div className="editor-topbar">
-                                                <div className="topbar-left">
-                                                    <div className="editor-title-container">
-                                                        <input 
-                                                            className="editor-topbar-input" 
-                                                            value={selectedDetailNote.title || selectedDetailNote.name} 
-                                                            onChange={(e) => handleRenameNode(selectedDetailNoteId, e.target.value)}
-                                                            placeholder="Document Title..."
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="topbar-right">
-                                                    <div className="utility-menu-container">
-                                                        <button 
-                                                            className="utility-trigger" 
-                                                            onClick={() => setUtilityMenuOpen(!utilityMenuOpen)}
-                                                            title="Block Tools"
-                                                        >
-                                                            ⋮
-                                                        </button>
-                                                        {utilityMenuOpen && (
-                                                            <div className="utility-dropdown">
-                                                                <div className="utility-opt" onClick={() => handleAddBlockInternal('inspector_findings')}>
-                                                                    <span>🔍</span> Findings Context
-                                                                </div>
-                                                                <div className="utility-opt" onClick={() => handleAddBlockInternal('builder_cost')}>
-                                                                    <span>🏗️</span> Cost Track
-                                                                </div>
-                                                                <div className="utility-opt" onClick={() => handleAddBlockInternal('rich_text')}>
-                                                                    <span>✍️</span> Text Block
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <button className="exit-editor-btn" onClick={() => setSelectedDetailNoteId(null)} title="Close Editor">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                                                          <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                                                        </svg>
-                                                    </button>
-                                                </div>
+                                                )}
                                             </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    selectedDetailNote && (() => {
+                                        const isInspection = (selectedDetailNote.name || "").includes("Inspection");
+                                        const isBuild = (selectedDetailNote.name || "").includes("Build");
+                                        const isCreative = (selectedDetailNote.name || "").includes("Creative");
+                                        const noteColor = isInspection ? "#60a5fa" : isBuild ? "#34d399" : isCreative ? "#a78bfa" : "var(--accent)";
+
+                                        const handleAddBlockInternal = (type) => {
+                                            const id = `b-${Math.random().toString(36).substr(2, 9)}`;
+                                            let data = "";
+                                            if (type === 'inspector_findings') data = [{ label: "General Condition", status: "ok" }];
+                                            if (type === 'builder_cost') data = [{ item: "Initial Material", est: 0, act: 0 }];
                                             
-                                            <div className="editor-scroll-body">
-                                                <NoteCanvas 
-                                                    noteData={selectedDetailNote} 
-                                                    onUpdate={(details) => handleUpdateNodeDetails(selectedDetailNoteId, details)} 
-                                                />
+                                            const updatedBlocks = [...(selectedDetailNote.blocks || []), { id, type, data }];
+                                            handleUpdateNodeDetails(selectedDetailNoteId, { blocks: updatedBlocks });
+                                            setUtilityMenuOpen(false);
+                                        };
+
+                                        return (
+                                            <div className="details-note-view fullscreen-integrated">
+                                                <div className="editor-topbar">
+                                                    <div className="topbar-left">
+                                                        <div className="editor-title-container">
+                                                            <Input
+                                                                className="editor-topbar-input"
+                                                                value={selectedDetailNote.title || selectedDetailNote.name}
+                                                                onChange={(e) => handleRenameNode(selectedDetailNoteId, e.target.value)}
+                                                                placeholder="Document Title..."
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="topbar-right">
+                                                        <div className="utility-menu-container">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="utility-trigger"
+                                                                onClick={() => setUtilityMenuOpen(!utilityMenuOpen)}
+                                                                title="Block Tools"
+                                                            >
+                                                                ⋮
+                                                            </Button>
+                                                            {utilityMenuOpen && (
+                                                                <div className="utility-dropdown">
+                                                                    <div className="utility-opt" onClick={() => handleAddBlockInternal('inspector_findings')}>
+                                                                        <span>🔍</span> Findings Context
+                                                                    </div>
+                                                                    <div className="utility-opt" onClick={() => handleAddBlockInternal('builder_cost')}>
+                                                                        <span>🏗️</span> Cost Track
+                                                                    </div>
+                                                                    <div className="utility-opt" onClick={() => handleAddBlockInternal('rich_text')}>
+                                                                        <span>✍️</span> Text Block
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <Button variant="ghost" size="icon" className="exit-editor-btn" onClick={() => setSelectedDetailNoteId(null)} title="Close Editor">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                                              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                                            </svg>
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="editor-scroll-body">
+                                                    <NoteCanvas 
+                                                        noteData={selectedDetailNote} 
+                                                        onUpdate={(details) => handleUpdateNodeDetails(selectedDetailNoteId, details)} 
+                                                    />
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })()
-                            )}
-                        </div>
-                    )}
-                </div>
+                                        );
+                                    })()
+                                )}
+                            </Card>
+                        </TabsContent>
+                    </div>
+                </Tabs>
             </div>
         </SidebarContext.Provider>
     );

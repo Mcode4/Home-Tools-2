@@ -15,22 +15,10 @@ export const handleSearchAddress = async (addr) => {
         );
 
         const results = await nominatimSearch.json();
-        console.log("SEARCH RESULTS", results);
-
-        // const filtered = results.filter(place =>
-        //     ["highway", "building", "place"].includes(place.class)
-        // );
-        // console.log("FILTERED RESULTS", filtered);
-        
-        // const formatted = filtered
-        //     .map(p => formatPlace(p))
-        //     .filter(Boolean);
-        // console.log("FORMATTED RESULTS", formatted); 
 
         const formatted = results
             .map(p => formatPlace(p))
             .filter(Boolean);
-        console.log("FORMATTED RESULTS", formatted); 
         
         suggestions = formatted;
     } catch(err) {
@@ -64,10 +52,8 @@ export const reverseLookupAddress = async (lng, lat) => {
         );
 
         const result = await nominatimSearch.json();
-        console.log("REVERSE SEARCH RESULT", result);
 
         const formatted = formatPlace(result);
-        console.log("FORMATTED RESULT", formatted);
 
         abortCtrl();
         trackEvent("reverse_lookup", { lat, lng, found: !!formatted });
@@ -82,7 +68,7 @@ export const reverseLookupAddress = async (lng, lat) => {
     }
 }
 
-export const formatPlace = (place) => {
+const formatPlace = (place) => {
     if(!place) return null;
     const a = place.address || {};
 

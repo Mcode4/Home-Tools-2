@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { handleSearchAddress } from "../../functions/nominatim";
 import MapComponent from "../../components/MapPageComponents/Map";
 import "./MapPage.css";
@@ -163,18 +165,19 @@ export default function MapPage() {
                 <div id="editor">
                     <header id="editor-top">
                         <div className="header-nav-left">
-                            <button className="header-btn" onClick={() => navigate("/")}>Home</button>
-                            <button
-                                className="header-btn save-btn"
+                            <Button variant="ghost" size="sm" onClick={() => navigate("/")}>Home</Button>
+                            <Button
+                                variant="default"
+                                size="sm"
                                 onClick={handleSaveAll}
                                 disabled={Object.keys(canvasObjects).length === 0 && deletedPoints.length === 0 && deletedProperties.length === 0}
-                            >Save All</button>
+                            >Save All</Button>
                         </div>
 
                         <div className="header-nav-center">
                             <div className="search-container" ref={searchRef}>
                                 <span className="search-icon">🔍</span>
-                                <input
+                                <Input
                                     type="text"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
@@ -214,16 +217,18 @@ export default function MapPage() {
                         </div>
 
                         <div className="header-nav-right">
-                            <button
-                                className="header-btn"
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={undo}
                                 disabled={historyIndex <= 0}
-                            >Undo</button>
-                            <button
-                                className="header-btn"
+                            >Undo</Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={redo}
                                 disabled={historyIndex >= history.length - 1}
-                            >Redo</button>
+                            >Redo</Button>
                         </div>
                     </header>
 

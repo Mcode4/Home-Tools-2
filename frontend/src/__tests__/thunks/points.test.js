@@ -2,7 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import pointsReducer, { thunkGetPoints, thunkCreatePoint, thunkDeletePoint } from "../../redux/points";
 
 const mockFetch = (response) =>
-    jest.fn(() =>
+    vi.fn(() =>
         Promise.resolve({
             ok: true,
             json: () => Promise.resolve(response),
@@ -15,7 +15,7 @@ describe("points thunks", () => {
     });
 
     afterEach(() => {
-        jest.restoreAllMocks();
+        vi.restoreAllMocks();
     });
 
     test("thunkGetPoints loads points into state", async () => {

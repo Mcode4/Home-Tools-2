@@ -2,10 +2,10 @@ import { configureStore } from "@reduxjs/toolkit";
 import floorsReducer, { thunkGetFloors, thunkCreateFloor, thunkDeleteFloor } from "../../redux/floors";
 
 const mockFetch = (response) =>
-    jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(response) }));
+    vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(response) }));
 
 describe("floors thunks", () => {
-    afterEach(() => jest.restoreAllMocks());
+    afterEach(() => vi.restoreAllMocks());
 
     test("thunkGetFloors loads floors", async () => {
         global.fetch = mockFetch({ success: true, data: { floors: [{ id: 1, name: "F1" }] } });

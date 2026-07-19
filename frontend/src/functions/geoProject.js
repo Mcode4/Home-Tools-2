@@ -1,14 +1,14 @@
 const EARTH_CIRC = 40075016.686;
 
-export function metersPerPixel(lat, zoom) {
+function metersPerPixel(lat, zoom) {
     return (EARTH_CIRC * Math.cos((lat * Math.PI) / 180)) / (256 * Math.pow(2, zoom));
 }
 
-export function metersPerDegreeLng(lat) {
+function metersPerDegreeLng(lat) {
     return 111320 * Math.cos((lat * Math.PI) / 180);
 }
 
-export const METERS_PER_DEGREE_LAT = 111320;
+const METERS_PER_DEGREE_LAT = 111320;
 
 export function groundDistanceMeters(lng1, lat1, lng2, lat2) {
     const toRad = value => (value * Math.PI) / 180;
@@ -20,14 +20,14 @@ export function groundDistanceMeters(lng1, lat1, lng2, lat2) {
     return 6378137 * 2 * Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped));
 }
 
-export function projectFormula(lng, lat, centerLat, centerLng, zoom, canvasW, canvasH) {
+function projectFormula(lng, lat, centerLat, centerLng, zoom, canvasW, canvasH) {
     const mpp = metersPerPixel(centerLat, zoom);
     const x = ((lng - centerLng) * metersPerDegreeLng(centerLat)) / mpp + canvasW / 2;
     const y = (-(lat - centerLat) * METERS_PER_DEGREE_LAT) / mpp + canvasH / 2;
     return { x, y };
 }
 
-export function unprojectFormula(x, y, centerLat, centerLng, zoom, canvasW, canvasH) {
+function unprojectFormula(x, y, centerLat, centerLng, zoom, canvasW, canvasH) {
     const mpp = metersPerPixel(centerLat, zoom);
     const lng = ((x - canvasW / 2) * mpp) / metersPerDegreeLng(centerLat) + centerLng;
     const lat = -((y - canvasH / 2) * mpp) / METERS_PER_DEGREE_LAT + centerLat;

@@ -1,4 +1,4 @@
-export function validatePoint(obj) {
+function validatePoint(obj) {
     const allowedKeys = [
         "pointId", "details",
         "propertyId", "created_at",

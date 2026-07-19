@@ -2,10 +2,10 @@ import { configureStore } from "@reduxjs/toolkit";
 import roomsReducer, { thunkGetRooms, thunkCreateRoom, thunkDeleteRoom } from "../../redux/rooms";
 
 const mockFetch = (response) =>
-    jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(response) }));
+    vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(response) }));
 
 describe("rooms thunks", () => {
-    afterEach(() => jest.restoreAllMocks());
+    afterEach(() => vi.restoreAllMocks());
 
     test("thunkGetRooms loads rooms", async () => {
         global.fetch = mockFetch({ success: true, data: { rooms: [{ id: 1, name: "R1" }] } });

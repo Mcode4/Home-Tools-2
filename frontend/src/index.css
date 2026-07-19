@@ -1,82 +1,131 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 239 84% 67%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 239 84% 67%;
-    --radius: 0.5rem;
-  }
+@custom-variant dark (&:is(.dark *));
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 239 84% 67%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 239 84% 67%;
-  }
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --font-family-sans: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-family-mono: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-/* ── Base HTML/Body ── */
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* ── Custom Properties (for backward compat during migration) ── */
 :root {
-  --font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  --font-mono: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground; }
+}
+
+/* ── Legacy custom properties (preserved for backward compat) ── */
+:root {
   --transition-fast: 100ms ease;
   --transition: 150ms ease;
   --danger: #ef4444;
@@ -86,11 +135,11 @@ html, body {
   --bg-main: #121212;
   --bg-panel: #1e1e1e;
   --bg-sidebar: rgba(15, 23, 42, 0.95);
-  --accent: #6366f1;
+  --accent-legacy: #6366f1;
   --accent-hover: #4f46e5;
   --text-main: #f8fafc;
   --text-dim: #94a3b8;
-  --border: rgba(255, 255, 255, 0.1);
+  --border-legacy: rgba(255, 255, 255, 0.1);
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --hover-bg: rgba(255, 255, 255, 0.05);
   --active-bg: rgba(99, 102, 241, 0.15);
@@ -104,11 +153,11 @@ html, body {
     --bg-main: #f8fafc;
     --bg-panel: #ffffff;
     --bg-sidebar: rgba(255, 255, 255, 0.95);
-    --accent: #4f46e5;
+    --accent-legacy: #4f46e5;
     --accent-hover: #4338ca;
     --text-main: #0f172a;
     --text-dim: #64748b;
-    --border: rgba(0, 0, 0, 0.1);
+    --border-legacy: rgba(0, 0, 0, 0.1);
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     --hover-bg: rgba(0, 0, 0, 0.05);
     --active-bg: rgba(79, 70, 229, 0.1);
@@ -122,11 +171,11 @@ html, body {
   --bg-main: #ffffff;
   --bg-panel: #f3f4f6;
   --bg-sidebar: rgba(255, 255, 255, 0.95);
-  --accent: #4f46e5;
+  --accent-legacy: #4f46e5;
   --accent-hover: #4338ca;
   --text-main: #111827;
   --text-dim: #4b5563;
-  --border: rgba(0, 0, 0, 0.1);
+  --border-legacy: rgba(0, 0, 0, 0.1);
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --hover-bg: rgba(0, 0, 0, 0.05);
   --active-bg: rgba(79, 70, 229, 0.1);
@@ -139,11 +188,11 @@ html, body {
   --bg-main: #0a0a0a;
   --bg-panel: #141414;
   --bg-sidebar: rgba(10, 10, 10, 0.98);
-  --accent: #6366f1;
+  --accent-legacy: #6366f1;
   --accent-hover: #4f46e5;
   --text-main: #f8fafc;
   --text-dim: #94a3b8;
-  --border: rgba(255, 255, 255, 0.08);
+  --border-legacy: rgba(255, 255, 255, 0.08);
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
   --hover-bg: rgba(255, 255, 255, 0.05);
   --active-bg: rgba(99, 102, 241, 0.15);
@@ -156,11 +205,11 @@ html, body {
   --bg-main: #020617;
   --bg-panel: #0f172a;
   --bg-sidebar: rgba(15, 23, 42, 0.98);
-  --accent: #00e5ff;
+  --accent-legacy: #00e5ff;
   --accent-hover: #00d2eb;
   --text-main: #f8fafc;
   --text-dim: #94a3b8;
-  --border: rgba(0, 229, 255, 0.25);
+  --border-legacy: rgba(0, 229, 255, 0.25);
   --shadow: 0 0 20px rgba(0, 229, 255, 0.2);
   --hover-bg: rgba(0, 229, 255, 0.05);
   --active-bg: rgba(0, 229, 255, 0.1);
@@ -170,8 +219,17 @@ html, body {
 }
 
 /* ── Global base styles ── */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-family: var(--font-family-mono);
 }
 
 #root {
@@ -215,7 +273,7 @@ li {
   cursor: crosshair;
 }
 
-/* ── Auth Pages (for backward compat during migration) ── */
+/* ── Auth Pages (preserved for backward compat) ── */
 .session-background {
   display: flex;
   justify-content: center;
@@ -232,8 +290,8 @@ li {
   width: 100%;
   max-width: 400px;
   background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-legacy);
+  border-radius: 12px;
   padding: 32px;
   gap: 16px;
   box-shadow: var(--shadow);
@@ -244,7 +302,7 @@ li {
   padding: 10px 12px;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   color: var(--text-main);
   font-size: 15px;
   transition: border-color var(--transition-fast);
@@ -258,10 +316,10 @@ li {
 .session-form .auth-buttons {
   width: 100%;
   padding: 12px;
-  background: var(--accent);
+  background: var(--accent-legacy);
   color: #fff;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -272,7 +330,7 @@ li {
   background: var(--accent-hover);
 }
 
-/* ── Utility Classes (for backward compat during migration) ── */
+/* ── Utility Classes (preserved for backward compat) ── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -280,14 +338,14 @@ li {
   gap: 6px;
   padding: 8px 16px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   font-size: 14px;
   cursor: pointer;
   transition: background var(--transition-fast), opacity var(--transition-fast);
 }
 .btn:hover { opacity: 0.9; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: var(--accent-legacy); color: #fff; }
 .btn-primary:hover { background: var(--accent-hover); }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-danger:hover { background: var(--danger-hover); }
@@ -299,7 +357,7 @@ li {
   padding: 8px 12px;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   color: var(--text-main);
   font-size: 14px;
   transition: border-color var(--transition-fast);
@@ -310,10 +368,10 @@ li {
   border-color: var(--input-focus);
 }
 
-.card {
+.card-legacy {
   background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-legacy);
+  border-radius: 12px;
   box-shadow: var(--shadow);
 }
 
