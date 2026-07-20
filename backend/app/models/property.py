@@ -71,6 +71,7 @@ class Property(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    map_id = Column(Integer, ForeignKey("maps.id", ondelete="CASCADE"), nullable=False)
     name = Column(TEXT, nullable=False)
     address = Column(TEXT)
     city = Column(TEXT)
@@ -89,6 +90,7 @@ class Property(Base):
 
     # Relationships
     owner = relationship("User", back_populates="properties")
+    map = relationship("Map", back_populates="properties")
     group = relationship("HomeGroup", back_populates="properties")
     images = relationship("Image", back_populates="property", cascade="all, delete-orphan")
     floors = relationship("Floor", back_populates="property", cascade="all, delete-orphan")
@@ -97,6 +99,7 @@ class Property(Base):
 class PropertySchema(BaseModel):
     id: Optional[int] = None
     owner_id: Optional[int] = None
+    map_id: int
     name: str = Field(min_length=1, max_length=100)
     address: Optional[str] = None
     city: Optional[str] = None

@@ -309,8 +309,18 @@ export default function MapComponent({
                     const iconUrl = m.icon || (type === "home" ? "/icons/home-point.svg" : type === "apartment" ? "/icons/building-point.svg" : type === "unit" ? "/icons/unit-point.svg" : "/icons/geo-alt-fill.svg");
                     const { iconDiv, labelDiv } = templateElements({ icon: iconUrl, name: m.name, type });
                     iconDiv.appendChild(labelDiv);
-                    const marker = new maplibregl.Marker({ element: iconDiv, draggable: true }).setLngLat([lng, lat]).addTo(map);
-                    marker.on("dragend", () => { const pos = marker.getLngLat(); createdCanvasObjectRef.current?.({ ...m, lng: pos.lng, lat: pos.lat }); });
+                    
+                    if (m.isOverlay) {
+                        iconDiv.style.opacity = '0.5';
+                        iconDiv.style.filter = 'grayscale(100%)';
+                        iconDiv.title = "Overlay Point - Click to import";
+                    }
+                    
+                    const marker = new maplibregl.Marker({ element: iconDiv, draggable: !m.isOverlay }).setLngLat([lng, lat]).addTo(map);
+                    
+                    if (!m.isOverlay) {
+                        marker.on("dragend", () => { const pos = marker.getLngLat(); createdCanvasObjectRef.current?.({ ...m, lng: pos.lng, lat: pos.lat }); });
+                    }
                     marker.getElement().addEventListener("click", (e) => { e.stopPropagation(); onSelectRef.current?.(m); });
                     markersRef.current[id] = { type, marker };
                 }

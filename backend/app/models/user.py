@@ -23,6 +23,7 @@ class User(Base):
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
     # Relationships
+    maps = relationship("Map", back_populates="owner", cascade="all, delete-orphan")
     user_teams = relationship("UserTeam", back_populates="user", cascade="all, delete-orphan")
     properties = relationship("Property", back_populates="owner", cascade="all, delete-orphan")
     images = relationship("Image", back_populates="owner", cascade="all, delete-orphan")

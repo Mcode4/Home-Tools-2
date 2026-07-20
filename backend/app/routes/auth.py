@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from app.db.session import get_db_session
 from app.models.user import User, UserCreate
+from app.models.map import Map
 from app.models.response_model import ResponseModel
 from app.utils.jwt import create_access_token, decode_access_token
 
@@ -87,6 +88,16 @@ def register(user_schema: UserCreate, db: Session = Depends(get_db_session)):
     
     try:
         db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        
+        # Create a default map for the new user
+        default_map = Map(
+            owner_id=new_user.id,
+            name="My First Map",
+            description="Welcome to Home Tools! This is your first map."
+        )
+        db.add(default_map)
         db.commit()
     except IntegrityError as e:
         db.rollback()

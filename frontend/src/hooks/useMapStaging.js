@@ -12,7 +12,7 @@ import { thunkGetPoints, thunkCreatePoint, thunkEditPoint, thunkDeletePoint } fr
 import { thunkGetSavedTypes } from "../redux/savedTypes";
 import { thunkGetSettings } from "../redux/settings";
 
-export default function useCanvasStaging(propertyStore, pointStore, dispatch, externalLoaded) {
+export default function useCanvasStaging(propertyStore, pointStore, dispatch, externalLoaded, mapId) {
     const [initialized, setInitialized] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -31,6 +31,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
     const [deletedPoints, setDeletedPoints] = useState([]);
 
     const debouncedSaveToLocal = useRef(debounce((key) => {
+        if (!mapId) return;
         const dataMap = {
             canvasObjects: currentCanvasObjectsRef.current,
             deletedProperties: currentDeletedPropertiesRef.current,
@@ -38,26 +39,32 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
         };
         const data = dataMap[key];
         if (data === undefined) return;
-        localStorage.setItem(key, JSON.stringify({
+        localStorage.setItem(`${key}_${mapId}`, JSON.stringify({
             data,
             expires: (Date.now() + (6 * 60 * 60 * 1000))
         }));
     }, 2000)).current;
 
-    const debouncedPushHistory = useRef(debounce(() => {
+    const pushHistory = useCallback((cObjs, dProps, dPts) => {
         const snapshot = {
-            canvasObjects: { ...currentCanvasObjectsRef.current },
-            deletedProperties: [...currentDeletedPropertiesRef.current],
-            deletedPoints: [...currentDeletedPointsRef.current],
+            canvasObjects: { ...cObjs },
+            deletedProperties: [...dProps],
+            deletedPoints: [...dPts],
         };
         const newIndex = historyIndexRef.current + 1;
         historyIndexRef.current = newIndex;
         setHistoryIndex(newIndex);
         setHistory(prev => {
-            const trimmed = prev.slice(0, newIndex);
-            return [...trimmed, snapshot];
+            let trimmed = prev.slice(0, newIndex);
+            trimmed = [...trimmed, snapshot];
+            if (trimmed.length > 50) {
+                trimmed.shift();
+                historyIndexRef.current = trimmed.length - 1;
+                setHistoryIndex(trimmed.length - 1);
+            }
+            return trimmed;
         });
-    }, 1000)).current;
+    }, []);
 
     useEffect(() => {
         currentCanvasObjectsRef.current = canvasObjects;
@@ -67,31 +74,39 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
 
     useEffect(() => {
         const initialData = async () => {
-            await dispatch(thunkGetAllProperties());
+            if (!mapId) return;
+            setLoaded(false);
+            setCanvasObjects({});
+            setDeletedProperties([]);
+            setDeletedPoints([]);
+            setHistory([]);
+            setHistoryIndex(-1);
+            
+            await dispatch(thunkGetAllProperties(mapId));
             dispatch(thunkGetSettings());
             dispatch(thunkGetSavedTypes());
-            dispatch(thunkGetPoints());
+            dispatch(thunkGetPoints(mapId));
 
-            let stored = localStorage.getItem("canvasObjects");
+            let stored = localStorage.getItem(`canvasObjects_${mapId}`);
             let parsed = stored ? JSON.parse(stored) : null;
             if (parsed && Date.now() > parsed?.expires) {
-                localStorage.removeItem("canvasObjects");
+                localStorage.removeItem(`canvasObjects_${mapId}`);
             } else if (parsed?.data) {
                 setCanvasObjects(parsed.data);
             }
 
-            stored = localStorage.getItem("deletedProperties");
-            parsed = JSON.parse(stored);
+            stored = localStorage.getItem(`deletedProperties_${mapId}`);
+            parsed = stored ? JSON.parse(stored) : null;
             if (parsed && Date.now() > parsed?.expires) {
-                localStorage.removeItem("deletedProperties")
+                localStorage.removeItem(`deletedProperties_${mapId}`)
             } else if (parsed?.data) {
                 setDeletedProperties([...parsed?.data]);
             }
 
-            stored = localStorage.getItem("deletedPoints");
-            parsed = JSON.parse(stored);
+            stored = localStorage.getItem(`deletedPoints_${mapId}`);
+            parsed = stored ? JSON.parse(stored) : null;
             if (parsed && Date.now() > parsed?.expires) {
-                localStorage.removeItem("deletedPoints")
+                localStorage.removeItem(`deletedPoints_${mapId}`)
             } else if (parsed?.data) {
                 setDeletedPoints([...parsed?.data]);
             }
@@ -100,7 +115,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
             setSaving(false);
         }
         initialData()
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [mapId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!initialized || !propertyStore?.data || !pointStore?.data) return;
@@ -129,7 +144,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
 
         setLoaded(true);
         setInitialized(false);
-        pendingHistoryRef.current = false;
+        pendingHistoryRef.current = true;
     }, [initialized, propertyStore?.data, pointStore?.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
@@ -137,9 +152,9 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
         debouncedSaveToLocal("canvasObjects");
         if (pendingHistoryRef.current) {
             pendingHistoryRef.current = false;
-            debouncedPushHistory();
+            pushHistory(canvasObjects, deletedProperties, deletedPoints);
         }
-    }, [canvasObjects]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [canvasObjects, pushHistory]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!loaded || savingRef.current || isSavingAllRef.current) return;
@@ -182,6 +197,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
 
     useEffect(() => {
         const handleKeyDown = (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
                 e.preventDefault();
                 if (e.shiftKey) redo();
@@ -287,6 +303,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
         }
 
         const finalObj = { ...obj, id: targetId, source: (isNumeric || (!isTemp && !targetId.startsWith("temp-"))) ? 'mod' : 'canvas' };
+        pendingHistoryRef.current = true;
         setCanvasObjects(prev => ({ ...prev, [targetId]: finalObj }));
     };
 
@@ -349,6 +366,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
         const finalLat = point.lat ?? (point.lngLat ? point.lngLat[1] : null);
 
         const pointObj = {
+            map_id: Number(mapId),
             type: point.type || "home",
             icon: point.icon || null,
             name: point.name,
@@ -399,6 +417,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
 
         const nameSource = point.name || (point.type || "point").charAt(0).toUpperCase() + (point.type || "point").slice(1);
         const pointObj = {
+            map_id: Number(mapId),
             type: (point.type === "marker" || point.type === "icon") ? "icon" : point.type,
             name: nameSource.includes("(Unsaved)") ? nameSource.split("(Unsaved)")[1].trim() : nameSource,
             lng,
@@ -415,7 +434,9 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
             case "home":
             case "apartment":
             case "unit":
+                return pointObj;
             case "point":
+                pointObj.type = "icon";
                 return pointObj;
             case "radius":
                 if (!point.radius) {
@@ -516,9 +537,9 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
                 })
             ]);
 
-            localStorage.removeItem("canvasObjects");
-            localStorage.removeItem("deletedProperties");
-            localStorage.removeItem("deletedPoints");
+            localStorage.removeItem(`canvasObjects_${mapId}`);
+            localStorage.removeItem(`deletedProperties_${mapId}`);
+            localStorage.removeItem(`deletedPoints_${mapId}`);
 
             savingRef.current = true;
             setHistory([]);
@@ -528,8 +549,8 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
             setDeletedProperties([]);
             setCanvasObjects({});
 
-            await dispatch(thunkGetAllProperties());
-            await dispatch(thunkGetPoints());
+            await dispatch(thunkGetAllProperties(mapId));
+            await dispatch(thunkGetPoints(mapId));
             savingRef.current = false;
             setInitialized(true);
 
@@ -541,8 +562,11 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
         }
     };
 
+    const hasUnsavedChanges = Object.values(canvasObjects).some(obj => obj.source === 'canvas' || obj.source === 'mod') || deletedPoints.length > 0 || deletedProperties.length > 0;
+
     return {
         canvasObjects, setCanvasObjects,
+        hasUnsavedChanges,
         deletedProperties, setDeletedProperties,
         deletedPoints, setDeletedPoints,
         history, historyIndex,

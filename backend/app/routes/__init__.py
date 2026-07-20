@@ -12,8 +12,11 @@ from app.routes.notifications import router as notifications_router
 from app.routes.teams import router as teams_router
 from app.routes.renders import router as renders_router
 from app.routes.rooms import router as rooms_router
+from app.routes.maps import router as maps_router
 
 router = APIRouter(prefix="/api", tags=["API"])
+
+router.include_router(maps_router)
 
 router.include_router(auth_router)
 router.include_router(property_router)

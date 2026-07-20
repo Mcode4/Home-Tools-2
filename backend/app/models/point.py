@@ -19,6 +19,7 @@ class Point(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    map_id = Column(Integer, ForeignKey("maps.id", ondelete="CASCADE"), nullable=False)
     type = Column(TEXT, nullable=False)
     name = Column(TEXT, nullable=False)
     icon = Column(TEXT)
@@ -30,7 +31,11 @@ class Point(Base):
     unit_id = Column(Integer, ForeignKey("property.id", ondelete="SET NULL"))
     extra_info = Column(JSON)
 
+    # Relationships
+    map = relationship("Map", back_populates="points")
+
 class PointSchema(BaseModel):
+    map_id: int
     type: PointType
     name: str
     icon: Optional[str] = None

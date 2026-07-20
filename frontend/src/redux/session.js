@@ -68,7 +68,8 @@ export const thunkLogout = () => async (dispatch) => {
     });
     const data = await res.json();
     if(res.ok) {
-        console.log("SIGNUP DATA", data);
+        console.log("LOGOUT DATA", data);
+        localStorage.clear();
         await dispatch(removeUser())
         trackEvent("logout");
     } else {

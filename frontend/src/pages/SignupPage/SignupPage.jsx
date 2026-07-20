@@ -58,7 +58,7 @@ export default function SignupFormPage() {
         try {
             const signup = await dispatch(thunkSignup({ email, password }));
             if (signup.success) {
-                navigate("/");
+                navigate("/dashboard");
             } else {
                 setErr({ server: signup.detail || "Sign up failed" });
             }

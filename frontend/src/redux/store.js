@@ -7,6 +7,8 @@ import floorsReducer from "./floors"
 import pointsReducer from "./points"
 import savedTypesReducer from "./savedTypes"
 import roomsReducer from "./rooms"
+import mapsReducer from "./maps"
+import overlaysReducer from "./overlays"
 
 export const reduxStore = configureStore({
     reducer: {
@@ -17,5 +19,7 @@ export const reduxStore = configureStore({
         points: pointsReducer,
         savedTypes: savedTypesReducer,
         rooms: roomsReducer,
+        maps: mapsReducer,
+        overlays: overlaysReducer,
     }
 })

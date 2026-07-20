@@ -26,8 +26,9 @@ const removeProperty = (id) => ({
 })
 
 // Get All Properties
-export const thunkGetAllProperties = () => async(dispatch) => {
-    const res = await fetch('/api/property/all', {
+// Get All Properties
+export const thunkGetAllProperties = (mapId) => async(dispatch) => {
+    const res = await fetch(`/api/property/all?map_id=${mapId}`, {
         method: "GET",
         credentials: "include"
     });

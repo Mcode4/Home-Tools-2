@@ -4,7 +4,7 @@ import Layout from "./Layout";
 import LoginPage from "../pages/LoginPage";
 import SignupPage from "../pages/SignupPage";
 import Dashboard from "../pages/Dashboard";
-import MapPage from "../pages/MapPage/MapPage";
+import MapEditor from "../pages/MapEditor/MapEditor";
 import RenderHomePage from "../pages/RenderHomePage";
 import RenderPage from "../pages/RenderPage";
 import HomePage from "../pages/HomePage";
@@ -31,8 +31,8 @@ export const router = createBrowserRouter([
                 element: <Dashboard />
             },
             {
-                path: '/editor',
-                element: <MapPage />
+                path: '/editor/:mapId',
+                element: <MapEditor />
             },
             {
                 path: '/render',

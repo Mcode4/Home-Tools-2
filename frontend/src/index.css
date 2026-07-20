@@ -261,11 +261,7 @@ li {
   list-style: none;
 }
 
-.hidden {
-  visibility: hidden;
-  height: 0;
-  width: 0;
-}
+
 
 .user-select-none {
   user-select: none;

@@ -41,10 +41,10 @@ def validate_point_data(point_schema: PointSchema, is_patch=False):
         raise HTTPException(status_code=400, detail="Invalid latitude")
 
 
-# Get All Points By User
+# Get All Points By User (and Map)
 @router.get("/all")
-def get_all_points(current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
-    points = db.query(Point).filter(Point.owner_id == current_user["id"]).all()
+def get_all_points(map_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    points = db.query(Point).filter(Point.owner_id == current_user["id"], Point.map_id == map_id).all()
     return ResponseModel(True, "", {"points": points})
 
 
@@ -56,6 +56,7 @@ def create_point(point_schema: PointSchema, current_user = Depends(get_current_u
     try:
         new_point = Point(
             owner_id=current_user["id"],
+            map_id=point_schema.map_id,
             type=point_schema.type,
             name=point_schema.name,
             icon=point_schema.icon,

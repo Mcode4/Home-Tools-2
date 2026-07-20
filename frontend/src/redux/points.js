@@ -26,8 +26,8 @@ const deletePoint = (id) => ({
 })
 
 // Get All Points
-export const thunkGetPoints = () => async(dispatch) => {
-    const res = await fetch("/api/points/all", {
+export const thunkGetPoints = (mapId) => async(dispatch) => {
+    const res = await fetch(`/api/points/all?map_id=${mapId}`, {
         method: "GET",
         credentials: "include"
     });

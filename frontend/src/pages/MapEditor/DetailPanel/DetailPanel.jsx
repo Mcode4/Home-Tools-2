@@ -1,5 +1,5 @@
 import PropertyDetailsSidebar from "./PropertyDetailsSidebar/PropertyDetailsSidebar";
-import "./DetailPanel.css";
+
 
 export default function DetailPanel({
     selectedPoint, canvasObjects,
@@ -9,7 +9,7 @@ export default function DetailPanel({
     if (!selectedPoint) return null;
 
     return (
-        <aside className="app-slider-right">
+        <aside className="absolute top-0 right-0 h-full w-96 bg-background border-l z-40 shadow-xl overflow-hidden animate-in slide-in-from-right-4 duration-200">
             <PropertyDetailsSidebar
                 point={selectedPoint}
                 onClose={handleCloseSidebar}

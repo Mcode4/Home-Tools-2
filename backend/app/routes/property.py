@@ -17,12 +17,9 @@ router = APIRouter(prefix="/property", tags=["Property"])
 
 # GET METHODS - ALL, BY ID
 @router.get("/all")
-def all_properties(current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
-    properties = db.query(Property).filter(Property.owner_id == current_user["id"]).all()
+def all_properties(map_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    properties = db.query(Property).filter(Property.owner_id == current_user["id"], Property.map_id == map_id).all()
     
-    if not properties:
-        raise HTTPException(status_code=404, detail="User properties not found")
-        
     return ResponseModel(True, "", {"properties": properties})
 
 
@@ -44,6 +41,7 @@ def create_property(property_schema: PropertySchema, current_user = Depends(get_
     try:
         new_prop = Property(
             owner_id=current_user["id"],
+            map_id=property_schema.map_id,
             name=property_schema.name,
             address=property_schema.address,
             city=property_schema.city,

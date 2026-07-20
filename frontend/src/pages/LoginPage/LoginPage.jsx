@@ -24,7 +24,7 @@ export default function LoginFormPage() {
         try {
             const user = await dispatch(thunkLogin({ email, password }));
             if (user.success) {
-                navigate("/editor");
+                navigate("/dashboard");
             } else {
                 setErr({ server: String(user.detail || "Invalid credentials") });
             }
