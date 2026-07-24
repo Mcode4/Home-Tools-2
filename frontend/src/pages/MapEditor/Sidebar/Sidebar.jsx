@@ -7,7 +7,8 @@ export default function Sidebar({
     menu, selectMenu,
     canvasSelect, selectCanvasAddon, setCanvasSelect,
     mapProperties, mapPoints, handlePointSelect, deleteCanvasObjects,
-    savedTypesStore, navigate
+    addCanvasObjects, mapStore, mapId,
+    savedTypesStore, navigate, overlaysStore
 }) {
     return (
         <aside className="flex h-full bg-background border-r z-40 relative shadow-sm">
@@ -73,6 +74,10 @@ export default function Sidebar({
                         mapPoints={mapPoints}
                         handlePointSelect={handlePointSelect}
                         deleteCanvasObjects={deleteCanvasObjects}
+                        addCanvasObjects={addCanvasObjects}
+                        mapStore={mapStore}
+                        mapId={mapId}
+                        overlaysStore={overlaysStore}
                     />
                 )}
                 

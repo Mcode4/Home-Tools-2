@@ -40,7 +40,7 @@ export default function MapEditor() {
         deleteCanvasObjects,
         getMetadata,
         undo, redo,
-    } = useCanvasStaging(propertyStore, pointStore, dispatch, false, mapId);
+    } = useCanvasStaging(propertyStore, pointStore, dispatch, false, mapId, overlaysStore);
 
     const [lngLat, setLngLat] = useState([-83.5, 32.9]);
     const [canvasSelect, setCanvasSelect] = useState({ icon: null, name: null, type: null });
@@ -105,80 +105,48 @@ export default function MapEditor() {
     }, [search]);
 
     const mapProperties = useMemo(() => {
-        const savedProps = (propertyStore.data || []).filter(p => {
-            const stagedId = `prop-${p.id}`;
-            return !deletedProperties.includes(p.id) && !canvasObjects[stagedId];
-        }).map(p => ({ ...p, source: 'db', type: p.type || "home" }));
-
-        const stagedProps = Object.values(canvasObjects)
+        return Object.values(canvasObjects)
             .filter(p => ["home", "apartment", "unit"].includes(p.type))
-            .map(p => ({ ...p, source: String(p.id).startsWith('temp-') ? 'canvas' : 'prop' }));
-
-        return [...savedProps, ...stagedProps];
-    }, [propertyStore.data, canvasObjects, deletedProperties]);
+            .map(p => ({ ...p, type: p.type || "home" }));
+    }, [canvasObjects]);
 
     const mapPoints = useMemo(() => {
-        const savedPts = (pointStore.data || []).filter(p => {
-            const stagedId = `point-${p.id}`;
-            return !deletedPoints.includes(p.id) && !canvasObjects[stagedId];
-        }).map(p => ({ ...p, source: 'db' }));
-
-        const stagedPts = Object.values(canvasObjects)
-            .filter(p => !["home", "apartment", "unit"].includes(p.type))
-            .map(p => ({ ...p, source: String(p.id).startsWith('temp-') ? 'canvas' : 'point' }));
-
-        return [...savedPts, ...stagedPts];
-    }, [pointStore.data, canvasObjects, deletedPoints]);
+        return Object.values(canvasObjects)
+            .filter(p => !["home", "apartment", "unit"].includes(p.type));
+    }, [canvasObjects]);
 
     const memoMarkers = useMemo(() => {
         const allMarkers = [];
 
-        (propertyStore.data || []).forEach(p => {
-            const stagedId = `prop-${p.id}`;
-            if (deletedProperties.includes(p.id) || deletedProperties.includes(Number(p.id)) || deletedProperties.includes(String(p.id)) || canvasObjects[stagedId]) return;
-            allMarkers.push({ ...p, source: 'db', type: p.type || "home", lngLat: [p.lng, p.lat] });
-        });
-
-        (pointStore.data || []).forEach(p => {
-            const stagedId = `point-${p.id}`;
-            if (deletedPoints.includes(p.id) || deletedPoints.includes(Number(p.id)) || deletedPoints.includes(String(p.id)) || canvasObjects[stagedId]) return;
-            allMarkers.push({ ...p, source: 'db', lngLat: [p.lng, p.lat] });
-        });
-
         Object.values(canvasObjects).forEach(p => {
-            allMarkers.push({ ...p, source: String(p.id).startsWith('temp-') ? 'canvas' : 'mod', lngLat: p.lngLat || [p.lng, p.lat] });
-        });
+            const isBaseMap = Number(p.map_id) === Number(mapId);
+            const isVisibleOverlay = (overlaysStore.visibleMapIds || []).includes(Number(p.map_id));
+            if (!isBaseMap && !isVisibleOverlay) return;
 
-        (overlaysStore.activeMapIds || []).forEach(oMapId => {
-            const oPoints = overlaysStore.points[oMapId] || [];
-            const oProps = overlaysStore.properties[oMapId] || [];
-
-            oProps.forEach(p => {
-                allMarkers.push({ ...p, id: `overlay-${oMapId}-prop-${p.id}`, source: 'db', type: p.type || "home", lngLat: [p.lng, p.lat], isOverlay: true, overlayMapId: oMapId });
-            });
-
-            oPoints.forEach(p => {
-                allMarkers.push({ ...p, id: `overlay-${oMapId}-point-${p.id}`, source: 'db', lngLat: [p.lng, p.lat], isOverlay: true, overlayMapId: oMapId });
+            allMarkers.push({ 
+                ...p, 
+                lngLat: p.lngLat || [p.lng, p.lat],
+                source: p.source || 'db',
+                isOverlay: !isBaseMap,
+                overlayMapId: !isBaseMap ? p.map_id : undefined
             });
         });
 
         return allMarkers;
-    }, [propertyStore.data, pointStore.data, canvasObjects, deletedProperties, deletedPoints, overlaysStore]);
+    }, [canvasObjects, overlaysStore.visibleMapIds, mapId]);
 
     const handlePointSelect = (point) => {
-        if (point.isOverlay) {
-            const newId = `temp-${point.type || "point"}-${Date.now()}`;
-            const importedPoint = { 
-                ...point, 
-                id: newId, 
-                source: "canvas" 
-            };
-            delete importedPoint.isOverlay;
-            delete importedPoint.overlayMapId;
-            addCanvasObjects(importedPoint);
-            return;
+        if (!point) return;
+        
+        let pIdStr = String(point.id);
+        if (!pIdStr.startsWith('temp-') && !pIdStr.startsWith('prop-') && !pIdStr.startsWith('point-')) {
+            const pType = point.type || "home";
+            if (["home", "apartment", "unit"].includes(pType)) {
+                pIdStr = `prop-${point.id}`;
+            } else {
+                pIdStr = `point-${point.id}`;
+            }
         }
-
         setSelectedPoint(point);
         if (point.lngLat) {
             setLngLat([...point.lngLat]);
@@ -371,8 +339,11 @@ export default function MapEditor() {
                             mapPoints={mapPoints}
                             handlePointSelect={handlePointSelect}
                             deleteCanvasObjects={deleteCanvasObjects}
+                            mapStore={mapStore}
+                            mapId={mapId}
                             savedTypesStore={savedTypesStore}
                             navigate={navigate}
+                            overlaysStore={overlaysStore}
                         />
 
                         <DetailPanel

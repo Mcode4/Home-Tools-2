@@ -1,0 +1,74 @@
+--- frontend/src/hooks/useMapStaging.js
++++ frontend/src/hooks/useMapStaging.js
+@@ -12,9 +12,9 @@
+ import { thunkGetSavedTypes } from "../redux/savedTypes";
+ import { thunkGetSettings } from "../redux/settings";
+ 
+-export default function useCanvasStaging(propertyStore, pointStore, dispatch, externalLoaded, mapId) {
++export default function useCanvasStaging(propertyStore, pointStore, overlaysStore, dispatch, externalLoaded, mapId) {
+     const [initialized, setInitialized] = useState(false);
+     const [loaded, setLoaded] = useState(false);
+     const [saving, setSaving] = useState(false);
+     const [history, setHistory] = useState([]);
+     const [historyIndex, setHistoryIndex] = useState(-1);
+@@ -118,29 +118,50 @@
+         initialData()
+     }, [mapId]); // eslint-disable-line react-hooks/exhaustive-deps
+ 
+     useEffect(() => {
+-        if (!initialized || !propertyStore?.data || !pointStore?.data) return;
++        if (!initialized || !propertyStore?.data || !pointStore?.data || !overlaysStore) return;
+ 
+         setCanvasObjects(prev => {
+             const merged = { ...prev };
+ 
+             propertyStore.data.forEach(p => {
+                 const id = `prop-${p.id}`;
+                 if (deletedProperties.includes(p.id)) return;
+                 if (!merged[id]) {
+-                    merged[id] = { ...p, id, propertyId: p.id, source: 'db' };
++                    merged[id] = { ...p, id, propertyId: p.id, source: 'db', map_id: mapId };
+                 }
+             });
+ 
+             pointStore.data.forEach(p => {
+                 const id = `point-${p.id}`;
+                 if (deletedPoints.includes(p.id)) return;
+                 if (!merged[id]) {
+-                    merged[id] = { ...p, id, pointId: p.id, source: 'db' };
++                    merged[id] = { ...p, id, pointId: p.id, source: 'db', map_id: mapId };
+                 }
+             });
++            
++            // Add overlays
++            const workspaceMapIds = overlaysStore.workspaceMapIds || [];
++            workspaceMapIds.forEach(oMapId => {
++                if (String(oMapId) === String(mapId)) return;
++                
++                const oProps = overlaysStore.properties[oMapId] || [];
++                const oPoints = overlaysStore.points[oMapId] || [];
++                
++                oProps.forEach(p => {
++                    const id = `prop-${p.id}`;
++                    // We do not allow deleting overlay properties yet, but we could add it to deletedProperties
++                    if (deletedProperties.includes(p.id)) return;
++                    if (!merged[id]) merged[id] = { ...p, id, propertyId: p.id, source: 'db', map_id: oMapId, isOverlay: true };
++                });
++                oPoints.forEach(p => {
++                    const id = `point-${p.id}`;
++                    if (deletedPoints.includes(p.id)) return;
++                    if (!merged[id]) merged[id] = { ...p, id, pointId: p.id, source: 'db', map_id: oMapId, isOverlay: true };
++                });
++            });
+ 
+             return merged;
+         });
+ 
+-        setLoaded(true);
+-        setInitialized(false);
+-        pendingHistoryRef.current = true;
+-    }, [initialized, propertyStore?.data, pointStore?.data]); // eslint-disable-line react-hooks/exhaustive-deps
++        setLoaded(true);
++        setInitialized(false);
++        pendingHistoryRef.current = true;
++    }, [initialized, propertyStore?.data, pointStore?.data, overlaysStore]); // eslint-disable-line react-hooks/exhaustive-deps

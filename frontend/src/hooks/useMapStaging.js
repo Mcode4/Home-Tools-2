@@ -12,13 +12,14 @@ import { thunkGetPoints, thunkCreatePoint, thunkEditPoint, thunkDeletePoint } fr
 import { thunkGetSavedTypes } from "../redux/savedTypes";
 import { thunkGetSettings } from "../redux/settings";
 
-export default function useCanvasStaging(propertyStore, pointStore, dispatch, externalLoaded, mapId) {
+export default function useCanvasStaging(propertyStore, pointStore, dispatch, externalLoaded, mapId, overlaysStore) {
     const [initialized, setInitialized] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [saving, setSaving] = useState(false);
     const [history, setHistory] = useState([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
     const historyIndexRef = useRef(-1);
+    const mapIdRef = useRef(mapId);
     const pendingHistoryRef = useRef(false);
     const savingRef = useRef(false);
     const isSavingAllRef = useRef(false);
@@ -30,16 +31,15 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
     const [deletedProperties, setDeletedProperties] = useState([]);
     const [deletedPoints, setDeletedPoints] = useState([]);
 
-    const debouncedSaveToLocal = useRef(debounce((key) => {
-        if (!mapId) return;
-        const dataMap = {
+    const debouncedSaveToLocal = useRef(debounce(() => {
+        const currentMapId = mapIdRef.current;
+        if (!currentMapId) return;
+        const data = {
             canvasObjects: currentCanvasObjectsRef.current,
             deletedProperties: currentDeletedPropertiesRef.current,
             deletedPoints: currentDeletedPointsRef.current,
         };
-        const data = dataMap[key];
-        if (data === undefined) return;
-        localStorage.setItem(`${key}_${mapId}`, JSON.stringify({
+        localStorage.setItem(`workspace_${currentMapId}`, JSON.stringify({
             data,
             expires: (Date.now() + (6 * 60 * 60 * 1000))
         }));
@@ -70,11 +70,13 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
         currentCanvasObjectsRef.current = canvasObjects;
         currentDeletedPropertiesRef.current = deletedProperties;
         currentDeletedPointsRef.current = deletedPoints;
+        mapIdRef.current = mapId;
     });
 
     useEffect(() => {
         const initialData = async () => {
             if (!mapId) return;
+            setInitialized(false);
             setLoaded(false);
             setCanvasObjects({});
             setDeletedProperties([]);
@@ -87,28 +89,20 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
             dispatch(thunkGetSavedTypes());
             dispatch(thunkGetPoints(mapId));
 
-            let stored = localStorage.getItem(`canvasObjects_${mapId}`);
+            // Cleanup legacy keys
+            localStorage.removeItem(`canvasObjects_${mapId}`);
+            localStorage.removeItem(`deletedProperties_${mapId}`);
+            localStorage.removeItem(`deletedPoints_${mapId}`);
+
+            let stored = localStorage.getItem(`workspace_${mapId}`);
             let parsed = stored ? JSON.parse(stored) : null;
+            
             if (parsed && Date.now() > parsed?.expires) {
-                localStorage.removeItem(`canvasObjects_${mapId}`);
+                localStorage.removeItem(`workspace_${mapId}`);
             } else if (parsed?.data) {
-                setCanvasObjects(parsed.data);
-            }
-
-            stored = localStorage.getItem(`deletedProperties_${mapId}`);
-            parsed = stored ? JSON.parse(stored) : null;
-            if (parsed && Date.now() > parsed?.expires) {
-                localStorage.removeItem(`deletedProperties_${mapId}`)
-            } else if (parsed?.data) {
-                setDeletedProperties([...parsed?.data]);
-            }
-
-            stored = localStorage.getItem(`deletedPoints_${mapId}`);
-            parsed = stored ? JSON.parse(stored) : null;
-            if (parsed && Date.now() > parsed?.expires) {
-                localStorage.removeItem(`deletedPoints_${mapId}`)
-            } else if (parsed?.data) {
-                setDeletedPoints([...parsed?.data]);
+                if (parsed.data.canvasObjects) setCanvasObjects(parsed.data.canvasObjects);
+                if (parsed.data.deletedProperties) setDeletedProperties(parsed.data.deletedProperties);
+                if (parsed.data.deletedPoints) setDeletedPoints(parsed.data.deletedPoints);
             }
 
             setInitialized(true);
@@ -127,7 +121,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
                 const id = `prop-${p.id}`;
                 if (deletedProperties.includes(p.id)) return;
                 if (!merged[id]) {
-                    merged[id] = { ...p, id, propertyId: p.id, source: 'db' };
+                    merged[id] = { ...p, id, propertyId: p.id, source: 'db', map_id: Number(mapId) };
                 }
             });
 
@@ -135,9 +129,31 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
                 const id = `point-${p.id}`;
                 if (deletedPoints.includes(p.id)) return;
                 if (!merged[id]) {
-                    merged[id] = { ...p, id, pointId: p.id, source: 'db' };
+                    merged[id] = { ...p, id, pointId: p.id, source: 'db', map_id: Number(mapId) };
                 }
             });
+
+            // Seed overlay points
+            if (overlaysStore && overlaysStore.workspaceMapIds) {
+                overlaysStore.workspaceMapIds.forEach(oMapId => {
+                    const oProps = overlaysStore.properties[oMapId] || [];
+                    const oPoints = overlaysStore.points[oMapId] || [];
+                    
+                    oProps.forEach(p => {
+                        const id = `overlay-${oMapId}-prop-${p.id}`;
+                        if (!merged[id]) {
+                            merged[id] = { ...p, id, propertyId: p.id, source: 'db', map_id: Number(oMapId), isOverlay: true };
+                        }
+                    });
+                    
+                    oPoints.forEach(p => {
+                        const id = `overlay-${oMapId}-point-${p.id}`;
+                        if (!merged[id]) {
+                            merged[id] = { ...p, id, pointId: p.id, source: 'db', map_id: Number(oMapId), isOverlay: true };
+                        }
+                    });
+                });
+            }
 
             return merged;
         });
@@ -145,26 +161,26 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
         setLoaded(true);
         setInitialized(false);
         pendingHistoryRef.current = true;
-    }, [initialized, propertyStore?.data, pointStore?.data]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [initialized, propertyStore?.data, pointStore?.data, overlaysStore]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!loaded || savingRef.current || isSavingAllRef.current) return;
-        debouncedSaveToLocal("canvasObjects");
+        debouncedSaveToLocal();
         if (pendingHistoryRef.current) {
             pendingHistoryRef.current = false;
             pushHistory(canvasObjects, deletedProperties, deletedPoints);
         }
-    }, [canvasObjects, pushHistory]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [canvasObjects, pushHistory, debouncedSaveToLocal]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!loaded || savingRef.current || isSavingAllRef.current) return;
-        debouncedSaveToLocal("deletedProperties");
-    }, [deletedProperties]); // eslint-disable-line react-hooks/exhaustive-deps
+        debouncedSaveToLocal();
+    }, [deletedProperties, debouncedSaveToLocal]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!loaded || savingRef.current || isSavingAllRef.current) return;
-        debouncedSaveToLocal("deletedPoints");
-    }, [deletedPoints]); // eslint-disable-line react-hooks/exhaustive-deps
+        debouncedSaveToLocal();
+    }, [deletedPoints, debouncedSaveToLocal]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const restoreSnapshot = useCallback((snapshot) => {
         setCanvasObjects(snapshot.canvasObjects);
@@ -302,7 +318,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
             }
         }
 
-        const finalObj = { ...obj, id: targetId, source: (isNumeric || (!isTemp && !targetId.startsWith("temp-"))) ? 'mod' : 'canvas' };
+        const finalObj = { ...obj, id: targetId, map_id: obj.map_id || Number(mapId), source: (isNumeric || (!isTemp && !targetId.startsWith("temp-"))) ? 'mod' : 'canvas' };
         pendingHistoryRef.current = true;
         setCanvasObjects(prev => ({ ...prev, [targetId]: finalObj }));
     };
@@ -366,7 +382,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
         const finalLat = point.lat ?? (point.lngLat ? point.lngLat[1] : null);
 
         const pointObj = {
-            map_id: Number(mapId),
+            map_id: point.map_id ? Number(point.map_id) : Number(mapId),
             type: point.type || "home",
             icon: point.icon || null,
             name: point.name,
@@ -417,7 +433,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
 
         const nameSource = point.name || (point.type || "point").charAt(0).toUpperCase() + (point.type || "point").slice(1);
         const pointObj = {
-            map_id: Number(mapId),
+            map_id: point.map_id ? Number(point.map_id) : Number(mapId),
             type: (point.type === "marker" || point.type === "icon") ? "icon" : point.type,
             name: nameSource.includes("(Unsaved)") ? nameSource.split("(Unsaved)")[1].trim() : nameSource,
             lng,
@@ -537,9 +553,7 @@ export default function useCanvasStaging(propertyStore, pointStore, dispatch, ex
                 })
             ]);
 
-            localStorage.removeItem(`canvasObjects_${mapId}`);
-            localStorage.removeItem(`deletedProperties_${mapId}`);
-            localStorage.removeItem(`deletedPoints_${mapId}`);
+            localStorage.removeItem(`workspace_${mapId}`);
 
             savingRef.current = true;
             setHistory([]);
